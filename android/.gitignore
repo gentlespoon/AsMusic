@@ -1,0 +1,36 @@
+# Gradle
+.gradle/
+build/
+
+# Local machine / SDK path (never commit)
+local.properties
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+captures/
+*.hprof
+
+# Built artifacts
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# Generated & output
+bin/
+gen/
+out/
+release/
+
+# Keystores & signing (secrets)
+*.jks
+*.keystore
+
+# NDK / native
+.externalNativeBuild/
+.cxx/
+
+# OS
+.DS_Store
+Thumbs.db

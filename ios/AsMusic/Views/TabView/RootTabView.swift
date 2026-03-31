@@ -56,6 +56,7 @@ struct RootTabView: View {
       )
     ) {
       PlayerSheetView()
+        .environment(playback)
     }
   }
 }

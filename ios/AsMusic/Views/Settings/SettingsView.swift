@@ -22,11 +22,11 @@ struct SettingsView: View {
         .pickerStyle(.segmented)
       }
       Section("Libraries") {
-        NavigationLink("Libraries") {
-          LibrariesView()
-        }
         NavigationLink("Server Manager") {
           ServerManagerView()
+        }
+        NavigationLink("Libraries") {
+          LibrariesView()
         }
       }
     }

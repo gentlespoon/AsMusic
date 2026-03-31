@@ -264,6 +264,7 @@ struct SongsView: View {
         title: song.title,
         artist: LibraryIndexFromSongs.trackArtistCreditLine(for: song) ?? song.artist,
         album: song.album,
+        artworkID: song.coverArt,
         durationSeconds: song.duration.map { Double($0) },
         artistId: song.artistId,
         albumId: song.albumId,

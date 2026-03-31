@@ -39,40 +39,92 @@ struct AuthedRequest: Sendable {
     try await send(method: .post, path: path, additionalParameters: additionalParameters)
   }
 
-  func authenticatedURL(
+  private func urlWithAdditionalParameters(
     path: String,
-    additionalParameters: [String: String] = [:],
+    additionalParameters: [String: String] = [:]
+  ) -> URL {
+    var url = endpointURL(path: path)
+    let queryItems = additionalParameters.map { key, value in
+      URLQueryItem(name: key, value: value)
+    }
+    url.append(queryItems: queryItems)
+    return url
+  }
+
+  private func urlByAddingAuthenticationAndFormatParameters(
+    to url: URL,
     includeResponseFormat: Bool = true
   ) -> URL {
     let salt = UUID().uuidString
     let token = md5(password + salt)
-    var queryItems = [
+    var authAndFormatQueryItems = [
       URLQueryItem(name: "u", value: username),
       URLQueryItem(name: "s", value: salt),
       URLQueryItem(name: "v", value: "1.16.1"),
       URLQueryItem(name: "c", value: "subsonic-api"),
     ]
     if includeResponseFormat {
-      queryItems.append(URLQueryItem(name: "f", value: "json"))
+      authAndFormatQueryItems.append(URLQueryItem(name: "f", value: "json"))
     }
-    for (key, value) in additionalParameters {
-      queryItems.append(URLQueryItem(name: key, value: value))
-    }
-    queryItems.append(URLQueryItem(name: "t", value: token))
+    authAndFormatQueryItems.append(URLQueryItem(name: "t", value: token))
 
-    var url = endpointURL(path: path)
-    url.append(queryItems: queryItems)
-    return url
+    var authenticatedURL = url
+    authenticatedURL.append(queryItems: authAndFormatQueryItems)
+    return authenticatedURL
+  }
+
+  private func logRequestURL(_ url: URL, method: HTTPMethod) {
+    guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+      print("[AsNavidromeKit] \(method.rawValue) \(url.path)")
+      return
+    }
+
+    if let items = components.queryItems, !items.isEmpty {
+      let maxQueryItemsToLog = 8
+      let visibleItems = items.prefix(maxQueryItemsToLog)
+      components.queryItems = visibleItems.map { item in
+        let value = item.value ?? ""
+        let clippedValue = value.count > 80 ? "\(value.prefix(80))..." : value
+        return URLQueryItem(name: item.name, value: clippedValue)
+      }
+      if items.count > maxQueryItemsToLog {
+        components.percentEncodedQuery = (components.percentEncodedQuery ?? "")
+          + "&truncated=true"
+      }
+    }
+
+    print("[AsNavidromeKit] \(method.rawValue) \(components.string ?? url.absoluteString)")
+  }
+
+  func authenticatedURL(
+    path: String,
+    additionalParameters: [String: String] = [:],
+    includeResponseFormat: Bool = true
+  ) -> URL {
+    let urlWithAdditionalParameters = urlWithAdditionalParameters(
+      path: path,
+      additionalParameters: additionalParameters
+    )
+    return urlByAddingAuthenticationAndFormatParameters(
+      to: urlWithAdditionalParameters,
+      includeResponseFormat: includeResponseFormat
+    )
   }
 
   private func send(method: HTTPMethod, path: String, additionalParameters: [String: String])
     async throws
     -> [String: Any]
   {
-    var request = URLRequest(url: endpointURL(path: path))
+    let urlWithDebugParameters = urlWithAdditionalParameters(
+      path: path,
+      additionalParameters: additionalParameters
+    )
+    logRequestURL(urlWithDebugParameters, method: method)
+    let authenticatedRequestURL = urlByAddingAuthenticationAndFormatParameters(to: urlWithDebugParameters)
+
+    var request = URLRequest(url: authenticatedRequestURL)
     request.httpMethod = method.rawValue
     request.addValue("Basic \(username):\(password)", forHTTPHeaderField: "Authorization")
-    request.url = authenticatedURL(path: path, additionalParameters: additionalParameters)
 
     let (data, response) = try await URLSession.shared.data(for: request)
     guard let httpResponse = response as? HTTPURLResponse,

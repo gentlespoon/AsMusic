@@ -108,29 +108,58 @@ private struct ServerEditorView: View {
   var body: some View {
     NavigationStack {
       Form {
-        TextField("Hostname", text: $hostname)
-        TextField("Username", text: $username)
-        SecureField("Password", text: $password)
-
-        Button {
-          Task {
-            await testServerConnection()
-          }
-        } label: {
-          if navidromeSession.isConnecting {
-            HStack {
-              ProgressView()
-              Text("Testing Connection...")
-            }
-          } else {
-            Text("Test Server Connection")
-          }
+        
+        Section {
+          TextField("", text: $hostname)
+            .autocapitalization(.none)
+            .autocorrectionDisabled(true)
+        } header: {
+          Text("Server URL")
+        } footer: {
+            Text("""
+              https://your-server.com:4533
+              https:// or http:// required")
+              Port is optional.
+            """)
+              .font(.caption)
+              .foregroundStyle(.primary)
         }
-        .disabled(
-          navidromeSession.isConnecting
+        Section {
+          TextField("", text: $username)
+            .autocapitalization(.none)
+            .autocorrectionDisabled(true)
+        } header: {
+          Text("Username")
+        }
+        Section {
+          SecureField("", text: $password)
+            .autocapitalization(.none)
+            .autocorrectionDisabled(true)
+        } header: {
+          Text("Password")
+        }
+
+        Section {
+          Button {
+            Task {
+              await testServerConnection()
+            }
+          } label: {
+            if navidromeSession.isConnecting {
+              HStack {
+                ProgressView()
+                Text("Testing Connection...")
+              }
+            } else {
+              Text("Test Server Connection")
+            }
+          }
+          .disabled(
+            navidromeSession.isConnecting
             || hostname.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             || username.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        )
+          )
+        }
 
         if let testMessage {
           Text(testMessage)

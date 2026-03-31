@@ -14,6 +14,7 @@ struct MusicPlayerView: View {
   @Environment(MusicPlayerController.self) private var playback
   @State private var selectedLibraryStore = SelectedLibraryStore.shared
   @State private var libraryClient: AsNavidromeClient?
+  @State private var resolvedArtworkURL: URL?
 
   /// URL of the audio to play (local file or remote stream). Fully cached tracks use the local file.
   let url: URL
@@ -54,6 +55,15 @@ struct MusicPlayerView: View {
     return "\(s.serverID.uuidString)|\(s.folderID)"
   }
 
+  private var artworkID: String? {
+    let id = activeMetadata?.artworkID?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    return id.isEmpty ? nil : id
+  }
+
+  private var artworkRequestKey: String {
+    "\(librarySelectionKey)|\(artworkID ?? "")"
+  }
+
   var body: some View {
     VStack(spacing: 24) {
       if let loadError = playback.loadError {
@@ -75,15 +85,26 @@ struct MusicPlayerView: View {
             .foregroundStyle(.secondary)
         }
       } else {
-        // Artwork placeholder
-        RoundedRectangle(cornerRadius: 12)
-          .fill(.ultraThinMaterial)
-          .frame(width: 200, height: 200)
-          .overlay {
-            Image(systemName: "music.note")
-              .font(.system(size: 64))
-              .foregroundStyle(.secondary)
+        Group {
+          if let resolvedArtworkURL {
+            AsyncImage(url: resolvedArtworkURL) { phase in
+              switch phase {
+              case .success(let image):
+                image
+                  .resizable()
+                  .scaledToFill()
+              case .failure, .empty:
+                artworkPlaceholder
+              @unknown default:
+                artworkPlaceholder
+              }
+            }
+          } else {
+            artworkPlaceholder
           }
+        }
+        .frame(width: 200, height: 200)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
 
         if let meta = activeMetadata {
           VStack(spacing: 6) {
@@ -218,6 +239,14 @@ struct MusicPlayerView: View {
     .task(id: librarySelectionKey) {
       libraryClient = await Self.resolveLibraryClient()
     }
+    .task(id: artworkRequestKey) {
+      guard let client = libraryClient, let artworkID else {
+        resolvedArtworkURL = nil
+        return
+      }
+      let remoteArtworkURL = client.media.coverArt(forID: artworkID, size: 600)
+      resolvedArtworkURL = await ArtworkFileCache.displayURL(for: remoteArtworkURL)
+    }
   }
 
   private func formatTime(_ seconds: Double) -> String {
@@ -232,6 +261,18 @@ struct MusicPlayerView: View {
     let servers = ServerManager().servers
     guard let server = servers.first(where: { $0.id == selection.serverID }) else { return nil }
     return await NavidromeClientStore.shared.client(for: server)
+  }
+}
+
+private extension MusicPlayerView {
+  var artworkPlaceholder: some View {
+    RoundedRectangle(cornerRadius: 12)
+      .fill(.ultraThinMaterial)
+      .overlay {
+        Image(systemName: "music.note")
+          .font(.system(size: 64))
+          .foregroundStyle(.secondary)
+      }
   }
 }
 

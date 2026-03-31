@@ -31,6 +31,7 @@ public enum ApiPaths {
   public static let download = basePath + "/download"
   /// Prefer streamfor playback (same bytes as download for most servers; may apply transcoding).
   public static let stream = basePath + "/stream"
+  public static let getCoverArt = basePath + "/getCoverArt"
 
   // Playlist
   public static let getPlaylists = basePath + "/getPlaylists"

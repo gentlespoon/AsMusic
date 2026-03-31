@@ -5,8 +5,8 @@
 //  Created by An So on 2026-03-27.
 //
 
-import AsNavidromeKit
 import AVFoundation
+import AsNavidromeKit
 import MediaPlayer
 import Observation
 import SwiftUI
@@ -17,6 +17,8 @@ struct PlaybackTrackMetadata: Equatable, Sendable, Codable {
   var title: String
   var artist: String?
   var album: String?
+  /// Subsonic cover-art id (used to render artwork in player UI).
+  var artworkID: String?
   /// Known duration in seconds (e.g. from Subsonic); used until the file reports duration.
   var durationSeconds: Double?
   /// Subsonic artist id when known (library navigation).
@@ -30,6 +32,7 @@ struct PlaybackTrackMetadata: Equatable, Sendable, Codable {
     title: String,
     artist: String? = nil,
     album: String? = nil,
+    artworkID: String? = nil,
     durationSeconds: Double? = nil,
     artistId: String? = nil,
     albumId: String? = nil,
@@ -38,6 +41,7 @@ struct PlaybackTrackMetadata: Equatable, Sendable, Codable {
     self.title = title
     self.artist = artist
     self.album = album
+    self.artworkID = artworkID
     self.durationSeconds = durationSeconds
     self.artistId = artistId
     self.albumId = albumId
@@ -66,6 +70,9 @@ final class MusicPlayerController {
   private var loadedSourceURL: URL?
   private var loadedCachePath: String?
   private var metadata: PlaybackTrackMetadata?
+  private var artworkLoadTask: Task<Void, Never>?
+  private var currentArtworkID: String?
+  private var currentNowPlayingArtwork: MPMediaItemArtwork?
 
   /// Local “needle + list” queue for auto-advance and skip-next (not server playlists).
   private(set) var nowPlayingQueue: [NowPlayingQueueItem] = []
@@ -75,11 +82,11 @@ final class MusicPlayerController {
   var currentSourceURL: URL? {
     loadedSourceURL
   }
-  
+
   var currentCacheRelativePath: String? {
     loadedCachePath
   }
-  
+
   var currentMetadata: PlaybackTrackMetadata? {
     metadata
   }
@@ -152,7 +159,8 @@ final class MusicPlayerController {
         nowPlayingQueue = restored
         currentQueueIndex = targetIndex
         let item = restored[targetIndex]
-        await load(url: item.url, cacheRelativePath: item.cacheRelativePath, metadata: item.metadata)
+        await load(
+          url: item.url, cacheRelativePath: item.cacheRelativePath, metadata: item.metadata)
         await seekToRestoredPosition(state.positionSeconds)
         isRestoringPlayback = false
         persistPlaybackState()
@@ -160,7 +168,8 @@ final class MusicPlayerController {
       }
     }
 
-    if let fileStr = state.localFileURLString, let fileURL = URL(string: fileStr), fileURL.isFileURL {
+    if let fileStr = state.localFileURLString, let fileURL = URL(string: fileStr), fileURL.isFileURL
+    {
       guard FileManager.default.fileExists(atPath: fileURL.path(percentEncoded: false)) else {
         Self.clearPersistedPlaybackState()
         return
@@ -409,7 +418,8 @@ final class MusicPlayerController {
         currentQueueIndex = newIdx
         let item = nowPlayingQueue[newIdx]
         refreshRemoteCommandAvailability()
-        await load(url: item.url, cacheRelativePath: item.cacheRelativePath, metadata: item.metadata)
+        await load(
+          url: item.url, cacheRelativePath: item.cacheRelativePath, metadata: item.metadata)
         play()
         persistPlaybackState()
         return
@@ -463,8 +473,16 @@ final class MusicPlayerController {
     cacheFillTask = nil
   }
 
+  private func cancelArtworkLoadTask() {
+    artworkLoadTask?.cancel()
+    artworkLoadTask = nil
+  }
+
   private func tearDownPlayer() {
     cancelCacheFillTask()
+    cancelArtworkLoadTask()
+    currentArtworkID = nil
+    currentNowPlayingArtwork = nil
     if let observer = timeObserver, let p = player {
       p.removeTimeObserver(observer)
     }
@@ -491,7 +509,8 @@ final class MusicPlayerController {
       return
     }
     applyItemStatus(item)
-    itemStatusObservation = item.observe(\.status, options: [.new, .initial]) { [weak self] item, _ in
+    itemStatusObservation = item.observe(\.status, options: [.new, .initial]) {
+      [weak self] item, _ in
       Task { @MainActor in
         self?.applyItemStatus(item)
       }
@@ -654,9 +673,13 @@ final class MusicPlayerController {
     if dur > 0 {
       info[MPMediaItemPropertyPlaybackDuration] = dur
     }
+    if let currentNowPlayingArtwork {
+      info[MPMediaItemPropertyArtwork] = currentNowPlayingArtwork
+    }
     info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = currentTime
     info[MPNowPlayingInfoPropertyPlaybackRate] = isPlaying ? 1.0 : 0.0
     MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+    refreshNowPlayingArtworkIfNeeded()
   }
 
   private func updateNowPlayingPlaybackOnly() {
@@ -671,6 +694,60 @@ final class MusicPlayerController {
       info[MPMediaItemPropertyPlaybackDuration] = duration
     }
     MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+  }
+
+  private func refreshNowPlayingArtworkIfNeeded() {
+    guard let artworkID = metadata?.artworkID?.trimmingCharacters(in: .whitespacesAndNewlines), !artworkID.isEmpty else {
+      currentArtworkID = nil
+      currentNowPlayingArtwork = nil
+      cancelArtworkLoadTask()
+      return
+    }
+
+    if currentArtworkID == artworkID, currentNowPlayingArtwork != nil {
+      return
+    }
+    guard let remoteArtworkURL = coverArtRemoteURL(for: artworkID) else {
+      currentArtworkID = nil
+      currentNowPlayingArtwork = nil
+      cancelArtworkLoadTask()
+      return
+    }
+
+    currentArtworkID = artworkID
+    currentNowPlayingArtwork = nil
+    cancelArtworkLoadTask()
+
+    let expectedArtworkID = artworkID
+    let expectedSourceURL = loadedSourceURL
+    artworkLoadTask = Task.detached(priority: .utility) { [weak self] in
+      let resolvedURL = await ArtworkFileCache.displayURL(for: remoteArtworkURL)
+      guard !Task.isCancelled else { return }
+      guard let imageData = try? Data(contentsOf: resolvedURL), let image = UIImage(data: imageData) else { return }
+      let artwork = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
+      await MainActor.run {
+        guard let self else { return }
+        guard !Task.isCancelled else { return }
+        guard self.currentArtworkID == expectedArtworkID else { return }
+        guard self.loadedSourceURL == expectedSourceURL else { return }
+        self.currentNowPlayingArtwork = artwork
+        self.updateNowPlayingInfo()
+      }
+    }
+  }
+
+  private func coverArtRemoteURL(for artworkID: String) -> URL? {
+    guard let sourceURL = loadedSourceURL, !sourceURL.isFileURL else { return nil }
+    guard var components = URLComponents(url: sourceURL, resolvingAgainstBaseURL: false) else {
+      return nil
+    }
+    components.path = ApiPaths.getCoverArt
+    var items = components.queryItems ?? []
+    items.removeAll { $0.name == "id" || $0.name == "size" || $0.name == "f" }
+    items.append(URLQueryItem(name: "id", value: artworkID))
+    items.append(URLQueryItem(name: "size", value: "600"))
+    components.queryItems = items
+    return components.url
   }
 
   // MARK: - Resume persistence
@@ -742,7 +819,10 @@ final class MusicPlayerController {
     }
     guard let url = loadedSourceURL, let meta = metadata else { return [] }
     let id = Self.songId(from: url) ?? url.absoluteString
-    return [Self.persistEntry(fromLoadedURL: url, cacheRelativePath: loadedCachePath, metadata: meta, id: id)]
+    return [
+      Self.persistEntry(
+        fromLoadedURL: url, cacheRelativePath: loadedCachePath, metadata: meta, id: id)
+    ]
   }
 
   private static func persistEntry(from item: NowPlayingQueueItem) -> PersistedQueueEntry {
@@ -793,7 +873,8 @@ final class MusicPlayerController {
     )
   }
 
-  private func restoreQueueEntries(_ entries: [PersistedQueueEntry]) async -> [NowPlayingQueueItem] {
+  private func restoreQueueEntries(_ entries: [PersistedQueueEntry]) async -> [NowPlayingQueueItem]
+  {
     var result: [NowPlayingQueueItem] = []
     for entry in entries {
       if let item = await restoreQueueEntry(entry) {
@@ -804,8 +885,11 @@ final class MusicPlayerController {
   }
 
   private func restoreQueueEntry(_ entry: PersistedQueueEntry) async -> NowPlayingQueueItem? {
-    if let fileStr = entry.localFileURLString, let fileURL = URL(string: fileStr), fileURL.isFileURL {
-      guard FileManager.default.fileExists(atPath: fileURL.path(percentEncoded: false)) else { return nil }
+    if let fileStr = entry.localFileURLString, let fileURL = URL(string: fileStr), fileURL.isFileURL
+    {
+      guard FileManager.default.fileExists(atPath: fileURL.path(percentEncoded: false)) else {
+        return nil
+      }
       return NowPlayingQueueItem(
         id: entry.id,
         url: fileURL,
@@ -854,7 +938,9 @@ final class MusicPlayerController {
   /// Scheme + host (+ port) for matching `Server.hostname` without persisting one-time auth query params.
   private static func streamBaseURLString(from url: URL) -> String? {
     guard !url.isFileURL else { return nil }
-    guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return nil }
+    guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+      return nil
+    }
     components.path = ""
     components.query = nil
     components.fragment = nil
@@ -893,16 +979,16 @@ final class MusicPlayerController {
 }
 
 #if DEBUG
-extension MusicPlayerController {
-  /// Fills queue state for SwiftUI previews only; does not load media or touch persistence.
-  func applyPreviewState(queue: [NowPlayingQueueItem], currentIndex: Int?) {
-    nowPlayingQueue = queue
-    if let idx = currentIndex, queue.indices.contains(idx) {
-      currentQueueIndex = idx
-    } else {
-      currentQueueIndex = queue.isEmpty ? nil : 0
+  extension MusicPlayerController {
+    /// Fills queue state for SwiftUI previews only; does not load media or touch persistence.
+    func applyPreviewState(queue: [NowPlayingQueueItem], currentIndex: Int?) {
+      nowPlayingQueue = queue
+      if let idx = currentIndex, queue.indices.contains(idx) {
+        currentQueueIndex = idx
+      } else {
+        currentQueueIndex = queue.isEmpty ? nil : 0
+      }
+      refreshRemoteCommandAvailability()
     }
-    refreshRemoteCommandAvailability()
   }
-}
 #endif

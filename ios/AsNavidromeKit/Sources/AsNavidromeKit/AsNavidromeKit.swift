@@ -199,6 +199,18 @@ extension AsNavidromeClient {
         includeResponseFormat: false
       )
     }
+
+    public func coverArt(forID coverArtID: String, size: Int? = nil) -> URL {
+      var params: [String: String] = ["id": coverArtID]
+      if let size, size > 0 {
+        params["size"] = String(size)
+      }
+      return authedRequest.authenticatedURL(
+        path: ApiPaths.getCoverArt,
+        additionalParameters: params,
+        includeResponseFormat: false
+      )
+    }
   }
 }
 

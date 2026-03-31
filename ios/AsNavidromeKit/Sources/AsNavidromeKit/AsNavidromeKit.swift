@@ -38,6 +38,29 @@ public struct AsNavidromeClient: Sendable {
   public func getPlaylist(id: String) async throws -> PlaylistDetail {
     try await playlist.getPlaylist(id: id)
   }
+
+  /// Subsonic `createPlaylist`.
+  public func createPlaylist(name: String) async throws {
+    try await playlist.createPlaylist(name: name)
+  }
+
+  /// Subsonic `deletePlaylist`.
+  public func deletePlaylist(id: String) async throws {
+    try await playlist.deletePlaylist(id: id)
+  }
+
+  /// Subsonic `updatePlaylist` for add/remove track edits.
+  public func updatePlaylist(
+    id: String,
+    songIDsToAdd: [String],
+    songIndexesToRemove: [Int]
+  ) async throws {
+    try await playlist.updatePlaylist(
+      id: id,
+      songIDsToAdd: songIDsToAdd,
+      songIndexesToRemove: songIndexesToRemove
+    )
+  }
 }
 
 // MARK: - General
@@ -190,6 +213,58 @@ extension AsNavidromeClient {
         throw URLError(.cannotParseResponse)
       }
       return detail
+    }
+
+    public func createPlaylist(name: String) async throws {
+      let json = try await authedRequest.get(
+        path: ApiPaths.createPlaylist,
+        additionalParameters: ["name": name])
+      let response = try decodeSubsonicResponse(from: json)
+      guard response.status == "ok" else {
+        throw URLError(.cannotParseResponse)
+      }
+    }
+
+    public func deletePlaylist(id: String) async throws {
+      let json = try await authedRequest.get(
+        path: ApiPaths.deletePlaylist,
+        additionalParameters: ["id": id])
+      let response = try decodeSubsonicResponse(from: json)
+      guard response.status == "ok" else {
+        throw URLError(.cannotParseResponse)
+      }
+    }
+
+    public func updatePlaylist(
+      id: String,
+      songIDsToAdd: [String],
+      songIndexesToRemove: [Int]
+    ) async throws {
+      for index in songIndexesToRemove.sorted(by: >) {
+        let json = try await authedRequest.get(
+          path: ApiPaths.updatePlaylist,
+          additionalParameters: [
+            "playlistId": id,
+            "songIndexToRemove": String(index),
+          ])
+        let response = try decodeSubsonicResponse(from: json)
+        guard response.status == "ok" else {
+          throw URLError(.cannotParseResponse)
+        }
+      }
+
+      for songID in songIDsToAdd {
+        let json = try await authedRequest.get(
+          path: ApiPaths.updatePlaylist,
+          additionalParameters: [
+            "playlistId": id,
+            "songIdToAdd": songID,
+          ])
+        let response = try decodeSubsonicResponse(from: json)
+        guard response.status == "ok" else {
+          throw URLError(.cannotParseResponse)
+        }
+      }
     }
   }
 }

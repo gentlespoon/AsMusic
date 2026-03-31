@@ -111,6 +111,12 @@ extension MusicPlayerController {
     persistPlaybackState()
   }
 
+  /// Duplicates an existing queue row and appends the duplicate to the end.
+  func addQueueItemToEnd(from index: Int) {
+    guard nowPlayingQueue.indices.contains(index) else { return }
+    appendToEndOfQueue(NowPlayingQueueItem(id: nowPlayingQueue[index].id))
+  }
+
   /// Replaces the queue with `items` and starts playback at `startAt`.
   func replaceQueueAndPlay(_ items: [NowPlayingQueueItem], startAt index: Int = 0) async {
     guard !items.isEmpty, items.indices.contains(index) else { return }
@@ -139,6 +145,32 @@ extension MusicPlayerController {
     if let pr = playingRowId {
       currentQueueIndex = nowPlayingQueue.firstIndex(where: { $0.rowId == pr })
     }
+    refreshRemoteCommandAvailability()
+    persistPlaybackState()
+  }
+
+  /// Moves a queue row to play right after the current track.
+  func moveQueueItemToPlayNext(at index: Int) {
+    guard nowPlayingQueue.indices.contains(index) else { return }
+    guard let current = currentQueueIndex, nowPlayingQueue.indices.contains(current) else { return }
+
+    let target = min(current + 1, nowPlayingQueue.count - 1)
+    guard index != current, index != target else { return }
+
+    let moving = nowPlayingQueue.remove(at: index)
+    let insertionIndex = index < target ? target - 1 : target
+    nowPlayingQueue.insert(moving, at: insertionIndex)
+
+    if var cur = currentQueueIndex {
+      if index < cur {
+        cur -= 1
+      }
+      if insertionIndex <= cur {
+        cur += 1
+      }
+      currentQueueIndex = cur
+    }
+
     refreshRemoteCommandAvailability()
     persistPlaybackState()
   }

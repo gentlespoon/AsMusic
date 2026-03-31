@@ -27,7 +27,7 @@ public struct PlaylistsListResponse: Codable, Equatable, Sendable {
   }
 }
 
-public struct PlaylistSummary: Identifiable, Codable, Equatable, Sendable {
+public struct PlaylistSummary: Identifiable, Codable, Equatable, Hashable, Sendable {
   public let id: String
   public let name: String
   public let songCount: Int?

@@ -26,7 +26,7 @@ struct LibraryView: View {
         SongsView()
       }
       NavigationLink("Playlists") {
-        PlayListView()
+        PlaylistView()
       }
       NavigationLink("Favorites") {
         FavoritesView(client: client)

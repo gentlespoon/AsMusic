@@ -10,11 +10,20 @@ import SwiftUI
 
 struct PlayerSheetView: View {
   @Environment(MusicPlayerController.self) private var playback
+  @Environment(\.dismiss) private var dismiss
   @State private var selectedLibraryStore = SelectedLibraryStore.shared
   @State private var libraryClient: AsNavidromeClient?
   @State private var resolvedArtworkURL: URL?
   @State private var marqueeContentWidth: CGFloat = 0
   @State private var isStarActionInFlight = false
+  @State private var isQueueSheetPresented = false
+  @State private var sleepTimer = PlayerSleepTimerManager()
+  @State private var isSleepTimerSheetPresented = false
+  @State private var sleepTimerSelectionMinutes: Double = 15
+  @State private var isPlaylistDialogPresented = false
+  @State private var availablePlaylists: [PlaylistSummary] = []
+  @State private var isMetadataAlertPresented = false
+  @State private var userFacingErrorMessage: String?
 
   private var loadTaskID: String {
     "\(playback.currentSourceURL?.absoluteString ?? "")|\(playback.currentCacheRelativePath ?? "")"
@@ -55,6 +64,25 @@ struct PlayerSheetView: View {
     return "\(libraryClient.host)|\(libraryClient.username)"
   }
 
+  private var currentSongID: String? {
+    playback.currentQueueItem?.id ?? playback.loadedSongID
+  }
+
+  private var metadataDetailsText: String {
+    guard let meta = activeMetadata else { return "No metadata available." }
+    let rows: [(String, String)] = [
+      ("Title", meta.title),
+      ("Artist", meta.artist ?? "Unknown"),
+      ("Album", meta.album ?? "Unknown"),
+      ("Song ID", currentSongID ?? "Unknown"),
+      ("Format", meta.suffix?.uppercased() ?? "Unknown"),
+      ("Bitrate", meta.bitRate.map { "\($0)" } ?? "Unknown"),
+      ("Duration", meta.durationSeconds.map(formatTime) ?? "Unknown"),
+      ("Artwork ID", meta.artworkID ?? "Unknown"),
+    ]
+    return rows.map { "\($0): \($1)" }.joined(separator: "\n")
+  }
+
   /// Center label under the scrubber: codec/container and nominal bitrate from library metadata.
   private var formatAndBitrateCaption: String? {
     guard let meta = activeMetadata else { return nil }
@@ -92,7 +120,7 @@ struct PlayerSheetView: View {
                 .foregroundStyle(.secondary)
             }
           } else {
-            
+
             PlayerArtworkView(artworkURL: resolvedArtworkURL)
               .frame(maxWidth: .infinity)
               .aspectRatio(1, contentMode: .fit)
@@ -174,7 +202,7 @@ struct PlayerSheetView: View {
                 .sliderThumbVisibility(.hidden)
                 .padding(.horizontal, 16)
                 .frame(maxHeight: 16)
-                
+
                 HStack {
                   Text(formatTime(playback.currentTime))
                   Spacer()
@@ -207,7 +235,7 @@ struct PlayerSheetView: View {
                   .font(.title2)
               }
               .disabled(playback.currentQueueItem == nil || isStarActionInFlight)
-              
+
               Button {
                 Task { await playback.skipToPrevious() }
               } label: {
@@ -231,6 +259,14 @@ struct PlayerSheetView: View {
                   .font(.title2)
               }
               .disabled(!playback.hasNextInQueue)
+
+              Button {
+                isQueueSheetPresented = true
+              } label: {
+                Image(systemName: "list.bullet")
+                  .font(.title2)
+              }
+              .disabled(playback.nowPlayingQueue.isEmpty)
             }
             .padding(.vertical, 24)
             .tint(.primary)
@@ -245,11 +281,98 @@ struct PlayerSheetView: View {
             }
             .foregroundStyle(.secondary)
             .padding(.horizontal, 16)
-            
+
             Spacer()
           }
         }
-        .navigationTitle("Now Playing")
+        .toolbar {
+          ToolbarItem(placement: .topBarLeading) {
+            Button {
+              dismiss()
+            } label: {
+              Image(systemName: "xmark")
+            }
+          }
+          ToolbarItemGroup(placement: .topBarTrailing) {
+            Button {
+              sleepTimerSelectionMinutes = Double(sleepTimer.activeMinutes ?? 15)
+              isSleepTimerSheetPresented = true
+            } label: {
+              HStack {
+                Image(systemName: sleepTimer.activeMinutes == nil ? "timer" : "timer.circle.fill")
+                if let countdown = sleepTimer.countdownLabel {
+                  Text(countdown)
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                }
+              }
+            }
+
+            Button {
+              Task {
+                await loadPlaylistsForPicker()
+              }
+            } label: {
+              Image(systemName: "plus")
+            }
+            .disabled(currentSongID == nil)
+
+            Button {
+              isMetadataAlertPresented = true
+            } label: {
+              Image(systemName: "info.circle")
+            }
+            .disabled(activeMetadata == nil)
+          }
+        }
+        .sheet(isPresented: $isSleepTimerSheetPresented) {
+          PlayerSleepTimerSheetView(
+            selectionMinutes: $sleepTimerSelectionMinutes,
+            hasActiveTimer: sleepTimer.activeMinutes != nil,
+            onCancel: {
+              isSleepTimerSheetPresented = false
+            },
+            onTurnOff: {
+              sleepTimer.cancel()
+              isSleepTimerSheetPresented = false
+            },
+            onStart: { minutes in
+              scheduleSleepTimer(minutes: minutes)
+              isSleepTimerSheetPresented = false
+            }
+          )
+        }
+        .confirmationDialog(
+          "Add to Playlist",
+          isPresented: $isPlaylistDialogPresented,
+          titleVisibility: .visible
+        ) {
+          if availablePlaylists.isEmpty {
+            Button("No playlists found") {}
+              .disabled(true)
+          } else {
+            ForEach(availablePlaylists) { playlist in
+              Button(playlist.name) {
+                Task {
+                  await addCurrentSong(to: playlist)
+                }
+              }
+            }
+          }
+          Button("Cancel", role: .cancel) {}
+        }
+        .alert("Track Metadata", isPresented: $isMetadataAlertPresented) {
+          Button("OK", role: .cancel) {}
+        } message: {
+          Text(metadataDetailsText)
+        }
+        .alert("Unable to Complete Action", isPresented: userFacingErrorBinding) {
+          Button("OK", role: .cancel) {
+            userFacingErrorMessage = nil
+          }
+        } message: {
+          Text(userFacingErrorMessage ?? "Unknown error.")
+        }
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(for: PlayerLibraryRoute.self) { route in
           Group {
@@ -291,6 +414,10 @@ struct PlayerSheetView: View {
         let remoteArtworkURL = client.media.coverArt(forID: artworkID, size: 600)
         resolvedArtworkURL = await ArtworkFileCache.displayURL(for: remoteArtworkURL)
       }
+      .sheet(isPresented: $isQueueSheetPresented) {
+        PlayingQueueSheetView()
+          .environment(playback)
+      }
     } else {
       ContentUnavailableView(
         "Nothing Playing",
@@ -306,6 +433,50 @@ struct PlayerSheetView: View {
     return String(format: "%d:%02d", m, s)
   }
 
+  private var userFacingErrorBinding: Binding<Bool> {
+    Binding(
+      get: { userFacingErrorMessage != nil },
+      set: { isPresented in
+        if !isPresented {
+          userFacingErrorMessage = nil
+        }
+      }
+    )
+  }
+
+  private func scheduleSleepTimer(minutes: Int) {
+    sleepTimer.start(minutes: minutes) {
+      if playback.isPlaying {
+        playback.togglePlayPause()
+      }
+    }
+  }
+
+  private func loadPlaylistsForPicker() async {
+    guard let apiClient = await effectiveLibraryClient(libraryClient) else {
+      userFacingErrorMessage = "Add a server in Settings to load playlists."
+      return
+    }
+
+    let cacheKey = PlaylistSummaryCacheKey.current(for: apiClient)
+    availablePlaylists = await PlaylistSummaryCacheStore.shared.loadPlaylists(for: cacheKey) ?? []
+    isPlaylistDialogPresented = true
+  }
+
+  private func addCurrentSong(to playlist: PlaylistSummary) async {
+    guard let songID = currentSongID else { return }
+    guard let apiClient = await effectiveLibraryClient(libraryClient) else {
+      userFacingErrorMessage = "Add a server in Settings to update playlists."
+      return
+    }
+    do {
+      try await apiClient.updatePlaylist(
+        id: playlist.id, songIDsToAdd: [songID], songIndexesToRemove: [])
+    } catch {
+      userFacingErrorMessage = error.localizedDescription
+    }
+  }
+
   @MainActor
   private static func resolveLibraryClient() async -> AsNavidromeClient? {
     guard let selection = SelectedLibraryStore.shared.selection else { return nil }
@@ -313,6 +484,16 @@ struct PlayerSheetView: View {
     guard let server = servers.first(where: { $0.id == selection.serverID }) else { return nil }
     return await NavidromeClientStore.shared.client(for: server)
   }
+}
+
+/// When "Use all libraries" is selected, `libraryClient` is nil; use the first saved server like `SongsView`.
+private func effectiveLibraryClient(_ environmentClient: AsNavidromeClient?) async
+  -> AsNavidromeClient?
+{
+  if let environmentClient { return environmentClient }
+  let servers = await MainActor.run { ServerManager().servers }
+  guard let first = servers.first else { return nil }
+  return await NavidromeClientStore.shared.client(for: first)
 }
 
 #Preview {

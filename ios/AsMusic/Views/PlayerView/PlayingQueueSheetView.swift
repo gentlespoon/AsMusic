@@ -119,6 +119,9 @@ struct PlayingQueueSheetView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     }
+                    Image(systemName: "line.3.horizontal")
+                      .font(.caption.weight(.semibold))
+                      .foregroundStyle(.tertiary)
                   }
                 }
                 .buttonStyle(.plain)
@@ -128,11 +131,25 @@ struct PlayingQueueSheetView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
                 .simultaneousGesture(reorderActivatedGesture)
-                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                  Button {
+                    playback.moveQueueItemToPlayNext(at: index)
+                  } label: {
+                    Label("Play Next", systemImage: "text.insert")
+                  }
+                  .tint(.orange)
+
+                  Button {
+                    playback.addQueueItemToEnd(from: index)
+                  } label: {
+                    Label("Add to Queue", systemImage: "text.line.last.and.arrowtriangle.forward")
+                  }
+                  .tint(.blue)
+
                   Button(role: .destructive) {
                     Task { await playback.removeQueueItem(at: index) }
                   } label: {
-                    Label("Remove", systemImage: "trash.fill")
+                    Label("Delete from Queue", systemImage: "trash.fill")
                   }
                 }
               }

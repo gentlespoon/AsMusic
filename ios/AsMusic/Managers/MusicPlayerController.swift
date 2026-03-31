@@ -173,7 +173,7 @@ final class MusicPlayerController {
     guard let server = Self.serverMatching(streamBaseURLString: baseStr) else { return }
 
     let client = await NavidromeClientStore.shared.client(for: server)
-    let streamURL = client.media.stream(forSongID: songId)
+    let streamURL = DownloadManager.streamURL(forSongID: songId, from: client)
     await load(
       url: streamURL,
       cacheRelativePath: state.cacheRelativePath,
@@ -205,20 +205,31 @@ final class MusicPlayerController {
     loadedSongID = Self.songId(from: url)
     loadedCachePath = cacheRelativePath
     self.metadata = metadata
+    let cacheScope = SongFileCache.activeSelectionScope()
 
     isBuffering =
-      !url.isFileURL && !SongFileCache.hasCached(for: url, relativePath: cacheRelativePath)
+      !url.isFileURL
+      && !SongFileCache.hasCached(for: url, relativePath: cacheRelativePath, cacheScope: cacheScope)
 
     do {
-      let playURL = try SongFileCache.playbackURL(for: url, relativePath: cacheRelativePath)
+      let playURL = try SongFileCache.playbackURL(
+        for: url,
+        relativePath: cacheRelativePath,
+        cacheScope: cacheScope
+      )
       isBuffering = false
 
       cancelCacheFillTask()
       if !playURL.isFileURL {
         let streamURL = url
         let rel = cacheRelativePath
-        cacheFillTask = Task { [streamURL, rel] in
-          try? await SongFileCache.downloadFullToCache(remoteURL: streamURL, relativePath: rel)
+        let scope = cacheScope
+        cacheFillTask = Task { [streamURL, rel, scope] in
+          try? await SongFileCache.downloadFullToCache(
+            remoteURL: streamURL,
+            relativePath: rel,
+            cacheScope: scope
+          )
         }
       }
 

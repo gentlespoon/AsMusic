@@ -29,6 +29,7 @@ struct SettingsView: View {
             Hold and drag to seek.
           """)
       }
+      .foregroundStyle(.primary)
 
       Section("Appearance") {
         Picker("Color Scheme", selection: $appAppearanceRaw) {
@@ -42,7 +43,7 @@ struct SettingsView: View {
         NavigationLink {
           ServerManagerView()
         } label: {
-          Label("Server Manager", systemImage: "server.rack")
+          Label("Servers", systemImage: "server.rack")
         }
         NavigationLink {
           LibrariesView()
@@ -50,39 +51,41 @@ struct SettingsView: View {
           Label("Libraries", systemImage: "books.vertical")
         }
       }
+      .foregroundStyle(.primary)
+      
       Section("Cache") {
         Button(role: .destructive) {
           isConfirmingCacheReset = true
         } label: {
-          Label("Reset Library Database Cache", systemImage: "arrow.clockwise")
+          Label("Reset library database", systemImage: "arrow.clockwise")
         }
         Button(role: .destructive) {
           isConfirmingFileCacheReset = true
         } label: {
-          Label("Delete Downloaded Songs and Artwork", systemImage: "trash")
+          Label("Delete downloaded media", systemImage: "trash")
         }
       }
     }
-    .foregroundStyle(.primary)
+    .tint(.red)
     .navigationTitle("Settings")
     .confirmationDialog(
-      "Reset Library Cache?",
+      "Reset library database?",
       isPresented: $isConfirmingCacheReset,
       titleVisibility: .visible
     ) {
       Button("Reset", role: .destructive) {
         Task {
-          let success = await LibraryCacheMaintenance.resetAllCaches()
+          let success = await LibraryCacheMaintenance.resetDatabase()
           cacheResetResultMessage =
             success
-            ? "Library cache has been reset."
-            : "Failed to reset library cache."
+            ? "Library database has been reset."
+            : "Failed to reset library database."
         }
       }
       Button("Cancel", role: .cancel) {}
     } message: {
       Text(
-        "This deletes cached songs, playlists, folders, artists, and albums. Data will be reloaded from your server."
+        "This deletes cached songs, playlists, folders, artists, and albums metadata. This does NOT delete your downloaded media files."
       )
     }
     .confirmationDialog(
@@ -99,7 +102,7 @@ struct SettingsView: View {
       }
       Button("Cancel", role: .cancel) {}
     } message: {
-      Text("This deletes files under Documents/Music and Documents/Artwork.")
+      Text("This deletes downloaded media files. This does NOT reset local library database.")
     }
     .alert("Cache", isPresented: cacheResetResultBinding) {
       Button("OK", role: .cancel) {

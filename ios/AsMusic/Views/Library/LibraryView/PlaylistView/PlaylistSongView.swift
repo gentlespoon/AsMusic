@@ -52,9 +52,14 @@ struct PlaylistSongView: View {
 
   private var canDownloadVisibleSongs: Bool {
     guard let client else { return false }
+    let cacheScope = SongFileCache.activeSelectionScope()
     return songsForList.contains { song in
       let remoteURL = client.media.download(forSongID: song.id)
-      return !SongFileCache.hasCached(for: remoteURL, relativePath: song.path)
+      return !SongFileCache.hasCached(
+        for: remoteURL,
+        relativePath: song.path,
+        cacheScope: cacheScope
+      )
     }
   }
 
@@ -346,14 +351,19 @@ struct PlaylistSongView: View {
 
   private func downloadAllSongsInView() async {
     guard let client else { return }
+    let cacheScope = SongFileCache.activeSelectionScope()
     var failedCount = 0
     for song in songsForList {
       let remoteURL = client.media.download(forSongID: song.id)
-      if SongFileCache.hasCached(for: remoteURL, relativePath: song.path) {
+      if SongFileCache.hasCached(for: remoteURL, relativePath: song.path, cacheScope: cacheScope) {
         continue
       }
       do {
-        try await SongFileCache.downloadFullToCache(remoteURL: remoteURL, relativePath: song.path)
+        try await SongFileCache.downloadFullToCache(
+          remoteURL: remoteURL,
+          relativePath: song.path,
+          cacheScope: cacheScope
+        )
       } catch {
         failedCount += 1
       }

@@ -31,6 +31,13 @@ enum LocalCachedSongList {
   {
     guard let client else { return nil }
     let remote = client.media.download(forSongID: song.id)
-    return SongFileCache.existingLocalFileURLIfPresent(for: remote, relativePath: song.path)
+    let scope = await LibrarySongCacheScope.current(for: client).map {
+      SongFileCache.CacheScope(serverID: $0.serverID, libraryID: $0.libraryID)
+    }
+    return SongFileCache.existingLocalFileURLIfPresent(
+      for: remote,
+      relativePath: song.path,
+      cacheScope: scope
+    )
   }
 }

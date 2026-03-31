@@ -54,39 +54,6 @@ actor SongCacheStore {
     return songs.isEmpty ? nil : songs
   }
 
-  func loadSongs(forServerID serverID: UUID) -> [Song]? {
-    guard openIfNeeded() else { return nil }
-
-    let sql = """
-      SELECT song_json
-      FROM song_cache
-      WHERE server_id = ?
-      ORDER BY updated_at DESC, sort_index ASC;
-      """
-    var statement: OpaquePointer?
-    defer { sqlite3_finalize(statement) }
-    guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else { return nil }
-    sqlite3_bind_text(statement, 1, serverID.uuidString, -1, Self.transientDestructor)
-
-    var songs: [Song] = []
-    var seenSongIDs = Set<String>()
-    while sqlite3_step(statement) == SQLITE_ROW {
-      guard let rawPointer = sqlite3_column_blob(statement, 0) else {
-        continue
-      }
-      let size = Int(sqlite3_column_bytes(statement, 0))
-      let data = Data(bytes: rawPointer, count: size)
-      guard let song = try? decoder.decode(Song.self, from: data) else {
-        continue
-      }
-      guard seenSongIDs.insert(song.id).inserted else {
-        continue
-      }
-      songs.append(song)
-    }
-    return songs.isEmpty ? nil : songs
-  }
-
   func saveSongs(_ songs: [Song], serverID: UUID, libraryID: String) {
     guard openIfNeeded() else { return }
     guard execute("BEGIN TRANSACTION;") else { return }

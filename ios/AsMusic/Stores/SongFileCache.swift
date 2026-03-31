@@ -15,14 +15,46 @@ import Foundation
 /// use the **remote** stream URL and let `AVPlayer` stream over HTTP. A background task fills the cache
 /// for next time (a second HTTP connection while the first play streams—acceptable tradeoff).
 enum SongFileCache {
+  struct CacheScope: Hashable, Sendable {
+    let serverID: UUID
+    let libraryID: String
+  }
+
+  struct Request: Hashable {
+    let remoteURL: URL
+    let relativePath: String?
+    let cacheScope: CacheScope?
+
+    init(remoteURL: URL, relativePath: String?, cacheScope: CacheScope? = nil) {
+      self.remoteURL = remoteURL
+      self.relativePath = relativePath
+      self.cacheScope = cacheScope
+    }
+  }
+
   private static let subdirectory = "Music"
 
   /// URL to pass to `AVPlayer`: local file when fully cached, otherwise the same remote stream URL.
-  static func playbackURL(for remoteURL: URL, relativePath: String?) throws -> URL {
+  static func playbackURL(for request: Request) throws -> URL {
+    try playbackURL(
+      for: request.remoteURL,
+      relativePath: request.relativePath,
+      cacheScope: request.cacheScope
+    )
+  }
+
+  /// URL to pass to `AVPlayer`: local file when fully cached, otherwise the same remote stream URL.
+  static func playbackURL(for remoteURL: URL, relativePath: String?, cacheScope: CacheScope? = nil)
+    throws -> URL
+  {
     if remoteURL.isFileURL {
       return remoteURL
     }
-    let finalURL = try localFileURL(for: remoteURL, relativePath: relativePath)
+    let finalURL = try localFileURL(
+      for: remoteURL,
+      relativePath: relativePath,
+      cacheScope: cacheScope
+    )
     let markerURL = cacheCompleteMarkerURL(for: finalURL)
     if FileManager.default.fileExists(atPath: finalURL.path(percentEncoded: false)),
       FileManager.default.fileExists(atPath: markerURL.path(percentEncoded: false))
@@ -34,11 +66,34 @@ enum SongFileCache {
 
   /// Fetches the full stream into the cache path and writes `*.cachecomplete`. Call from a `Task`
   /// you can cancel when the user switches tracks. No-op if already cached.
-  static func downloadFullToCache(remoteURL: URL, relativePath: String?) async throws {
-    if remoteURL.isFileURL { return }
-    if hasCached(for: remoteURL, relativePath: relativePath) { return }
+  static func downloadFullToCache(
+    request: Request,
+    onProgress: (@Sendable (Double?) -> Void)? = nil
+  ) async throws {
+    try await downloadFullToCache(
+      remoteURL: request.remoteURL,
+      relativePath: request.relativePath,
+      cacheScope: request.cacheScope,
+      onProgress: onProgress
+    )
+  }
 
-    let finalURL = try localFileURL(for: remoteURL, relativePath: relativePath)
+  /// Fetches the full stream into the cache path and writes `*.cachecomplete`. Call from a `Task`
+  /// you can cancel when the user switches tracks. No-op if already cached.
+  static func downloadFullToCache(
+    remoteURL: URL,
+    relativePath: String?,
+    cacheScope: CacheScope? = nil,
+    onProgress: (@Sendable (Double?) -> Void)? = nil
+  ) async throws {
+    if remoteURL.isFileURL { return }
+    if hasCached(for: remoteURL, relativePath: relativePath, cacheScope: cacheScope) { return }
+
+    let finalURL = try localFileURL(
+      for: remoteURL,
+      relativePath: relativePath,
+      cacheScope: cacheScope
+    )
     let markerURL = cacheCompleteMarkerURL(for: finalURL)
 
     if FileManager.default.fileExists(atPath: finalURL.path(percentEncoded: false)) {
@@ -53,6 +108,13 @@ enum SongFileCache {
     guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
       throw URLError(.badServerResponse)
     }
+    let expectedLength = response.expectedContentLength
+    let hasKnownLength = expectedLength > 0
+    if hasKnownLength {
+      onProgress?(0.0)
+    } else {
+      onProgress?(nil)
+    }
 
     guard FileManager.default.createFile(atPath: finalURL.path(percentEncoded: false), contents: nil)
     else {
@@ -63,37 +125,90 @@ enum SongFileCache {
 
     var buffer = Data()
     let bufferSize = 65_536
+    var bytesWritten: Int64 = 0
+    var lastReportedProgress: Double = -1
 
-    for try await byte in asyncBytes {
-      try Task.checkCancellation()
-      buffer.append(byte)
-      if buffer.count >= bufferSize {
-        try handle.write(contentsOf: buffer)
-        buffer.removeAll(keepingCapacity: true)
+    do {
+      for try await byte in asyncBytes {
+        try Task.checkCancellation()
+        buffer.append(byte)
+        if buffer.count >= bufferSize {
+          try handle.write(contentsOf: buffer)
+          bytesWritten += Int64(buffer.count)
+          if hasKnownLength {
+            let progress = min(max(Double(bytesWritten) / Double(expectedLength), 0), 1)
+            if progress >= 1 || progress - lastReportedProgress >= 0.01 {
+              onProgress?(progress)
+              lastReportedProgress = progress
+            }
+          }
+          buffer.removeAll(keepingCapacity: true)
+        }
       }
+      if !buffer.isEmpty {
+        try handle.write(contentsOf: buffer)
+        bytesWritten += Int64(buffer.count)
+      }
+      try handle.synchronize()
+      onProgress?(1.0)
+      try Data().write(to: markerURL, options: .atomic)
+    } catch {
+      try? handle.close()
+      try? FileManager.default.removeItem(at: finalURL)
+      try? FileManager.default.removeItem(at: markerURL)
+      throw error
     }
-    if !buffer.isEmpty {
-      try handle.write(contentsOf: buffer)
-    }
-    try handle.synchronize()
-
-    try Data().write(to: markerURL, options: .atomic)
   }
 
-  static func hasCached(for remoteURL: URL, relativePath: String?) -> Bool {
+  static func hasCached(for request: Request) -> Bool {
+    hasCached(
+      for: request.remoteURL,
+      relativePath: request.relativePath,
+      cacheScope: request.cacheScope
+    )
+  }
+
+  static func hasCached(for remoteURL: URL, relativePath: String?, cacheScope: CacheScope? = nil)
+    -> Bool
+  {
     guard !remoteURL.isFileURL else { return true }
-    guard let local = try? localFileURL(for: remoteURL, relativePath: relativePath) else { return false }
+    guard
+      let local = try? localFileURL(
+        for: remoteURL,
+        relativePath: relativePath,
+        cacheScope: cacheScope
+      )
+    else { return false }
     let marker = cacheCompleteMarkerURL(for: local)
     return FileManager.default.fileExists(atPath: local.path(percentEncoded: false))
       && FileManager.default.fileExists(atPath: marker.path(percentEncoded: false))
   }
 
   /// Local file URL if a **complete** cached copy exists; does not download.
-  static func existingLocalFileURLIfPresent(for remoteURL: URL, relativePath: String?) -> URL? {
+  static func existingLocalFileURLIfPresent(for request: Request) -> URL? {
+    existingLocalFileURLIfPresent(
+      for: request.remoteURL,
+      relativePath: request.relativePath,
+      cacheScope: request.cacheScope
+    )
+  }
+
+  /// Local file URL if a **complete** cached copy exists; does not download.
+  static func existingLocalFileURLIfPresent(
+    for remoteURL: URL,
+    relativePath: String?,
+    cacheScope: CacheScope? = nil
+  ) -> URL? {
     if remoteURL.isFileURL {
       return remoteURL
     }
-    guard let local = try? localFileURL(for: remoteURL, relativePath: relativePath) else { return nil }
+    guard
+      let local = try? localFileURL(
+        for: remoteURL,
+        relativePath: relativePath,
+        cacheScope: cacheScope
+      )
+    else { return nil }
     let marker = cacheCompleteMarkerURL(for: local)
     guard FileManager.default.fileExists(atPath: local.path(percentEncoded: false)),
       FileManager.default.fileExists(atPath: marker.path(percentEncoded: false))
@@ -123,12 +238,15 @@ enum SongFileCache {
     return "\(hash).\(ext)"
   }
 
-  private static func localFileURL(for remoteURL: URL, relativePath: String?) throws -> URL {
+  private static func localFileURL(for remoteURL: URL, relativePath: String?, cacheScope: CacheScope?)
+    throws -> URL
+  {
     let base = try cacheDirectory
+    let scopedBase = base.appending(path: scopeDirectoryName(for: remoteURL, cacheScope: cacheScope))
     if let sanitizedPath = sanitizedRelativePath(relativePath), !sanitizedPath.isEmpty {
-      return base.appending(path: sanitizedPath, directoryHint: .notDirectory)
+      return scopedBase.appending(path: sanitizedPath, directoryHint: .notDirectory)
     }
-    return base.appending(path: cacheKey(for: remoteURL), directoryHint: .notDirectory)
+    return scopedBase.appending(path: cacheKey(for: remoteURL), directoryHint: .notDirectory)
   }
 
   private static func cacheCompleteMarkerURL(for finalURL: URL) -> URL {
@@ -170,10 +288,37 @@ enum SongFileCache {
       .sorted(by: { $0.name < $1.name })
     return components.string ?? url.absoluteString
   }
+
+  private static func scopeDirectoryName(for remoteURL: URL, cacheScope: CacheScope?) -> String {
+    if let cacheScope {
+      let libraryHash = Data(cacheScope.libraryID.utf8).sha256().hexString().prefix(16)
+      return "server-\(cacheScope.serverID.uuidString.lowercased())/library-\(libraryHash)"
+    }
+    let origin = originIdentifier(for: remoteURL)
+    let originHash = Data(origin.utf8).sha256().hexString().prefix(16)
+    return "origin-\(originHash)"
+  }
+
+  private static func originIdentifier(for url: URL) -> String {
+    let scheme = (url.scheme ?? "unknown").lowercased()
+    let host = (url.host ?? "unknown").lowercased()
+    let port = url.port.map(String.init) ?? "-"
+    return "\(scheme)://\(host):\(port)"
+  }
+
+  @MainActor
+  static func activeSelectionScope() -> CacheScope? {
+    guard let selection = SelectedLibraryStore.shared.selection else { return nil }
+    return CacheScope(serverID: selection.serverID, libraryID: selection.folderID)
+  }
 }
 
 private extension Data {
   func sha256() -> Data {
     Data(SHA256.hash(data: self))
+  }
+
+  func hexString() -> String {
+    map { String(format: "%02x", $0) }.joined()
   }
 }

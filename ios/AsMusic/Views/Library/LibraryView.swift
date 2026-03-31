@@ -13,6 +13,13 @@ struct LibraryView: View {
   let client: AsNavidromeClient
 
   @State private var refreshCoordinator = LibraryRefreshCoordinator.shared
+  @State private var allSongsCount = 0
+  @State private var artistsCount = 0
+  @State private var albumsCount = 0
+  @State private var playlistsCount = 0
+  @State private var favoritesCount = 0
+  @State private var downloadedCount = 0
+  @State private var downloadingCount = 0
 
   var body: some View {
     List {
@@ -20,34 +27,67 @@ struct LibraryView: View {
         NavigationLink {
           SongsView()
         } label: {
-          Label("All Songs", systemImage: "music.note")
+          HStack {
+            Label("All Songs", systemImage: "music.note")
+            Spacer()
+            Text("\(allSongsCount)")
+          }
         }
         NavigationLink {
           ArtistsView()
         } label: {
-          Label("Artists", systemImage: "music.mic")
+          HStack {
+            Label("Artists", systemImage: "music.mic")
+            Spacer()
+            Text("\(artistsCount)")
+          }
         }
         NavigationLink {
           AlbumsView()
         } label: {
-          Label("Albums", systemImage: "square.stack")
+          HStack {
+            Label("Albums", systemImage: "square.stack")
+            Spacer()
+            Text("\(albumsCount)")
+          }
         }
         NavigationLink {
           PlaylistView()
         } label: {
-          Label("Playlists", systemImage: "music.note.list")
+          HStack {
+            Label("Playlists", systemImage: "music.note.list")
+            Spacer()
+            Text("\(playlistsCount)")
+          }
         }
         NavigationLink {
           FavoritesView(client: client)
         } label: {
-          Label("Favorites", systemImage: "heart.fill")
+          HStack {
+            Label("Favorites", systemImage: "heart.fill")
+            Spacer()
+            Text("\(favoritesCount)")
+          }
         }
       }
       Section {
         NavigationLink {
-          SongsView(navigationTitle: "Downloaded", listSource: .localDownloaded)
+          SongsView(navigationTitle: "Downloaded", listSource: .downloaded)
         } label: {
-          Label("Downloaded", systemImage: "arrow.down.circle")
+          HStack {
+            Label("Downloaded", systemImage: "arrow.down.circle")
+            Spacer()
+            Text("\(downloadedCount)")
+          }
+        }
+        NavigationLink {
+          SongsView(navigationTitle: "Downloading", listSource: .downloading)
+        } label: {
+          HStack {
+            Label("Downloading", systemImage: "arrow.down.circle.dotted")
+            Spacer()
+            Text("\(downloadingCount)")
+          }
         }
       }
     }
@@ -55,6 +95,24 @@ struct LibraryView: View {
     .navigationTitle(libraryName)
     .refreshable {
       await reloadLibraryContents()
+    }
+    .task {
+      await refreshCounts()
+    }
+    .task(id: refreshCoordinator.generation) {
+      await refreshCounts()
+    }
+    .onReceive(NotificationCenter.default.publisher(for: DownloadManager.downloadingSongsDidChangeNotification)) { _ in
+      Task {
+        downloadingCount = await DownloadManager.downloadingSongs().count
+      }
+    }
+    .onReceive(NotificationCenter.default.publisher(for: DownloadManager.downloadDidFinishNotification)) { _ in
+      Task {
+        let downloaded = await DownloadManager.localDownloadedSongs(for: client)
+        downloadedCount = downloaded.songs.count
+        downloadingCount = await DownloadManager.downloadingSongs().count
+      }
     }
   }
 
@@ -65,6 +123,49 @@ struct LibraryView: View {
     } catch {
       // Pull-to-refresh has no dedicated error UI; child screens show load failures.
     }
+  }
+
+  private func refreshCounts() async {
+    guard let scope = await LibrarySongCacheScope.current(for: client) else {
+      allSongsCount = 0
+      artistsCount = 0
+      albumsCount = 0
+      playlistsCount = 0
+      favoritesCount = 0
+      downloadedCount = 0
+      downloadingCount = await DownloadManager.downloadingSongs().count
+      return
+    }
+
+    let songs = await SongCacheStore.shared.loadSongs(
+      serverID: scope.serverID,
+      libraryID: scope.libraryID
+    ) ?? []
+    allSongsCount = songs.count
+    favoritesCount = songs.reduce(into: 0) { count, song in
+      if song.starred != nil {
+        count += 1
+      }
+    }
+    artistsCount =
+      await ArtistCacheStore.shared.loadArtists(
+        serverID: scope.serverID,
+        libraryID: scope.libraryID
+      )?.count ?? 0
+    albumsCount =
+      await AlbumCacheStore.shared.loadAlbums(
+        serverID: scope.serverID,
+        libraryID: scope.libraryID
+      )?.count ?? 0
+    playlistsCount =
+      await PlaylistSummaryCacheStore.shared.loadPlaylists(
+        serverID: scope.serverID,
+        libraryID: scope.libraryID
+      )?.count ?? 0
+
+    let downloaded = await DownloadManager.localDownloadedSongs(for: client)
+    downloadedCount = downloaded.songs.count
+    downloadingCount = await DownloadManager.downloadingSongs().count
   }
 }
 

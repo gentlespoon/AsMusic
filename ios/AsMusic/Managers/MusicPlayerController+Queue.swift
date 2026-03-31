@@ -12,7 +12,7 @@ extension MusicPlayerController {
     guard nowPlayingQueue.indices.contains(index) else { return }
     let songID = nowPlayingQueue[index].id
     guard let resolved = await resolveSongAndClient(for: songID) else { return }
-    let streamURL = resolved.client.media.stream(forSongID: songID)
+    let streamURL = DownloadManager.streamURL(forSongID: songID, from: resolved.client)
     await load(
       url: streamURL,
       cacheRelativePath: resolved.song.path,
@@ -25,33 +25,30 @@ extension MusicPlayerController {
       return (song, client)
     }
 
+    guard let selection = SelectedLibraryStore.shared.selection else { return nil }
     let manager = ServerManager()
-    let servers = manager.servers
-    guard !servers.isEmpty else { return nil }
-    let preferredServerID = SelectedLibraryStore.shared.selection?.serverID
-    let orderedServers = servers.sorted { lhs, rhs in
-      if lhs.id == preferredServerID { return true }
-      if rhs.id == preferredServerID { return false }
-      return false
+    guard let server = manager.servers.first(where: { $0.id == selection.serverID }) else { return nil }
+    let client = await NavidromeClientStore.shared.client(for: server)
+    guard
+      let songs = await SongCacheStore.shared.loadSongs(
+        serverID: selection.serverID,
+        libraryID: selection.folderID
+      ),
+      !songs.isEmpty
+    else {
+      return nil
     }
-
-    for server in orderedServers {
-      let client = await NavidromeClientStore.shared.client(for: server)
-      guard let songs = await SongCacheStore.shared.loadSongs(forServerID: server.id), !songs.isEmpty else {
-        continue
-      }
-      for song in songs {
-        cachedSongsByID[song.id] = song
-        cachedClientBySongID[song.id] = client
-        if song.starred != nil {
-          starredSongIDs.insert(song.id)
-        }
-      }
-      if let match = cachedSongsByID[songID], let sourceClient = cachedClientBySongID[songID] {
-        return (match, sourceClient)
+    for song in songs {
+      cachedSongsByID[song.id] = song
+      cachedClientBySongID[song.id] = client
+      if song.starred != nil {
+        starredSongIDs.insert(song.id)
       }
     }
-    return nil
+    guard let match = cachedSongsByID[songID], let sourceClient = cachedClientBySongID[songID] else {
+      return nil
+    }
+    return (match, sourceClient)
   }
 
   func setCurrentTrackStarred(_ shouldStar: Bool) async {

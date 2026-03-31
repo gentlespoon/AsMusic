@@ -13,7 +13,9 @@ struct SongsView: View {
     /// Loads the full library list (cache + server).
     case library
     /// Cached library songs that have a complete on-disk file (same scan as former Downloaded list).
-    case localDownloaded
+    case downloaded
+    /// Songs currently being downloaded by `DownloadManager`.
+    case downloading
   }
 
   /// When `nil`, loads from `listSource`. When set, shows only these songs.
@@ -34,6 +36,7 @@ struct SongsView: View {
   @State private var isLoading = false
   @State private var errorMessage: String?
   @State private var downloadErrorMessage: String?
+  @State private var downloadingProgressBySongID: [String: Double] = [:]
   @State private var searchText = ""
 
   init(
@@ -51,7 +54,8 @@ struct SongsView: View {
   }
 
   private var isFixedListMode: Bool { fixedSongs != nil }
-  private var isLocalDownloadedMode: Bool { fixedSongs == nil && listSource == .localDownloaded }
+  private var isLocalDownloadedMode: Bool { fixedSongs == nil && listSource == .downloaded }
+  private var isDownloadingMode: Bool { fixedSongs == nil && listSource == .downloading }
   private var isLibraryMode: Bool { fixedSongs == nil && listSource == .library }
 
   private var displaySongs: [Song] {
@@ -78,10 +82,11 @@ struct SongsView: View {
   }
 
   private var canDownloadVisibleSongs: Bool {
-    filteredSongs.contains { song in
-      guard let request = downloadRequest(for: song) else { return false }
-      return !SongFileCache.hasCached(for: request.remoteURL, relativePath: request.relativePath)
-    }
+    DownloadManager.canDownload(
+      songs: filteredSongs,
+      preferredClient: client,
+      songClientsByID: injectedSongClientsByID
+    )
   }
 
   var body: some View {
@@ -96,8 +101,14 @@ struct SongsView: View {
         }
       }
 
-      if (isLibraryMode || isLocalDownloadedMode) && isLoading && displaySongs.isEmpty {
-        ProgressView(isLocalDownloadedMode ? "Checking downloads…" : "Loading songs...")
+      if (isLibraryMode || isLocalDownloadedMode || isDownloadingMode) && isLoading && displaySongs.isEmpty {
+        ProgressView(
+          isLocalDownloadedMode
+            ? "Checking downloads…"
+            : isDownloadingMode
+              ? "Checking downloading songs…"
+              : "Loading songs..."
+        )
       } else if isLibraryMode, let errorMessage {
         ContentUnavailableView(
           "Unable to Load Songs",
@@ -107,10 +118,16 @@ struct SongsView: View {
       } else if displaySongs.isEmpty {
         ContentUnavailableView(
           isLocalDownloadedMode ? "No Downloaded Songs" : "No Songs",
-          systemImage: isLocalDownloadedMode ? "arrow.down.circle" : "music.note.list",
+          systemImage: isLocalDownloadedMode
+            ? "arrow.down.circle"
+            : isDownloadingMode
+              ? "arrow.down.circle.dotted"
+              : "music.note.list",
           description: Text(
             isLocalDownloadedMode
               ? "Songs you play are saved under Documents. Open Songs and play a track, then pull to refresh here."
+              : isDownloadingMode
+                ? "No songs are currently downloading."
               : isLibraryMode
                 ? "No songs found for this library."
                 : "No songs in this album."
@@ -179,6 +196,8 @@ struct SongsView: View {
     .task {
       if isLocalDownloadedMode {
         await loadLocalDownloadedSongs()
+      } else if isDownloadingMode {
+        await loadDownloadingSongs()
       } else if isLibraryMode {
         await loadSongsFromCacheOnly()
       }
@@ -192,6 +211,28 @@ struct SongsView: View {
       }
     } message: {
       Text(downloadErrorMessage ?? "Unknown error.")
+    }
+    .onReceive(NotificationCenter.default.publisher(for: DownloadManager.downloadingSongsDidChangeNotification)) { _ in
+      Task {
+        if isDownloadingMode {
+          await loadDownloadingSongs()
+        }
+      }
+    }
+    .onReceive(NotificationCenter.default.publisher(for: DownloadManager.downloadDidFinishNotification)) { _ in
+      Task {
+        if isLocalDownloadedMode {
+          await loadLocalDownloadedSongs()
+        } else if isDownloadingMode {
+          await loadDownloadingSongs()
+        }
+      }
+    }
+    .onReceive(NotificationCenter.default.publisher(for: DownloadManager.downloadProgressDidChangeNotification)) { _ in
+      guard isDownloadingMode else { return }
+      Task {
+        downloadingProgressBySongID = await DownloadManager.downloadingProgressBySongID()
+      }
     }
   }
 
@@ -210,31 +251,12 @@ struct SongsView: View {
     guard let client else {
       loadedSongs = []
       localPlaybackURLs = [:]
-      return
-    }
-
-    guard let scope = await LibrarySongCacheScope.current(for: client) else {
-      loadedSongs = []
-      localPlaybackURLs = [:]
       errorMessage = nil
       return
     }
-    guard
-      let cachedSongs = await SongCacheStore.shared.loadSongs(
-        serverID: scope.serverID,
-        libraryID: scope.libraryID
-      ),
-      !cachedSongs.isEmpty
-    else {
-      loadedSongs = []
-      localPlaybackURLs = [:]
-      errorMessage = nil
-      return
-    }
-
-    let entries = await LocalCachedSongList.entries(from: cachedSongs, client: client)
-    loadedSongs = entries.map(\.song)
-    localPlaybackURLs = Dictionary(uniqueKeysWithValues: entries.map { ($0.song.id, $0.localURL) })
+    let localDownloaded = await DownloadManager.localDownloadedSongs(for: client)
+    loadedSongs = localDownloaded.songs
+    localPlaybackURLs = localDownloaded.playbackURLsBySongID
     errorMessage = nil
   }
 
@@ -261,17 +283,23 @@ struct SongsView: View {
     errorMessage = nil
   }
 
+  private func loadDownloadingSongs() async {
+    isLoading = true
+    defer { isLoading = false }
+    errorMessage = nil
+    loadedSongs = await DownloadManager.downloadingSongs()
+    downloadingProgressBySongID = await DownloadManager.downloadingProgressBySongID()
+  }
+
   private func playbackURL(for song: Song) -> URL? {
     if isLocalDownloadedMode {
       return localPlaybackURLs[song.id]
     }
-    if let client {
-      return client.media.stream(forSongID: song.id)
-    }
-    if let sourceClient = injectedSongClientsByID[song.id] {
-      return sourceClient.media.stream(forSongID: song.id)
-    }
-    return nil
+    return DownloadManager.streamURL(
+      for: song,
+      preferredClient: client,
+      songClientsByID: injectedSongClientsByID
+    )
   }
 
   private func queueItem(for song: Song) -> NowPlayingQueueItem {
@@ -289,30 +317,12 @@ struct SongsView: View {
     )
   }
 
-  private func downloadRequest(for song: Song) -> (remoteURL: URL, relativePath: String?)? {
-    if let client {
-      return (client.media.download(forSongID: song.id), song.path)
-    }
-    guard let sourceClient = injectedSongClientsByID[song.id] else { return nil }
-    return (sourceClient.media.download(forSongID: song.id), song.path)
-  }
-
   private func downloadAllSongsInView() async {
-    var failedCount = 0
-    for song in filteredSongs {
-      guard let request = downloadRequest(for: song) else { continue }
-      if SongFileCache.hasCached(for: request.remoteURL, relativePath: request.relativePath) {
-        continue
-      }
-      do {
-        try await SongFileCache.downloadFullToCache(
-          remoteURL: request.remoteURL,
-          relativePath: request.relativePath
-        )
-      } catch {
-        failedCount += 1
-      }
-    }
+    let failedCount = await DownloadManager.downloadAllMissing(
+      songs: filteredSongs,
+      preferredClient: client,
+      songClientsByID: injectedSongClientsByID
+    )
     if failedCount > 0 {
       downloadErrorMessage =
         failedCount == 1
@@ -329,35 +339,54 @@ struct SongsView: View {
         Button {
           openPlayer(for: song)
         } label: {
-          SongRowContentView(song: song)
+          SongRowContentView(
+            song: song,
+            showsDownloadProgressBar: isDownloadingMode,
+            downloadProgress: downloadingProgressBySongID[song.id]
+          )
         }
       } else {
-        SongRowContentView(song: song)
+        SongRowContentView(
+          song: song,
+          showsDownloadProgressBar: isDownloadingMode,
+          downloadProgress: downloadingProgressBySongID[song.id]
+        )
       }
     }
     .buttonStyle(.plain)
     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-      Button {
-        guard canQueue else { return }
-        let item = queueItem(for: song)
-        Task { @MainActor in
-          await playback.insertAfterCurrentWithoutPlaying(item)
+      if isDownloadingMode {
+        Button(role: .destructive) {
+          Task {
+            await DownloadManager.removeFromDownloading(songID: song.id)
+            loadedSongs = await DownloadManager.downloadingSongs()
+          }
+        } label: {
+          Label("Remove from Downloading", systemImage: "xmark.circle")
         }
-      } label: {
-        Label("Play Next", systemImage: "text.insert")
-      }
-      .tint(.orange)
-      .disabled(!canQueue)
+      } else {
+        Button {
+          guard canQueue else { return }
+          let item = queueItem(for: song)
+          Task { @MainActor in
+            await playback.insertAfterCurrentWithoutPlaying(item)
+          }
+        } label: {
+          Label("Play Next", systemImage: "text.insert")
+        }
+        .tint(.orange)
+        .disabled(!canQueue)
 
-      Button {
-        guard canQueue else { return }
-        let item = queueItem(for: song)
-        playback.appendToEndOfQueue(item)
-      } label: {
-        Label("Add to Queue", systemImage: "text.line.last.and.arrowtriangle.forward")
+        Button {
+          guard canQueue else { return }
+          let item = queueItem(for: song)
+          playback.appendToEndOfQueue(item)
+        } label: {
+          Label("Add to Queue", systemImage: "text.line.last.and.arrowtriangle.forward")
+        }
+        .tint(.blue)
+        .disabled(!canQueue)
       }
-      .tint(.blue)
-      .disabled(!canQueue)
     }
   }
 

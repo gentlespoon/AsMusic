@@ -6,7 +6,7 @@
 import Foundation
 
 enum LibraryCacheMaintenance {
-  static func resetAllCaches() async -> Bool {
+  static func resetDatabase() async -> Bool {
     await SongCacheStore.shared.closeDatabase()
     await PlaylistSummaryCacheStore.shared.closeDatabase()
     await LibraryFoldersCacheStore.shared.closeDatabase()

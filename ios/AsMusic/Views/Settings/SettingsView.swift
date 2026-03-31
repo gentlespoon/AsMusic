@@ -16,6 +16,20 @@ struct SettingsView: View {
   var body: some View {
     List {
 
+      Section {
+        EmptyView()
+      } header: {
+        Text("How to use Player Bar?")
+      } footer: {
+        Text(
+          """
+            Short tap to play/pause.
+            Swipe horizontally to skip tracks.
+            Swipe up to show player.
+            Hold and drag to seek.
+          """)
+      }
+
       Section("Appearance") {
         Picker("Color Scheme", selection: $appAppearanceRaw) {
           ForEach(AppAppearance.allCases) { appearance in

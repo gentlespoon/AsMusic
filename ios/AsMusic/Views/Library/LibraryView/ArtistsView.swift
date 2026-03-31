@@ -11,12 +11,11 @@ import SwiftUI
 struct ArtistsView: View {
   @Environment(\.libraryClient) private var client
 
-  @State private var artists: [Artist] = []
-  @State private var isLoading = false
+  @State private var artists: [ArtistSummary] = []
   @State private var errorMessage: String?
   @State private var searchText = ""
 
-  private var filteredArtists: [Artist] {
+  private var filteredArtists: [ArtistSummary] {
     let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !query.isEmpty else { return artists }
     let needle = query.lowercased()
@@ -25,9 +24,7 @@ struct ArtistsView: View {
 
   var body: some View {
     List {
-      if isLoading && artists.isEmpty {
-        ProgressView("Loading artists...")
-      } else if let errorMessage {
+      if let errorMessage {
         ContentUnavailableView(
           "Unable to Load Artists",
           systemImage: "exclamationmark.triangle",
@@ -48,9 +45,14 @@ struct ArtistsView: View {
       } else {
         ForEach(filteredArtists) { artist in
           NavigationLink {
-            AlbumsView(artist: artist)
+            AlbumsView(artist: Artist(id: artist.id, name: artist.name))
           } label: {
-            Text(artist.name)
+            VStack(alignment: .leading, spacing: 2) {
+              Text(artist.name)
+              Text("\(artist.albumCount) \(artist.albumCount == 1 ? "album" : "albums")")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
           }
         }
       }
@@ -58,55 +60,27 @@ struct ArtistsView: View {
     .searchable(text: $searchText, prompt: "Filter artists")
     .navigationTitle("Artists")
     .task {
-      await loadArtistsFromSongCacheOrServer()
+      await loadArtistsFromCacheOnly()
     }
   }
 
-  private func loadArtistsFromSongCacheOrServer() async {
+  private func loadArtistsFromCacheOnly() async {
     guard let client else {
       errorMessage = "No library connection."
       return
     }
 
-    if let scope = await LibrarySongCacheScope.current(for: client),
-      let cachedArtists = await ArtistCacheStore.shared.loadArtists(
+    guard let scope = await LibrarySongCacheScope.current(for: client) else {
+      artists = []
+      errorMessage = nil
+      return
+    }
+
+    artists =
+      await ArtistCacheStore.shared.loadArtistSummaries(
         serverID: scope.serverID,
         libraryID: scope.libraryID
-      ),
-      !cachedArtists.isEmpty
-    {
-      artists = cachedArtists
-      errorMessage = nil
-      return
-    }
-
-    await reloadArtistsFromSongServer()
-  }
-
-  private func reloadArtistsFromSongServer() async {
-    guard let client else {
-      errorMessage = "No library connection."
-      return
-    }
-
-    isLoading = true
-    defer { isLoading = false }
-
-    do {
-      try await LibrarySongCacheReload.fetchAndSave(client: client)
-      if let scope = await LibrarySongCacheScope.current(for: client),
-        let cachedArtists = await ArtistCacheStore.shared.loadArtists(
-          serverID: scope.serverID,
-          libraryID: scope.libraryID
-        )
-      {
-        artists = cachedArtists
-      } else {
-        artists = []
-      }
-      errorMessage = nil
-    } catch {
-      errorMessage = error.localizedDescription
-    }
+      ) ?? []
+    errorMessage = nil
   }
 }

@@ -123,14 +123,14 @@ struct PlaylistView: View {
         playlistID: playlist.id,
         playlistName: playlist.name,
         onSaved: {
-          await loadPlaylistsFromCache()
+          await reloadPlaylistsFromServer()
         }
       )
     }
   }
 
   private func loadPlaylistsFromCache() async {
-    guard let context = await resolvePlaylistCacheContext(environmentClient: client) else {
+    guard let context = await resolvePlaylistCacheContext() else {
       errorMessage = "Add a server in Settings to load playlists."
       playlists = []
       return
@@ -144,14 +144,14 @@ struct PlaylistView: View {
       libraryID: context.libraryID
     ) {
       playlists = cached
-      errorMessage = nil
     } else {
       playlists = []
     }
+    errorMessage = nil
   }
 
   private func reloadPlaylistsFromServer() async {
-    guard let context = await resolvePlaylistCacheContext(environmentClient: client) else {
+    guard let context = await resolvePlaylistCacheContext() else {
       errorMessage = "Add a server in Settings to load playlists."
       playlists = []
       return
@@ -191,14 +191,15 @@ struct PlaylistView: View {
       return
     }
 
-    guard let context = await resolvePlaylistCacheContext(environmentClient: client) else {
+    guard let context = await resolvePlaylistCacheContext() else {
       createPlaylistErrorMessage = "Add a server in Settings to create playlists."
       return
     }
 
     do {
       try await context.client.createPlaylist(name: name)
-      await loadPlaylistsFromCache()
+      // Pull latest playlists and persist cache so the new playlist appears immediately.
+      await reloadPlaylistsFromServer()
     } catch {
       createPlaylistErrorMessage = error.localizedDescription
     }
@@ -245,7 +246,7 @@ private struct PlaylistRowLabelView: View {
     VStack(alignment: .leading, spacing: 2) {
       Text(playlist.name)
       if let count = playlist.songCount {
-        Text("\(count) songs")
+        Text("\(count) \(count == 1 ? "song" : "songs")")
           .font(.caption)
           .foregroundStyle(.secondary)
       }
@@ -275,10 +276,8 @@ private struct PlaylistCacheContext {
   let libraryID: String
 }
 
-private func resolvePlaylistCacheContext(environmentClient: AsNavidromeClient?) async
-  -> PlaylistCacheContext?
+private func resolvePlaylistCacheContext() async -> PlaylistCacheContext?
 {
-  _ = environmentClient
   let selection = await MainActor.run(resultType: SelectedLibrary?.self) {
     SelectedLibraryStore.shared.selection
   }

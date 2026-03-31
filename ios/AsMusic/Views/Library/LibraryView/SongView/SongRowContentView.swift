@@ -28,7 +28,7 @@ struct SongRowContentView: View {
     case (nil, nil): return nil
     case (let x?, nil): return x
     case (nil, let y?): return y
-    case (let x?, let y?): return "\(x) - \(y)"
+    case (let x?, let y?): return "\(x) · \(y)"
     }
   }
 

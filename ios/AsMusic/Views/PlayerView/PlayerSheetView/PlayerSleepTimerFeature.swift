@@ -9,11 +9,15 @@ import SwiftUI
 @Observable
 @MainActor
 final class PlayerSleepTimerManager {
+  static let shared = PlayerSleepTimerManager()
+
   private(set) var activeMinutes: Int?
   private(set) var remainingSeconds: Int?
 
   @ObservationIgnored
   private var sleepTimerTask: Task<Void, Never>?
+
+  private init() {}
 
   deinit {
     sleepTimerTask?.cancel()

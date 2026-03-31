@@ -16,23 +16,27 @@ struct LibraryView: View {
 
   var body: some View {
     List {
-      NavigationLink("Artists") {
-        ArtistsView()
+      Section {
+        NavigationLink("All Songs") {
+          SongsView()
+        }
+        NavigationLink("Artists") {
+          ArtistsView()
+        }
+        NavigationLink("Albums") {
+          AlbumsView()
+        }
+        NavigationLink("Playlists") {
+          PlaylistView()
+        }
+        NavigationLink("Favorites") {
+          FavoritesView(client: client)
+        }
       }
-      NavigationLink("Albums") {
-        AlbumsView()
-      }
-      NavigationLink("Songs") {
-        SongsView()
-      }
-      NavigationLink("Playlists") {
-        PlaylistView()
-      }
-      NavigationLink("Favorites") {
-        FavoritesView(client: client)
-      }
-      NavigationLink("Downloaded") {
-        SongsView(navigationTitle: "Downloaded", listSource: .localDownloaded)
+      Section {
+        NavigationLink("Downloaded") {
+          SongsView(navigationTitle: "Downloaded", listSource: .localDownloaded)
+        }
       }
     }
     .navigationTitle(libraryName)

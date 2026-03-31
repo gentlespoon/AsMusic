@@ -17,10 +17,10 @@ struct PlayerSheetView: View {
   @State private var marqueeContentWidth: CGFloat = 0
   @State private var isStarActionInFlight = false
   @State private var isQueueSheetPresented = false
-  @State private var sleepTimer = PlayerSleepTimerManager()
+  @State private var sleepTimer = PlayerSleepTimerManager.shared
   @State private var isSleepTimerSheetPresented = false
   @State private var sleepTimerSelectionMinutes: Double = 15
-  @State private var isPlaylistDialogPresented = false
+  @State private var isPlaylistSheetPresented = false
   @State private var availablePlaylists: [PlaylistSummary] = []
   @State private var isMetadataAlertPresented = false
   @State private var userFacingErrorMessage: String?
@@ -342,24 +342,36 @@ struct PlayerSheetView: View {
             }
           )
         }
-        .confirmationDialog(
-          "Add to Playlist",
-          isPresented: $isPlaylistDialogPresented,
-          titleVisibility: .visible
-        ) {
-          if availablePlaylists.isEmpty {
-            Button("No playlists found") {}
-              .disabled(true)
-          } else {
-            ForEach(availablePlaylists) { playlist in
-              Button(playlist.name) {
-                Task {
-                  await addCurrentSong(to: playlist)
+        .sheet(isPresented: $isPlaylistSheetPresented) {
+          NavigationStack {
+            List {
+              if availablePlaylists.isEmpty {
+                ContentUnavailableView(
+                  "No Playlists Found",
+                  systemImage: "music.note.list",
+                  description: Text("Create a playlist first, then try again.")
+                )
+              } else {
+                ForEach(availablePlaylists) { playlist in
+                  Button(playlist.name) {
+                    Task {
+                      await addCurrentSong(to: playlist)
+                    }
+                  }
+                  .foregroundStyle(.primary)
+                }
+              }
+            }
+            .navigationTitle("Add to Playlist")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+              ToolbarItem(placement: .topBarTrailing) {
+                Button("Done") {
+                  isPlaylistSheetPresented = false
                 }
               }
             }
           }
-          Button("Cancel", role: .cancel) {}
         }
         .alert("Track Metadata", isPresented: $isMetadataAlertPresented) {
           Button("OK", role: .cancel) {}
@@ -462,7 +474,7 @@ struct PlayerSheetView: View {
       serverID: context.serverID,
       libraryID: context.libraryID
     ) ?? []
-    isPlaylistDialogPresented = true
+    isPlaylistSheetPresented = true
   }
 
   private func addCurrentSong(to playlist: PlaylistSummary) async {

@@ -46,6 +46,48 @@ actor ArtistCacheStore {
     return artists.isEmpty ? nil : artists
   }
 
+  func loadArtistSummaries(serverID: UUID, libraryID: String) -> [ArtistSummary]? {
+    guard openIfNeeded() else { return nil }
+
+    let sql = """
+      SELECT
+        artist.artist_id,
+        artist.artist_name,
+        COUNT(album.album_id)
+      FROM artist_cache AS artist
+      LEFT JOIN album_cache AS album
+        ON album.server_id = artist.server_id
+        AND album.library_id = artist.library_id
+        AND album.artist_id = artist.artist_id
+      WHERE artist.server_id = ? AND artist.library_id = ?
+      GROUP BY artist.artist_id, artist.artist_name
+      ORDER BY artist.artist_name COLLATE NOCASE ASC;
+      """
+    var statement: OpaquePointer?
+    defer { sqlite3_finalize(statement) }
+    guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else { return nil }
+    sqlite3_bind_text(statement, 1, serverID.uuidString, -1, Self.transientDestructor)
+    sqlite3_bind_text(statement, 2, libraryID, -1, Self.transientDestructor)
+
+    var artists: [ArtistSummary] = []
+    while sqlite3_step(statement) == SQLITE_ROW {
+      guard
+        let artistIDCString = sqlite3_column_text(statement, 0),
+        let artistNameCString = sqlite3_column_text(statement, 1)
+      else {
+        continue
+      }
+      artists.append(
+        ArtistSummary(
+          id: String(cString: artistIDCString),
+          name: String(cString: artistNameCString),
+          albumCount: Int(sqlite3_column_int64(statement, 2))
+        )
+      )
+    }
+    return artists.isEmpty ? nil : artists
+  }
+
   func replaceArtists(
     _ artists: [Artist],
     albumIDsByArtistID: [String: [String]],
@@ -123,23 +165,21 @@ actor ArtistCacheStore {
         }
         return false
       }
-      guard execute("DROP TABLE IF EXISTS artist_cache;") else {
-        sqlite3_close(db)
-        db = nil
-        return false
-      }
-      guard execute("""
-        CREATE TABLE artist_cache (
-          server_id TEXT NOT NULL,
-          library_id TEXT NOT NULL,
-          artist_id TEXT NOT NULL,
-          artist_name TEXT NOT NULL,
-          album_ids_json BLOB NOT NULL,
-          updated_at REAL NOT NULL,
-          PRIMARY KEY (server_id, library_id, artist_id)
-        );
-        """
-      ) else {
+      guard
+        execute(
+          """
+          CREATE TABLE IF NOT EXISTS artist_cache (
+            server_id TEXT NOT NULL,
+            library_id TEXT NOT NULL,
+            artist_id TEXT NOT NULL,
+            artist_name TEXT NOT NULL,
+            album_ids_json BLOB NOT NULL,
+            updated_at REAL NOT NULL,
+            PRIMARY KEY (server_id, library_id, artist_id)
+          );
+          """
+        )
+      else {
         sqlite3_close(db)
         db = nil
         return false
@@ -166,4 +206,3 @@ actor ArtistCacheStore {
     return directory.appending(path: "library-cache.sqlite3", directoryHint: .notDirectory)
   }
 }
-

@@ -163,7 +163,7 @@ actor PlaylistSummaryCacheStore {
         return false
       }
 
-      guard migrateSchemaIfNeeded() else {
+      guard createSchemaIfNeeded() else {
         sqlite3_close(db)
         db = nil
         return false
@@ -175,8 +175,8 @@ actor PlaylistSummaryCacheStore {
     }
   }
 
-  private func migrateSchemaIfNeeded() -> Bool {
-    guard execute("""
+  private func createSchemaIfNeeded() -> Bool {
+    execute("""
       CREATE TABLE IF NOT EXISTS playlist_cache (
         server_id TEXT NOT NULL,
         library_id TEXT NOT NULL,
@@ -188,53 +188,7 @@ actor PlaylistSummaryCacheStore {
         PRIMARY KEY (server_id, library_id, playlist_id)
       );
       """
-    ) else {
-      return false
-    }
-
-    let existingColumns = tableColumns(for: "playlist_cache")
-    guard !existingColumns.contains("payload") else {
-      guard execute("DROP TABLE IF EXISTS playlist_cache;") else { return false }
-      return execute("""
-        CREATE TABLE IF NOT EXISTS playlist_cache (
-          server_id TEXT NOT NULL,
-          library_id TEXT NOT NULL,
-          playlist_id TEXT NOT NULL,
-          playlist_json BLOB NOT NULL,
-          song_list_json BLOB NOT NULL,
-          sort_index INTEGER NOT NULL,
-          updated_at REAL NOT NULL,
-          PRIMARY KEY (server_id, library_id, playlist_id)
-        );
-        """
-      )
-    }
-
-    return existingColumns.contains("server_id")
-      && existingColumns.contains("library_id")
-      && existingColumns.contains("playlist_id")
-      && existingColumns.contains("playlist_json")
-      && existingColumns.contains("song_list_json")
-      && existingColumns.contains("sort_index")
-  }
-
-  private func tableColumns(for tableName: String) -> Set<String> {
-    let sql = "PRAGMA table_info(\(tableName));"
-    var statement: OpaquePointer?
-    defer { sqlite3_finalize(statement) }
-
-    guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else {
-      return []
-    }
-
-    var columns = Set<String>()
-    while sqlite3_step(statement) == SQLITE_ROW {
-      guard let nameCString = sqlite3_column_text(statement, 1) else {
-        continue
-      }
-      columns.insert(String(cString: nameCString))
-    }
-    return columns
+    )
   }
 
   private func execute(_ sql: String) -> Bool {

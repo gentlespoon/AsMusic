@@ -30,10 +30,10 @@ struct SongsView: View {
   @State private var loadedSongs: [Song] = []
   /// Populated in `.localDownloaded` mode for file playback.
   @State private var localPlaybackURLs: [String: URL] = [:]
-  @State private var songClientsByID: [String: AsNavidromeClient] = [:]
   @State private var resolvedAlbumArtworkURL: URL?
   @State private var isLoading = false
   @State private var errorMessage: String?
+  @State private var downloadErrorMessage: String?
   @State private var searchText = ""
 
   init(
@@ -74,6 +74,13 @@ struct SongsView: View {
     filteredSongs.compactMap { song in
       guard playbackURL(for: song) != nil else { return nil }
       return queueItem(for: song)
+    }
+  }
+
+  private var canDownloadVisibleSongs: Bool {
+    filteredSongs.contains { song in
+      guard let request = downloadRequest(for: song) else { return false }
+      return !SongFileCache.hasCached(for: request.remoteURL, relativePath: request.relativePath)
     }
   }
 
@@ -125,8 +132,6 @@ struct SongsView: View {
     .navigationTitle(navigationTitle)
     .toolbar {
       ToolbarItemGroup(placement: .topBarTrailing) {
-        
-
         Button {
           startPlaybackOrdered()
         } label: {
@@ -142,6 +147,17 @@ struct SongsView: View {
         .disabled(playableQueueItems.isEmpty)
 
         Menu {
+          Button {
+            Task {
+              await downloadAllSongsInView()
+            }
+          } label: {
+            Label("Download all songs in view", systemImage: "arrow.down.circle")
+          }
+          .disabled(!canDownloadVisibleSongs)
+
+          Divider()
+          
           Button {
             playAllSongsNext()
           } label: {
@@ -161,16 +177,21 @@ struct SongsView: View {
       }
     }
     .task {
-      guard isLibraryMode else { return }
-      await loadSongsFromCacheOrServer()
-    }
-    .task {
       if isLocalDownloadedMode {
         await loadLocalDownloadedSongs()
+      } else if isLibraryMode {
+        await loadSongsFromCacheOnly()
       }
     }
     .task(id: injectedAlbumArtworkURL?.absoluteString ?? "") {
       await resolveAlbumArtworkURL()
+    }
+    .alert("Unable to Download Songs", isPresented: downloadErrorBinding) {
+      Button("OK", role: .cancel) {
+        downloadErrorMessage = nil
+      }
+    } message: {
+      Text(downloadErrorMessage ?? "Unknown error.")
     }
   }
 
@@ -217,64 +238,27 @@ struct SongsView: View {
     errorMessage = nil
   }
 
-  private func loadSongsFromCacheOrServer() async {
+  private func loadSongsFromCacheOnly() async {
     guard let client else {
       errorMessage = "No library connection."
       return
     }
 
     guard let scope = await LibrarySongCacheScope.current(for: client) else {
-      await reloadSongsFromServer()
-      return
-    }
-
-    if let cachedSongs = await SongCacheStore.shared.loadSongs(
-      serverID: scope.serverID,
-      libraryID: scope.libraryID
-    ),
-      !cachedSongs.isEmpty
-    {
-      loadedSongs = cachedSongs
+      loadedSongs = []
       errorMessage = nil
       return
     }
 
-    await reloadSongsFromServer()
-  }
-
-  private func reloadSongsFromServer() async {
-    guard let client else {
-      errorMessage = "No library connection."
-      return
-    }
-
-    songClientsByID = [:]
     isLoading = true
     defer { isLoading = false }
 
-    do {
-      let (fetched, clientsMap) = try await LibrarySongFetch.loadSongs(client: client)
-
-      loadedSongs = fetched
-      songClientsByID = clientsMap
-      if let scope = await LibrarySongCacheScope.current(for: client) {
-        await SongCacheStore.shared.saveSongs(
-          loadedSongs,
-          serverID: scope.serverID,
-          libraryID: scope.libraryID
-        )
-      }
-      errorMessage = nil
-    } catch {
-      errorMessage = error.localizedDescription
-    }
-  }
-
-  private func effectiveSongClientsByID() -> [String: AsNavidromeClient] {
-    if !injectedSongClientsByID.isEmpty {
-      return injectedSongClientsByID
-    }
-    return songClientsByID
+    loadedSongs =
+      await SongCacheStore.shared.loadSongs(
+      serverID: scope.serverID,
+      libraryID: scope.libraryID
+      ) ?? []
+    errorMessage = nil
   }
 
   private func playbackURL(for song: Song) -> URL? {
@@ -284,8 +268,7 @@ struct SongsView: View {
     if let client {
       return client.media.stream(forSongID: song.id)
     }
-    let map = effectiveSongClientsByID()
-    if let sourceClient = map[song.id] {
+    if let sourceClient = injectedSongClientsByID[song.id] {
       return sourceClient.media.stream(forSongID: song.id)
     }
     return nil
@@ -293,6 +276,49 @@ struct SongsView: View {
 
   private func queueItem(for song: Song) -> NowPlayingQueueItem {
     NowPlayingQueueItem(id: song.id)
+  }
+
+  private var downloadErrorBinding: Binding<Bool> {
+    Binding(
+      get: { downloadErrorMessage != nil },
+      set: { isPresented in
+        if !isPresented {
+          downloadErrorMessage = nil
+        }
+      }
+    )
+  }
+
+  private func downloadRequest(for song: Song) -> (remoteURL: URL, relativePath: String?)? {
+    if let client {
+      return (client.media.download(forSongID: song.id), song.path)
+    }
+    guard let sourceClient = injectedSongClientsByID[song.id] else { return nil }
+    return (sourceClient.media.download(forSongID: song.id), song.path)
+  }
+
+  private func downloadAllSongsInView() async {
+    var failedCount = 0
+    for song in filteredSongs {
+      guard let request = downloadRequest(for: song) else { continue }
+      if SongFileCache.hasCached(for: request.remoteURL, relativePath: request.relativePath) {
+        continue
+      }
+      do {
+        try await SongFileCache.downloadFullToCache(
+          remoteURL: request.remoteURL,
+          relativePath: request.relativePath
+        )
+      } catch {
+        failedCount += 1
+      }
+    }
+    if failedCount > 0 {
+      downloadErrorMessage =
+        failedCount == 1
+        ? "One song could not be downloaded."
+        : "\(failedCount) songs could not be downloaded."
+    }
   }
 
   @ViewBuilder

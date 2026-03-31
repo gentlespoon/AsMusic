@@ -24,6 +24,7 @@ struct PlaylistSongView: View {
   @State private var isEditorPresented = false
   @State private var isConfirmingDelete = false
   @State private var deletePlaylistErrorMessage: String?
+  @State private var downloadErrorMessage: String?
   @State private var editMode: EditMode = .inactive
 
   private var filteredSongs: [Song] {
@@ -47,6 +48,14 @@ struct PlaylistSongView: View {
 
   private var playableQueueItems: [NowPlayingQueueItem] {
     songsForList.map { NowPlayingQueueItem(id: $0.id) }
+  }
+
+  private var canDownloadVisibleSongs: Bool {
+    guard let client else { return false }
+    return songsForList.contains { song in
+      let remoteURL = client.media.download(forSongID: song.id)
+      return !SongFileCache.hasCached(for: remoteURL, relativePath: song.path)
+    }
   }
 
   var body: some View {
@@ -113,6 +122,17 @@ struct PlaylistSongView: View {
 
           Menu {
             Button {
+              Task {
+                await downloadAllSongsInView()
+              }
+            } label: {
+              Label("Download all songs in view", systemImage: "arrow.down.circle")
+            }
+            .disabled(!canDownloadVisibleSongs)
+
+            Divider()
+            
+            Button {
               playAllSongsNext()
             } label: {
               Label("Play all next", systemImage: "text.insert")
@@ -177,6 +197,13 @@ struct PlaylistSongView: View {
       }
     } message: {
       Text(deletePlaylistErrorMessage ?? "Unknown error.")
+    }
+    .alert("Unable to Download Songs", isPresented: downloadErrorBinding) {
+      Button("OK", role: .cancel) {
+        downloadErrorMessage = nil
+      }
+    } message: {
+      Text(downloadErrorMessage ?? "Unknown error.")
     }
   }
 
@@ -304,6 +331,39 @@ struct PlaylistSongView: View {
         }
       }
     )
+  }
+
+  private var downloadErrorBinding: Binding<Bool> {
+    Binding(
+      get: { downloadErrorMessage != nil },
+      set: { isPresented in
+        if !isPresented {
+          downloadErrorMessage = nil
+        }
+      }
+    )
+  }
+
+  private func downloadAllSongsInView() async {
+    guard let client else { return }
+    var failedCount = 0
+    for song in songsForList {
+      let remoteURL = client.media.download(forSongID: song.id)
+      if SongFileCache.hasCached(for: remoteURL, relativePath: song.path) {
+        continue
+      }
+      do {
+        try await SongFileCache.downloadFullToCache(remoteURL: remoteURL, relativePath: song.path)
+      } catch {
+        failedCount += 1
+      }
+    }
+    if failedCount > 0 {
+      downloadErrorMessage =
+        failedCount == 1
+        ? "One song could not be downloaded."
+        : "\(failedCount) songs could not be downloaded."
+    }
   }
 
   private func deletePlaylist() async {

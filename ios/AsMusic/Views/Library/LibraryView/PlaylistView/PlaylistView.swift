@@ -130,7 +130,7 @@ struct PlaylistView: View {
   }
 
   private func loadPlaylistsFromCache() async {
-    guard let apiClient = await effectiveLibraryClient(client) else {
+    guard let context = await resolvePlaylistCacheContext(environmentClient: client) else {
       errorMessage = "Add a server in Settings to load playlists."
       playlists = []
       return
@@ -139,8 +139,10 @@ struct PlaylistView: View {
     isLoading = true
     defer { isLoading = false }
 
-    let cacheKey = PlaylistSummaryCacheKey.current(for: apiClient)
-    if let cached = await PlaylistSummaryCacheStore.shared.loadPlaylists(for: cacheKey) {
+    if let cached = await PlaylistSummaryCacheStore.shared.loadPlaylists(
+      serverID: context.serverID,
+      libraryID: context.libraryID
+    ) {
       playlists = cached
       errorMessage = nil
     } else {
@@ -149,7 +151,7 @@ struct PlaylistView: View {
   }
 
   private func reloadPlaylistsFromServer() async {
-    guard let apiClient = await effectiveLibraryClient(client) else {
+    guard let context = await resolvePlaylistCacheContext(environmentClient: client) else {
       errorMessage = "Add a server in Settings to load playlists."
       playlists = []
       return
@@ -159,9 +161,12 @@ struct PlaylistView: View {
     defer { isLoading = false }
 
     do {
-      playlists = try await apiClient.getPlaylists()
-      let cacheKey = PlaylistSummaryCacheKey.current(for: apiClient)
-      await PlaylistSummaryCacheStore.shared.savePlaylists(playlists, for: cacheKey)
+      playlists = try await context.client.getPlaylists()
+      await PlaylistSummaryCacheStore.shared.savePlaylists(
+        playlists,
+        serverID: context.serverID,
+        libraryID: context.libraryID
+      )
       errorMessage = nil
     } catch {
       errorMessage = error.localizedDescription
@@ -186,13 +191,13 @@ struct PlaylistView: View {
       return
     }
 
-    guard let apiClient = await effectiveLibraryClient(client) else {
+    guard let context = await resolvePlaylistCacheContext(environmentClient: client) else {
       createPlaylistErrorMessage = "Add a server in Settings to create playlists."
       return
     }
 
     do {
-      try await apiClient.createPlaylist(name: name)
+      try await context.client.createPlaylist(name: name)
       await loadPlaylistsFromCache()
     } catch {
       createPlaylistErrorMessage = error.localizedDescription
@@ -222,16 +227,11 @@ struct PlaylistView: View {
   }
 
   private func deletePlaylist(_ playlist: PlaylistSummary) async {
-    guard let apiClient = await effectiveLibraryClient(client) else {
-      deletePlaylistErrorMessage = "Add a server in Settings to delete playlists."
-      return
-    }
-
     do {
-      try await apiClient.deletePlaylist(id: playlist.id)
-      playlists.removeAll { $0.id == playlist.id }
-      let cacheKey = PlaylistSummaryCacheKey.current(for: apiClient)
-      await PlaylistSummaryCacheStore.shared.savePlaylists(playlists, for: cacheKey)
+      playlists = try await deletePlaylistAndRefreshCache(
+        playlistID: playlist.id,
+        environmentClient: client
+      )
     } catch {
       deletePlaylistErrorMessage = error.localizedDescription
     }
@@ -269,13 +269,25 @@ private struct PlaylistRowView: View {
   }
 }
 
-/// When "Use all libraries" is selected, `libraryClient` is nil; use the first saved server like `SongsView`.
-private func effectiveLibraryClient(_ environmentClient: AsNavidromeClient?) async
-  -> AsNavidromeClient?
+private struct PlaylistCacheContext {
+  let client: AsNavidromeClient
+  let serverID: UUID
+  let libraryID: String
+}
+
+private func resolvePlaylistCacheContext(environmentClient: AsNavidromeClient?) async
+  -> PlaylistCacheContext?
 {
-  if let environmentClient { return environmentClient }
-  let servers = await MainActor.run { ServerManager().servers }
-  guard let first = servers.first else { return nil }
-  return await NavidromeClientStore.shared.client(for: first)
+  _ = environmentClient
+  let selection = await MainActor.run(resultType: SelectedLibrary?.self) {
+    SelectedLibraryStore.shared.selection
+  }
+  if let selection {
+    let servers = await MainActor.run { ServerManager().servers }
+    guard let server = servers.first(where: { $0.id == selection.serverID }) else { return nil }
+    let client = await NavidromeClientStore.shared.client(for: server)
+    return PlaylistCacheContext(client: client, serverID: selection.serverID, libraryID: selection.folderID)
+  }
+  return nil
 }
 

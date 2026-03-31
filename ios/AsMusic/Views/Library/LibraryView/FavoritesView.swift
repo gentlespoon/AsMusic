@@ -49,8 +49,11 @@ struct FavoritesView: View {
   }
 
   private func loadFromCacheOrServer() async {
-    let cacheKey = LibrarySongCacheKey.current(for: client)
-    if let cachedSongs = await SongCacheStore.shared.loadSongs(for: cacheKey),
+    if let scope = await LibrarySongCacheScope.current(for: client),
+      let cachedSongs = await SongCacheStore.shared.loadSongs(
+        serverID: scope.serverID,
+        libraryID: scope.libraryID
+      ),
       !cachedSongs.isEmpty
     {
       songs = cachedSongs
@@ -64,10 +67,15 @@ struct FavoritesView: View {
     isLoading = true
     defer { isLoading = false }
     do {
-      let (fetched, _) = try await LibrarySongFetch.loadSongs(client: client)
-      songs = fetched
-      let cacheKey = LibrarySongCacheKey.current(for: client)
-      await SongCacheStore.shared.saveSongs(fetched, for: cacheKey)
+      try await LibrarySongCacheReload.fetchAndSave(client: client)
+      if let scope = await LibrarySongCacheScope.current(for: client) {
+        songs = await SongCacheStore.shared.loadSongs(
+          serverID: scope.serverID,
+          libraryID: scope.libraryID
+        ) ?? []
+      } else {
+        songs = []
+      }
       errorMessage = nil
     } catch {
       errorMessage = error.localizedDescription

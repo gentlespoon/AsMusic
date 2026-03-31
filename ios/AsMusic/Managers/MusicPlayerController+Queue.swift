@@ -37,8 +37,9 @@ extension MusicPlayerController {
 
     for server in orderedServers {
       let client = await NavidromeClientStore.shared.client(for: server)
-      let cacheKey = LibrarySongCacheKey.current(for: client)
-      guard let songs = await SongCacheStore.shared.loadSongs(for: cacheKey), !songs.isEmpty else { continue }
+      guard let songs = await SongCacheStore.shared.loadSongs(forServerID: server.id), !songs.isEmpty else {
+        continue
+      }
       for song in songs {
         cachedSongsByID[song.id] = song
         cachedClientBySongID[song.id] = client

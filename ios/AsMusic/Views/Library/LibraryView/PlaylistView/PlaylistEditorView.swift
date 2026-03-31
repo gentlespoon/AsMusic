@@ -118,9 +118,20 @@ struct PlaylistEditorView: View {
     defer { isLoading = false }
 
     do {
-      let cacheKey = LibrarySongCacheKey.current(for: apiClient)
-      let cachedSongs = await SongCacheStore.shared.loadSongs(for: cacheKey) ?? []
-      async let allSongsRequest: [Song] = cachedSongs
+      let cachedSongs: [Song]
+      if let scope = await LibrarySongCacheScope.current(for: apiClient) {
+        cachedSongs = await SongCacheStore.shared.loadSongs(
+          serverID: scope.serverID,
+          libraryID: scope.libraryID
+        ) ?? []
+      } else {
+        cachedSongs = []
+      }
+      async let allSongsRequest: [Song] = {
+        if !cachedSongs.isEmpty { return cachedSongs }
+        let (fetched, _) = try await LibrarySongFetch.loadSongs(client: apiClient)
+        return fetched
+      }()
       async let playlistRequest = apiClient.getPlaylist(id: playlistID)
 
       let (allSongs, playlistDetail) = try await (allSongsRequest, playlistRequest)
@@ -166,12 +177,8 @@ struct PlaylistEditorView: View {
   }
 }
 
-/// When "Use all libraries" is selected, `libraryClient` is nil; use the first saved server like `SongsView`.
 private func effectiveLibraryClient(_ environmentClient: AsNavidromeClient?) async
   -> AsNavidromeClient?
 {
-  if let environmentClient { return environmentClient }
-  let servers = await MainActor.run { ServerManager().servers }
-  guard let first = servers.first else { return nil }
-  return await NavidromeClientStore.shared.client(for: first)
+  return environmentClient
 }

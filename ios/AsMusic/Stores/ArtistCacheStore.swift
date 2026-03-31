@@ -1,16 +1,14 @@
 //
-//  SongCacheStore.swift
+//  ArtistCacheStore.swift
 //  AsMusic
-//
-//  Created by An So on 2026-03-27.
 //
 
 import AsNavidromeKit
 import Foundation
 import SQLite3
 
-actor SongCacheStore {
-  static let shared = SongCacheStore()
+actor ArtistCacheStore {
+  static let shared = ArtistCacheStore()
   nonisolated(unsafe) private static let transientDestructor = unsafeBitCast(
     -1,
     to: sqlite3_destructor_type.self
@@ -18,130 +16,90 @@ actor SongCacheStore {
 
   private var db: OpaquePointer?
   private let encoder = JSONEncoder()
-  private let decoder = JSONDecoder()
 
-  func loadSongs(serverID: UUID, libraryID: String) -> [Song]? {
+  func loadArtists(serverID: UUID, libraryID: String) -> [Artist]? {
     guard openIfNeeded() else { return nil }
 
     let sql = """
-      SELECT song_json
-      FROM song_cache
+      SELECT artist_id, artist_name
+      FROM artist_cache
       WHERE server_id = ? AND library_id = ?
-      ORDER BY sort_index ASC;
-      """
-    var statement: OpaquePointer?
-    defer { sqlite3_finalize(statement) }
-
-    guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else {
-      return nil
-    }
-
-    sqlite3_bind_text(statement, 1, serverID.uuidString, -1, Self.transientDestructor)
-    sqlite3_bind_text(statement, 2, libraryID, -1, Self.transientDestructor)
-
-    var songs: [Song] = []
-    while sqlite3_step(statement) == SQLITE_ROW {
-      guard let rawPointer = sqlite3_column_blob(statement, 0) else {
-        continue
-      }
-      let size = Int(sqlite3_column_bytes(statement, 0))
-      let data = Data(bytes: rawPointer, count: size)
-      guard let song = try? decoder.decode(Song.self, from: data) else {
-        continue
-      }
-      songs.append(song)
-    }
-    return songs.isEmpty ? nil : songs
-  }
-
-  func loadSongs(forServerID serverID: UUID) -> [Song]? {
-    guard openIfNeeded() else { return nil }
-
-    let sql = """
-      SELECT song_json
-      FROM song_cache
-      WHERE server_id = ?
-      ORDER BY updated_at DESC, sort_index ASC;
+      ORDER BY artist_name COLLATE NOCASE ASC;
       """
     var statement: OpaquePointer?
     defer { sqlite3_finalize(statement) }
     guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else { return nil }
     sqlite3_bind_text(statement, 1, serverID.uuidString, -1, Self.transientDestructor)
+    sqlite3_bind_text(statement, 2, libraryID, -1, Self.transientDestructor)
 
-    var songs: [Song] = []
-    var seenSongIDs = Set<String>()
+    var artists: [Artist] = []
     while sqlite3_step(statement) == SQLITE_ROW {
-      guard let rawPointer = sqlite3_column_blob(statement, 0) else {
+      guard
+        let artistIDCString = sqlite3_column_text(statement, 0),
+        let artistNameCString = sqlite3_column_text(statement, 1)
+      else {
         continue
       }
-      let size = Int(sqlite3_column_bytes(statement, 0))
-      let data = Data(bytes: rawPointer, count: size)
-      guard let song = try? decoder.decode(Song.self, from: data) else {
-        continue
-      }
-      guard seenSongIDs.insert(song.id).inserted else {
-        continue
-      }
-      songs.append(song)
+      artists.append(
+        Artist(id: String(cString: artistIDCString), name: String(cString: artistNameCString)))
     }
-    return songs.isEmpty ? nil : songs
+    return artists.isEmpty ? nil : artists
   }
 
-  func saveSongs(_ songs: [Song], serverID: UUID, libraryID: String) {
+  func replaceArtists(
+    _ artists: [Artist],
+    albumIDsByArtistID: [String: [String]],
+    serverID: UUID,
+    libraryID: String
+  ) {
     guard openIfNeeded() else { return }
     guard execute("BEGIN TRANSACTION;") else { return }
     var shouldCommit = false
     defer { _ = execute(shouldCommit ? "COMMIT;" : "ROLLBACK;") }
 
-    let deleteSQL = "DELETE FROM song_cache WHERE server_id = ? AND library_id = ?;"
+    let deleteSQL = "DELETE FROM artist_cache WHERE server_id = ? AND library_id = ?;"
     var deleteStatement: OpaquePointer?
     defer { sqlite3_finalize(deleteStatement) }
-    guard sqlite3_prepare_v2(db, deleteSQL, -1, &deleteStatement, nil) == SQLITE_OK else {
-      return
-    }
+    guard sqlite3_prepare_v2(db, deleteSQL, -1, &deleteStatement, nil) == SQLITE_OK else { return }
     sqlite3_bind_text(deleteStatement, 1, serverID.uuidString, -1, Self.transientDestructor)
     sqlite3_bind_text(deleteStatement, 2, libraryID, -1, Self.transientDestructor)
     guard sqlite3_step(deleteStatement) == SQLITE_DONE else { return }
 
-    guard !songs.isEmpty else {
+    guard !artists.isEmpty else {
       shouldCommit = true
       return
     }
 
     let insertSQL = """
-      INSERT INTO song_cache(
-        server_id, library_id, song_id, artist_id, album_id, artwork_id, song_json, sort_index, updated_at
+      INSERT INTO artist_cache(
+        server_id, library_id, artist_id, artist_name, album_ids_json, updated_at
       )
-      VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?);
+      VALUES(?, ?, ?, ?, ?, ?);
       """
     var insertStatement: OpaquePointer?
     defer { sqlite3_finalize(insertStatement) }
-    guard sqlite3_prepare_v2(db, insertSQL, -1, &insertStatement, nil) == SQLITE_OK else {
-      return
-    }
+    guard sqlite3_prepare_v2(db, insertSQL, -1, &insertStatement, nil) == SQLITE_OK else { return }
 
     let updatedAt = Date().timeIntervalSince1970
-    for (index, song) in songs.enumerated() {
-      guard let songJSON = try? encoder.encode(song) else { return }
+    for artist in artists {
       sqlite3_reset(insertStatement)
       sqlite3_clear_bindings(insertStatement)
       sqlite3_bind_text(insertStatement, 1, serverID.uuidString, -1, Self.transientDestructor)
       sqlite3_bind_text(insertStatement, 2, libraryID, -1, Self.transientDestructor)
-      sqlite3_bind_text(insertStatement, 3, song.id, -1, Self.transientDestructor)
-      sqlite3_bind_text(insertStatement, 4, song.artistId ?? "", -1, Self.transientDestructor)
-      sqlite3_bind_text(insertStatement, 5, song.albumId ?? "", -1, Self.transientDestructor)
-      sqlite3_bind_text(insertStatement, 6, song.coverArt ?? "", -1, Self.transientDestructor)
-      songJSON.withUnsafeBytes { buffer in
+      sqlite3_bind_text(insertStatement, 3, artist.id, -1, Self.transientDestructor)
+      sqlite3_bind_text(insertStatement, 4, artist.name, -1, Self.transientDestructor)
+      let albumIDs = albumIDsByArtistID[artist.id] ?? []
+      let albumIDsJSON = (try? encoder.encode(albumIDs)) ?? Data("[]".utf8)
+      albumIDsJSON.withUnsafeBytes { buffer in
         sqlite3_bind_blob(
           insertStatement,
-          7,
+          5,
           buffer.baseAddress,
           Int32(buffer.count),
           Self.transientDestructor
         )
       }
-      sqlite3_bind_int64(insertStatement, 8, Int64(index))
-      sqlite3_bind_double(insertStatement, 9, updatedAt)
+      sqlite3_bind_double(insertStatement, 6, updatedAt)
       guard sqlite3_step(insertStatement) == SQLITE_DONE else { return }
     }
     shouldCommit = true
@@ -155,7 +113,6 @@ actor SongCacheStore {
 
   private func openIfNeeded() -> Bool {
     if db != nil { return true }
-
     do {
       let dbURL = try Self.databaseURL()
       let openResult = sqlite3_open(dbURL.path(percentEncoded: false), &db)
@@ -166,19 +123,20 @@ actor SongCacheStore {
         }
         return false
       }
-
+      guard execute("DROP TABLE IF EXISTS artist_cache;") else {
+        sqlite3_close(db)
+        db = nil
+        return false
+      }
       guard execute("""
-        CREATE TABLE IF NOT EXISTS song_cache (
+        CREATE TABLE artist_cache (
           server_id TEXT NOT NULL,
           library_id TEXT NOT NULL,
-          song_id TEXT NOT NULL,
           artist_id TEXT NOT NULL,
-          album_id TEXT NOT NULL,
-          artwork_id TEXT NOT NULL,
-          song_json BLOB NOT NULL,
-          sort_index INTEGER NOT NULL,
+          artist_name TEXT NOT NULL,
+          album_ids_json BLOB NOT NULL,
           updated_at REAL NOT NULL,
-          PRIMARY KEY (server_id, library_id, song_id)
+          PRIMARY KEY (server_id, library_id, artist_id)
         );
         """
       ) else {
@@ -186,7 +144,6 @@ actor SongCacheStore {
         db = nil
         return false
       }
-
       return true
     } catch {
       return false
@@ -209,3 +166,4 @@ actor SongCacheStore {
     return directory.appending(path: "library-cache.sqlite3", directoryHint: .notDirectory)
   }
 }
+

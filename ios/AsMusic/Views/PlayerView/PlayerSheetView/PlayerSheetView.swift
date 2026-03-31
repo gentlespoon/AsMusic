@@ -453,13 +453,15 @@ struct PlayerSheetView: View {
   }
 
   private func loadPlaylistsForPicker() async {
-    guard let apiClient = await effectiveLibraryClient(libraryClient) else {
+    guard let context = await resolvePlaylistCacheContext(environmentClient: libraryClient) else {
       userFacingErrorMessage = "Add a server in Settings to load playlists."
       return
     }
 
-    let cacheKey = PlaylistSummaryCacheKey.current(for: apiClient)
-    availablePlaylists = await PlaylistSummaryCacheStore.shared.loadPlaylists(for: cacheKey) ?? []
+    availablePlaylists = await PlaylistSummaryCacheStore.shared.loadPlaylists(
+      serverID: context.serverID,
+      libraryID: context.libraryID
+    ) ?? []
     isPlaylistDialogPresented = true
   }
 
@@ -486,14 +488,28 @@ struct PlayerSheetView: View {
   }
 }
 
-/// When "Use all libraries" is selected, `libraryClient` is nil; use the first saved server like `SongsView`.
 private func effectiveLibraryClient(_ environmentClient: AsNavidromeClient?) async
   -> AsNavidromeClient?
 {
-  if let environmentClient { return environmentClient }
-  let servers = await MainActor.run { ServerManager().servers }
-  guard let first = servers.first else { return nil }
-  return await NavidromeClientStore.shared.client(for: first)
+  return environmentClient
+}
+
+private struct PlaylistCacheContext {
+  let serverID: UUID
+  let libraryID: String
+}
+
+private func resolvePlaylistCacheContext(environmentClient: AsNavidromeClient?) async
+  -> PlaylistCacheContext?
+{
+  _ = environmentClient
+  let selection = await MainActor.run(resultType: SelectedLibrary?.self) {
+    SelectedLibraryStore.shared.selection
+  }
+  if let selection {
+    return PlaylistCacheContext(serverID: selection.serverID, libraryID: selection.folderID)
+  }
+  return nil
 }
 
 #Preview {

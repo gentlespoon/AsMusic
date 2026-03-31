@@ -15,13 +15,24 @@ struct PlayerCachedAlbumSongsView: View {
   @State private var songs: [Song] = []
   @State private var songClientsByID: [String: AsNavidromeClient] = [:]
 
+  private var albumArtworkURL: URL? {
+    let artworkID = songs.first?.coverArt?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    guard !artworkID.isEmpty else { return nil }
+    return client.media.coverArt(forID: artworkID, size: 600)
+  }
+
   var body: some View {
     Group {
       if songs.isEmpty {
         ProgressView("Loading album...")
           .frame(maxWidth: .infinity, maxHeight: .infinity)
       } else {
-        SongsView(songs: songs, navigationTitle: albumTitle, songClientsByID: songClientsByID)
+        SongsView(
+          songs: songs,
+          navigationTitle: albumTitle,
+          albumArtworkURL: albumArtworkURL,
+          songClientsByID: songClientsByID
+        )
       }
     }
     .environment(\.libraryClient, client)
@@ -31,8 +42,14 @@ struct PlayerCachedAlbumSongsView: View {
   }
 
   private func loadSongs() async {
-    let cacheKey = LibrarySongCacheKey.current(for: client)
-    guard let cached = await SongCacheStore.shared.loadSongs(for: cacheKey), !cached.isEmpty else {
+    guard let scope = await LibrarySongCacheScope.current(for: client) else {
+      songs = []
+      return
+    }
+    guard let cached = await SongCacheStore.shared.loadSongs(
+      serverID: scope.serverID,
+      libraryID: scope.libraryID
+    ), !cached.isEmpty else {
       songs = []
       return
     }

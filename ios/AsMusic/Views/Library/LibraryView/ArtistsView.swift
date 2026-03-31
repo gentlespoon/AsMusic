@@ -68,11 +68,14 @@ struct ArtistsView: View {
       return
     }
 
-    let cacheKey = LibrarySongCacheKey.current(for: client)
-    if let cachedSongs = await SongCacheStore.shared.loadSongs(for: cacheKey),
-      !cachedSongs.isEmpty
+    if let scope = await LibrarySongCacheScope.current(for: client),
+      let cachedArtists = await ArtistCacheStore.shared.loadArtists(
+        serverID: scope.serverID,
+        libraryID: scope.libraryID
+      ),
+      !cachedArtists.isEmpty
     {
-      artists = LibraryIndexFromSongs.artists(from: cachedSongs)
+      artists = cachedArtists
       errorMessage = nil
       return
     }
@@ -86,15 +89,21 @@ struct ArtistsView: View {
       return
     }
 
-    let cacheKey = LibrarySongCacheKey.current(for: client)
     isLoading = true
     defer { isLoading = false }
 
     do {
-      let (songs, _) = try await LibrarySongFetch.loadSongs(client: client)
-
-      await SongCacheStore.shared.saveSongs(songs, for: cacheKey)
-      artists = LibraryIndexFromSongs.artists(from: songs)
+      try await LibrarySongCacheReload.fetchAndSave(client: client)
+      if let scope = await LibrarySongCacheScope.current(for: client),
+        let cachedArtists = await ArtistCacheStore.shared.loadArtists(
+          serverID: scope.serverID,
+          libraryID: scope.libraryID
+        )
+      {
+        artists = cachedArtists
+      } else {
+        artists = []
+      }
       errorMessage = nil
     } catch {
       errorMessage = error.localizedDescription

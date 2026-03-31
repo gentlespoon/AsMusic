@@ -10,6 +10,7 @@ struct PlaylistSongView: View {
   let playlistID: String
   let playlistName: String
 
+  @Environment(\.dismiss) private var dismiss
   @Environment(\.libraryClient) private var client
   @Environment(MusicPlayerController.self) private var playback
 
@@ -21,6 +22,8 @@ struct PlaylistSongView: View {
   @State private var searchText = ""
   @State private var isReorderMode = false
   @State private var isEditorPresented = false
+  @State private var isConfirmingDelete = false
+  @State private var deletePlaylistErrorMessage: String?
   @State private var editMode: EditMode = .inactive
 
   private var filteredSongs: [Song] {
@@ -93,6 +96,7 @@ struct PlaylistSongView: View {
         }
       } else {
         ToolbarItemGroup(placement: .topBarTrailing) {
+
           Button {
             startPlaybackOrdered()
           } label: {
@@ -107,13 +111,50 @@ struct PlaylistSongView: View {
           }
           .disabled(playableQueueItems.isEmpty)
 
-          Button("Re-order", systemImage: "line.3.horizontal") {
-            enterReorderMode()
-          }
-          .disabled(songs.count <= 1)
+          Menu {
+            Button {
+              playAllSongsNext()
+            } label: {
+              Label("Play all next", systemImage: "text.insert")
+            }
+            .disabled(playableQueueItems.isEmpty)
 
-          Button("Edit", systemImage: "pencil") {
-            isEditorPresented = true
+            Button {
+              addAllSongsToQueue()
+            } label: {
+              Label("Add all to queue", systemImage: "text.line.last.and.arrowtriangle.forward")
+            }
+            .disabled(playableQueueItems.isEmpty)
+
+            Divider()
+
+            Button("Re-order", systemImage: "line.3.horizontal") {
+              enterReorderMode()
+            }
+            .disabled(songs.count <= 1)
+
+            Button("Edit", systemImage: "pencil") {
+              isEditorPresented = true
+            }
+
+            Divider()
+
+            Button("Delete", systemImage: "trash", role: .destructive) {
+              isConfirmingDelete = true
+            }
+          } label: {
+            Label("More actions", systemImage: "ellipsis.circle")
+          }
+          .confirmationDialog(
+            "Delete playlist?",
+            isPresented: $isConfirmingDelete,
+            titleVisibility: .visible
+          ) {
+            Button("Delete", role: .destructive) {
+              Task {
+                await deletePlaylist() // TODO: delete current playlist
+              }
+            }
           }
         }
       }
@@ -129,6 +170,13 @@ struct PlaylistSongView: View {
           await loadDetail()
         }
       )
+    }
+    .alert("Unable to Delete Playlist", isPresented: deletePlaylistErrorBinding) {
+      Button("OK", role: .cancel) {
+        deletePlaylistErrorMessage = nil
+      }
+    } message: {
+      Text(deletePlaylistErrorMessage ?? "Unknown error.")
     }
   }
 
@@ -196,6 +244,14 @@ struct PlaylistSongView: View {
       let entries = detail.entry?.filter { $0.isDir != true } ?? []
       songs = entries
       serverPlaylistEntries = entries
+      if let scope = await resolvePlaylistCacheScope(environmentClient: client) {
+        await PlaylistSummaryCacheStore.shared.saveSongs(
+          entries,
+          forPlaylistID: playlistID,
+          serverID: scope.serverID,
+          libraryID: scope.libraryID
+        )
+      }
       errorMessage = nil
       exitReorderMode()
     } catch {
@@ -225,9 +281,42 @@ struct PlaylistSongView: View {
         songIndexesToRemove: removeIndexes
       )
       serverPlaylistEntries = songs
+      if let scope = await resolvePlaylistCacheScope(environmentClient: client) {
+        await PlaylistSummaryCacheStore.shared.saveSongs(
+          songs,
+          forPlaylistID: playlistID,
+          serverID: scope.serverID,
+          libraryID: scope.libraryID
+        )
+      }
       exitReorderMode()
     } catch {
       errorMessage = error.localizedDescription
+    }
+  }
+
+  private var deletePlaylistErrorBinding: Binding<Bool> {
+    Binding(
+      get: { deletePlaylistErrorMessage != nil },
+      set: { isPresented in
+        if !isPresented {
+          deletePlaylistErrorMessage = nil
+        }
+      }
+    )
+  }
+
+  private func deletePlaylist() async {
+    do {
+      _ = try await deletePlaylistAndRefreshCache(
+        playlistID: playlistID,
+        environmentClient: client
+      )
+      await MainActor.run {
+        dismiss()
+      }
+    } catch {
+      deletePlaylistErrorMessage = error.localizedDescription
     }
   }
 
@@ -253,14 +342,47 @@ struct PlaylistSongView: View {
       await playback.replaceQueueAndPlay(items, startAt: 0)
     }
   }
+
+  private func addAllSongsToQueue() {
+    let items = playableQueueItems
+    guard !items.isEmpty else { return }
+    for item in items {
+      playback.appendToEndOfQueue(item)
+    }
+  }
+
+  private func playAllSongsNext() {
+    let items = playableQueueItems
+    guard !items.isEmpty else { return }
+    Task { @MainActor in
+      // Insert in reverse so the first visible song becomes immediate "next".
+      for item in items.reversed() {
+        await playback.insertAfterCurrentWithoutPlaying(item)
+      }
+    }
+  }
 }
 
-/// When "Use all libraries" is selected, `libraryClient` is nil; use the first saved server like `SongsView`.
 private func effectiveLibraryClient(_ environmentClient: AsNavidromeClient?) async
   -> AsNavidromeClient?
 {
-  if let environmentClient { return environmentClient }
-  let servers = await MainActor.run { ServerManager().servers }
-  guard let first = servers.first else { return nil }
-  return await NavidromeClientStore.shared.client(for: first)
+  return environmentClient
+}
+
+private struct PlaylistCacheScope {
+  let serverID: UUID
+  let libraryID: String
+}
+
+private func resolvePlaylistCacheScope(environmentClient: AsNavidromeClient?) async
+  -> PlaylistCacheScope?
+{
+  _ = environmentClient
+  let selection = await MainActor.run(resultType: SelectedLibrary?.self) {
+    SelectedLibraryStore.shared.selection
+  }
+  if let selection {
+    return PlaylistCacheScope(serverID: selection.serverID, libraryID: selection.folderID)
+  }
+  return nil
 }

@@ -19,6 +19,7 @@ struct SongsView: View {
   /// When `nil`, loads from `listSource`. When set, shows only these songs.
   private let fixedSongs: [Song]?
   private let navigationTitle: String
+  private let injectedAlbumArtworkURL: URL?
   /// When `fixedSongs` is used, map song id → client for rows that need an explicit client.
   private let injectedSongClientsByID: [String: AsNavidromeClient]
   private let listSource: ListSource
@@ -26,12 +27,11 @@ struct SongsView: View {
   @Environment(\.libraryClient) private var client
   @Environment(MusicPlayerController.self) private var playback
 
-  @State private var refreshCoordinator = LibraryRefreshCoordinator.shared
-
   @State private var loadedSongs: [Song] = []
   /// Populated in `.localDownloaded` mode for file playback.
   @State private var localPlaybackURLs: [String: URL] = [:]
   @State private var songClientsByID: [String: AsNavidromeClient] = [:]
+  @State private var resolvedAlbumArtworkURL: URL?
   @State private var isLoading = false
   @State private var errorMessage: String?
   @State private var searchText = ""
@@ -39,11 +39,13 @@ struct SongsView: View {
   init(
     songs: [Song]? = nil,
     navigationTitle: String = "Songs",
+    albumArtworkURL: URL? = nil,
     songClientsByID: [String: AsNavidromeClient] = [:],
     listSource: ListSource = .library
   ) {
     self.fixedSongs = songs
     self.navigationTitle = navigationTitle
+    self.injectedAlbumArtworkURL = albumArtworkURL
     self.injectedSongClientsByID = songClientsByID
     self.listSource = listSource
   }
@@ -77,6 +79,16 @@ struct SongsView: View {
 
   var body: some View {
     List {
+      if let artworkURL = resolvedAlbumArtworkURL {
+        HStack(alignment: .center) {
+          Spacer()
+          PlayerArtworkView(artworkURL: artworkURL)
+            .frame(maxHeight: 180)
+            .aspectRatio(1, contentMode: .fit)
+          Spacer()
+        }
+      }
+
       if (isLibraryMode || isLocalDownloadedMode) && isLoading && displaySongs.isEmpty {
         ProgressView(isLocalDownloadedMode ? "Checking downloads…" : "Loading songs...")
       } else if isLibraryMode, let errorMessage {
@@ -105,35 +117,7 @@ struct SongsView: View {
         )
       } else {
         ForEach(filteredSongs) { song in
-          if let playURL = playbackURL(for: song) {
-            Button {
-              openPlayer(for: song)
-            } label: {
-              SongRowContentView(song: song)
-            }
-            .buttonStyle(.plain)
-            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-              Button {
-                let item = queueItem(for: song)
-                Task { @MainActor in
-                  await playback.insertAfterCurrentWithoutPlaying(item)
-                }
-              } label: {
-                Label("Play Next", systemImage: "text.insert")
-              }
-              .tint(.orange)
-
-              Button {
-                let item = queueItem(for: song)
-                playback.appendToEndOfQueue(item)
-              } label: {
-                Label("Add to Queue", systemImage: "text.line.last.and.arrowtriangle.forward")
-              }
-              .tint(.blue)
-            }
-          } else {
-            SongRowContentView(song: song)
-          }
+          songRow(for: song)
         }
       }
     }
@@ -141,6 +125,8 @@ struct SongsView: View {
     .navigationTitle(navigationTitle)
     .toolbar {
       ToolbarItemGroup(placement: .topBarTrailing) {
+        
+
         Button {
           startPlaybackOrdered()
         } label: {
@@ -154,9 +140,27 @@ struct SongsView: View {
           Label("Play shuffled", systemImage: "shuffle")
         }
         .disabled(playableQueueItems.isEmpty)
+
+        Menu {
+          Button {
+            playAllSongsNext()
+          } label: {
+            Label("Play all next", systemImage: "text.insert")
+          }
+          .disabled(playableQueueItems.isEmpty)
+
+          Button {
+            addAllSongsToQueue()
+          } label: {
+            Label("Add all to queue", systemImage: "text.line.last.and.arrowtriangle.forward")
+          }
+          .disabled(playableQueueItems.isEmpty)
+        } label: {
+          Label("More actions", systemImage: "ellipsis.circle")
+        }
       }
     }
-    .task(id: refreshCoordinator.generation) {
+    .task {
       guard isLibraryMode else { return }
       await loadSongsFromCacheOrServer()
     }
@@ -165,6 +169,17 @@ struct SongsView: View {
         await loadLocalDownloadedSongs()
       }
     }
+    .task(id: injectedAlbumArtworkURL?.absoluteString ?? "") {
+      await resolveAlbumArtworkURL()
+    }
+  }
+
+  private func resolveAlbumArtworkURL() async {
+    guard let injectedAlbumArtworkURL else {
+      resolvedAlbumArtworkURL = nil
+      return
+    }
+    resolvedAlbumArtworkURL = await ArtworkFileCache.displayURL(for: injectedAlbumArtworkURL)
   }
 
   private func loadLocalDownloadedSongs() async {
@@ -177,8 +192,17 @@ struct SongsView: View {
       return
     }
 
-    let cacheKey = LibrarySongCacheKey.current(for: client)
-    guard let cachedSongs = await SongCacheStore.shared.loadSongs(for: cacheKey),
+    guard let scope = await LibrarySongCacheScope.current(for: client) else {
+      loadedSongs = []
+      localPlaybackURLs = [:]
+      errorMessage = nil
+      return
+    }
+    guard
+      let cachedSongs = await SongCacheStore.shared.loadSongs(
+        serverID: scope.serverID,
+        libraryID: scope.libraryID
+      ),
       !cachedSongs.isEmpty
     else {
       loadedSongs = []
@@ -199,8 +223,15 @@ struct SongsView: View {
       return
     }
 
-    let cacheKey = LibrarySongCacheKey.current(for: client)
-    if let cachedSongs = await SongCacheStore.shared.loadSongs(for: cacheKey),
+    guard let scope = await LibrarySongCacheScope.current(for: client) else {
+      await reloadSongsFromServer()
+      return
+    }
+
+    if let cachedSongs = await SongCacheStore.shared.loadSongs(
+      serverID: scope.serverID,
+      libraryID: scope.libraryID
+    ),
       !cachedSongs.isEmpty
     {
       loadedSongs = cachedSongs
@@ -217,7 +248,6 @@ struct SongsView: View {
       return
     }
 
-    let cacheKey = LibrarySongCacheKey.current(for: client)
     songClientsByID = [:]
     isLoading = true
     defer { isLoading = false }
@@ -227,7 +257,13 @@ struct SongsView: View {
 
       loadedSongs = fetched
       songClientsByID = clientsMap
-      await SongCacheStore.shared.saveSongs(loadedSongs, for: cacheKey)
+      if let scope = await LibrarySongCacheScope.current(for: client) {
+        await SongCacheStore.shared.saveSongs(
+          loadedSongs,
+          serverID: scope.serverID,
+          libraryID: scope.libraryID
+        )
+      }
       errorMessage = nil
     } catch {
       errorMessage = error.localizedDescription
@@ -259,6 +295,46 @@ struct SongsView: View {
     NowPlayingQueueItem(id: song.id)
   }
 
+  @ViewBuilder
+  private func songRow(for song: Song) -> some View {
+    let canQueue = playbackURL(for: song) != nil
+    Group {
+      if canQueue {
+        Button {
+          openPlayer(for: song)
+        } label: {
+          SongRowContentView(song: song)
+        }
+      } else {
+        SongRowContentView(song: song)
+      }
+    }
+    .buttonStyle(.plain)
+    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+      Button {
+        guard canQueue else { return }
+        let item = queueItem(for: song)
+        Task { @MainActor in
+          await playback.insertAfterCurrentWithoutPlaying(item)
+        }
+      } label: {
+        Label("Play Next", systemImage: "text.insert")
+      }
+      .tint(.orange)
+      .disabled(!canQueue)
+
+      Button {
+        guard canQueue else { return }
+        let item = queueItem(for: song)
+        playback.appendToEndOfQueue(item)
+      } label: {
+        Label("Add to Queue", systemImage: "text.line.last.and.arrowtriangle.forward")
+      }
+      .tint(.blue)
+      .disabled(!canQueue)
+    }
+  }
+
   private func openPlayer(for song: Song) {
     let item = queueItem(for: song)
     Task { @MainActor in
@@ -281,5 +357,23 @@ struct SongsView: View {
       await playback.replaceQueueAndPlay(items, startAt: 0)
     }
   }
-}
 
+  private func addAllSongsToQueue() {
+    let items = playableQueueItems
+    guard !items.isEmpty else { return }
+    for item in items {
+      playback.appendToEndOfQueue(item)
+    }
+  }
+
+  private func playAllSongsNext() {
+    let items = playableQueueItems
+    guard !items.isEmpty else { return }
+    Task { @MainActor in
+      // Insert in reverse so the first visible song becomes immediate "next".
+      for item in items.reversed() {
+        await playback.insertAfterCurrentWithoutPlaying(item)
+      }
+    }
+  }
+}

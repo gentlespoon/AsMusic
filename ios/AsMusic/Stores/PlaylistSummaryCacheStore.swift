@@ -9,12 +9,6 @@ import AsNavidromeKit
 import Foundation
 import SQLite3
 
-enum PlaylistSummaryCacheKey {
-  static func current(for client: AsNavidromeClient) -> String {
-    "playlists::\(client.host)::\(client.username)"
-  }
-}
-
 actor PlaylistSummaryCacheStore {
   static let shared = PlaylistSummaryCacheStore()
 
@@ -27,10 +21,15 @@ actor PlaylistSummaryCacheStore {
   private let encoder = JSONEncoder()
   private let decoder = JSONDecoder()
 
-  func loadPlaylists(for cacheKey: String) -> [PlaylistSummary]? {
+  func loadPlaylists(serverID: UUID, libraryID: String) -> [PlaylistSummary]? {
     guard openIfNeeded() else { return nil }
 
-    let sql = "SELECT payload FROM playlist_cache WHERE cache_key = ? LIMIT 1;"
+    let sql = """
+      SELECT playlist_json
+      FROM playlist_cache
+      WHERE server_id = ? AND library_id = ?
+      ORDER BY sort_index ASC;
+      """
     var statement: OpaquePointer?
     defer { sqlite3_finalize(statement) }
 
@@ -38,51 +37,116 @@ actor PlaylistSummaryCacheStore {
       return nil
     }
 
-    sqlite3_bind_text(statement, 1, cacheKey, -1, Self.transientDestructor)
-    guard sqlite3_step(statement) == SQLITE_ROW else {
-      return nil
+    sqlite3_bind_text(statement, 1, serverID.uuidString, -1, Self.transientDestructor)
+    sqlite3_bind_text(statement, 2, libraryID, -1, Self.transientDestructor)
+
+    var playlists: [PlaylistSummary] = []
+    while sqlite3_step(statement) == SQLITE_ROW {
+      guard let rawPointer = sqlite3_column_blob(statement, 0) else {
+        continue
+      }
+
+      let size = Int(sqlite3_column_bytes(statement, 0))
+      let data = Data(bytes: rawPointer, count: size)
+      guard let playlist = try? decoder.decode(PlaylistSummary.self, from: data) else {
+        continue
+      }
+      playlists.append(playlist)
     }
 
-    guard let rawPointer = sqlite3_column_blob(statement, 0) else {
-      return nil
-    }
-
-    let size = Int(sqlite3_column_bytes(statement, 0))
-    let data = Data(bytes: rawPointer, count: size)
-    return try? decoder.decode([PlaylistSummary].self, from: data)
+    return playlists.isEmpty ? nil : playlists
   }
 
-  func savePlaylists(_ playlists: [PlaylistSummary], for cacheKey: String) {
+  func savePlaylists(_ playlists: [PlaylistSummary], serverID: UUID, libraryID: String) {
     guard openIfNeeded() else { return }
-    guard let payload = try? encoder.encode(playlists) else { return }
+    guard execute("BEGIN TRANSACTION;") else { return }
+    var shouldCommit = false
+    defer { _ = execute(shouldCommit ? "COMMIT;" : "ROLLBACK;") }
 
-    let sql = """
-      INSERT INTO playlist_cache(cache_key, payload, updated_at)
-      VALUES(?, ?, ?)
-      ON CONFLICT(cache_key) DO UPDATE SET
-        payload = excluded.payload,
-        updated_at = excluded.updated_at;
-      """
+    let deleteSQL = "DELETE FROM playlist_cache WHERE server_id = ? AND library_id = ?;"
+    var deleteStatement: OpaquePointer?
+    defer { sqlite3_finalize(deleteStatement) }
+    guard sqlite3_prepare_v2(db, deleteSQL, -1, &deleteStatement, nil) == SQLITE_OK else {
+      return
+    }
+    sqlite3_bind_text(deleteStatement, 1, serverID.uuidString, -1, Self.transientDestructor)
+    sqlite3_bind_text(deleteStatement, 2, libraryID, -1, Self.transientDestructor)
+    guard sqlite3_step(deleteStatement) == SQLITE_DONE else { return }
 
-    var statement: OpaquePointer?
-    defer { sqlite3_finalize(statement) }
-
-    guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else {
+    guard !playlists.isEmpty else {
+      shouldCommit = true
       return
     }
 
-    sqlite3_bind_text(statement, 1, cacheKey, -1, Self.transientDestructor)
-    payload.withUnsafeBytes { buffer in
-      sqlite3_bind_blob(
-        statement,
-        2,
-        buffer.baseAddress,
-        Int32(buffer.count),
-        Self.transientDestructor
+    let insertSQL = """
+      INSERT INTO playlist_cache(
+        server_id, library_id, playlist_id, playlist_json, song_list_json, sort_index, updated_at
       )
+      VALUES(?, ?, ?, ?, ?, ?, ?);
+      """
+    var insertStatement: OpaquePointer?
+    defer { sqlite3_finalize(insertStatement) }
+    guard sqlite3_prepare_v2(db, insertSQL, -1, &insertStatement, nil) == SQLITE_OK else {
+      return
     }
-    sqlite3_bind_double(statement, 3, Date().timeIntervalSince1970)
-    sqlite3_step(statement)
+
+    let emptySongListJSON = (try? encoder.encode([Song]())) ?? Data("[]".utf8)
+    let updatedAt = Date().timeIntervalSince1970
+    for (index, playlist) in playlists.enumerated() {
+      guard let playlistJSON = try? encoder.encode(playlist) else { return }
+      sqlite3_reset(insertStatement)
+      sqlite3_clear_bindings(insertStatement)
+      sqlite3_bind_text(insertStatement, 1, serverID.uuidString, -1, Self.transientDestructor)
+      sqlite3_bind_text(insertStatement, 2, libraryID, -1, Self.transientDestructor)
+      sqlite3_bind_text(insertStatement, 3, playlist.id, -1, Self.transientDestructor)
+      playlistJSON.withUnsafeBytes { buffer in
+        sqlite3_bind_blob(
+          insertStatement, 4, buffer.baseAddress, Int32(buffer.count), Self.transientDestructor)
+      }
+      emptySongListJSON.withUnsafeBytes { buffer in
+        sqlite3_bind_blob(
+          insertStatement, 5, buffer.baseAddress, Int32(buffer.count), Self.transientDestructor)
+      }
+      sqlite3_bind_int64(insertStatement, 6, Int64(index))
+      sqlite3_bind_double(insertStatement, 7, updatedAt)
+      guard sqlite3_step(insertStatement) == SQLITE_DONE else { return }
+    }
+    shouldCommit = true
+  }
+
+  func saveSongs(
+    _ songs: [Song],
+    forPlaylistID playlistID: String,
+    serverID: UUID,
+    libraryID: String
+  ) {
+    guard openIfNeeded() else { return }
+    guard let songsJSON = try? encoder.encode(songs) else { return }
+
+    let sql = """
+      UPDATE playlist_cache
+      SET song_list_json = ?, updated_at = ?
+      WHERE server_id = ? AND library_id = ? AND playlist_id = ?;
+      """
+    var statement: OpaquePointer?
+    defer { sqlite3_finalize(statement) }
+    guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else { return }
+
+    songsJSON.withUnsafeBytes { buffer in
+      sqlite3_bind_blob(
+        statement, 1, buffer.baseAddress, Int32(buffer.count), Self.transientDestructor)
+    }
+    sqlite3_bind_double(statement, 2, Date().timeIntervalSince1970)
+    sqlite3_bind_text(statement, 3, serverID.uuidString, -1, Self.transientDestructor)
+    sqlite3_bind_text(statement, 4, libraryID, -1, Self.transientDestructor)
+    sqlite3_bind_text(statement, 5, playlistID, -1, Self.transientDestructor)
+    _ = sqlite3_step(statement)
+  }
+
+  func closeDatabase() {
+    guard db != nil else { return }
+    sqlite3_close(db)
+    db = nil
   }
 
   private func openIfNeeded() -> Bool {
@@ -99,14 +163,7 @@ actor PlaylistSummaryCacheStore {
         return false
       }
 
-      let createTableSQL = """
-        CREATE TABLE IF NOT EXISTS playlist_cache (
-          cache_key TEXT PRIMARY KEY,
-          payload BLOB NOT NULL,
-          updated_at REAL NOT NULL
-        );
-        """
-      guard sqlite3_exec(db, createTableSQL, nil, nil, nil) == SQLITE_OK else {
+      guard migrateSchemaIfNeeded() else {
         sqlite3_close(db)
         db = nil
         return false
@@ -116,6 +173,72 @@ actor PlaylistSummaryCacheStore {
     } catch {
       return false
     }
+  }
+
+  private func migrateSchemaIfNeeded() -> Bool {
+    guard execute("""
+      CREATE TABLE IF NOT EXISTS playlist_cache (
+        server_id TEXT NOT NULL,
+        library_id TEXT NOT NULL,
+        playlist_id TEXT NOT NULL,
+        playlist_json BLOB NOT NULL,
+        song_list_json BLOB NOT NULL,
+        sort_index INTEGER NOT NULL,
+        updated_at REAL NOT NULL,
+        PRIMARY KEY (server_id, library_id, playlist_id)
+      );
+      """
+    ) else {
+      return false
+    }
+
+    let existingColumns = tableColumns(for: "playlist_cache")
+    guard !existingColumns.contains("payload") else {
+      guard execute("DROP TABLE IF EXISTS playlist_cache;") else { return false }
+      return execute("""
+        CREATE TABLE IF NOT EXISTS playlist_cache (
+          server_id TEXT NOT NULL,
+          library_id TEXT NOT NULL,
+          playlist_id TEXT NOT NULL,
+          playlist_json BLOB NOT NULL,
+          song_list_json BLOB NOT NULL,
+          sort_index INTEGER NOT NULL,
+          updated_at REAL NOT NULL,
+          PRIMARY KEY (server_id, library_id, playlist_id)
+        );
+        """
+      )
+    }
+
+    return existingColumns.contains("server_id")
+      && existingColumns.contains("library_id")
+      && existingColumns.contains("playlist_id")
+      && existingColumns.contains("playlist_json")
+      && existingColumns.contains("song_list_json")
+      && existingColumns.contains("sort_index")
+  }
+
+  private func tableColumns(for tableName: String) -> Set<String> {
+    let sql = "PRAGMA table_info(\(tableName));"
+    var statement: OpaquePointer?
+    defer { sqlite3_finalize(statement) }
+
+    guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else {
+      return []
+    }
+
+    var columns = Set<String>()
+    while sqlite3_step(statement) == SQLITE_ROW {
+      guard let nameCString = sqlite3_column_text(statement, 1) else {
+        continue
+      }
+      columns.insert(String(cString: nameCString))
+    }
+    return columns
+  }
+
+  private func execute(_ sql: String) -> Bool {
+    sqlite3_exec(db, sql, nil, nil, nil) == SQLITE_OK
   }
 
   private static func databaseURL() throws -> URL {

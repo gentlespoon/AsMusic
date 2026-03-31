@@ -17,14 +17,17 @@ actor LibraryFoldersCacheStore {
   )
 
   private var db: OpaquePointer?
-  private let encoder = JSONEncoder()
-  private let decoder = JSONDecoder()
 
   /// `nil` when nothing has been stored for this server yet.
   func loadFolders(for serverID: UUID) -> [MusicFolder]? {
     guard openIfNeeded() else { return nil }
 
-    let sql = "SELECT payload FROM music_folders_cache WHERE server_id = ? LIMIT 1;"
+    let sql = """
+      SELECT folder_id, folder_name
+      FROM music_folders_cache
+      WHERE server_id = ?
+      ORDER BY sort_index ASC;
+      """
     var statement: OpaquePointer?
     defer { sqlite3_finalize(statement) }
 
@@ -34,50 +37,80 @@ actor LibraryFoldersCacheStore {
 
     let idString = serverID.uuidString
     sqlite3_bind_text(statement, 1, idString, -1, Self.transientDestructor)
-    guard sqlite3_step(statement) == SQLITE_ROW else {
-      return nil
+    var folders: [MusicFolder] = []
+    while sqlite3_step(statement) == SQLITE_ROW {
+      guard
+        let folderIDCString = sqlite3_column_text(statement, 0),
+        let folderNameCString = sqlite3_column_text(statement, 1)
+      else {
+        continue
+      }
+      let folderID = String(cString: folderIDCString)
+      let folderName = String(cString: folderNameCString)
+      folders.append(MusicFolder(id: folderID, name: folderName))
     }
-
-    guard let rawPointer = sqlite3_column_blob(statement, 0) else {
-      return nil
-    }
-    let size = Int(sqlite3_column_bytes(statement, 0))
-    let data = Data(bytes: rawPointer, count: size)
-    return try? decoder.decode([MusicFolder].self, from: data)
+    return folders.isEmpty ? nil : folders
   }
 
   func saveFolders(_ folders: [MusicFolder], for serverID: UUID) {
     guard openIfNeeded() else { return }
-    guard let payload = try? encoder.encode(folders) else { return }
+    guard execute("BEGIN TRANSACTION;") else { return }
+    var shouldCommit = false
 
-    let sql = """
-      INSERT INTO music_folders_cache(server_id, payload, updated_at)
-      VALUES(?, ?, ?)
-      ON CONFLICT(server_id) DO UPDATE SET
-        payload = excluded.payload,
-        updated_at = excluded.updated_at;
-      """
+    defer {
+      _ = execute(shouldCommit ? "COMMIT;" : "ROLLBACK;")
+    }
 
-    var statement: OpaquePointer?
-    defer { sqlite3_finalize(statement) }
+    let deleteSQL = "DELETE FROM music_folders_cache WHERE server_id = ?;"
+    var deleteStatement: OpaquePointer?
+    defer { sqlite3_finalize(deleteStatement) }
 
-    guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else {
+    guard sqlite3_prepare_v2(db, deleteSQL, -1, &deleteStatement, nil) == SQLITE_OK else {
       return
     }
 
     let idString = serverID.uuidString
-    sqlite3_bind_text(statement, 1, idString, -1, Self.transientDestructor)
-    payload.withUnsafeBytes { buffer in
-      sqlite3_bind_blob(
-        statement,
-        2,
-        buffer.baseAddress,
-        Int32(buffer.count),
-        Self.transientDestructor
-      )
+    sqlite3_bind_text(deleteStatement, 1, idString, -1, Self.transientDestructor)
+    guard sqlite3_step(deleteStatement) == SQLITE_DONE else {
+      return
     }
-    sqlite3_bind_double(statement, 3, Date().timeIntervalSince1970)
-    sqlite3_step(statement)
+
+    guard !folders.isEmpty else {
+      shouldCommit = true
+      return
+    }
+
+    let insertSQL = """
+      INSERT INTO music_folders_cache(server_id, folder_id, folder_name, sort_index, updated_at)
+      VALUES(?, ?, ?, ?, ?);
+      """
+    var insertStatement: OpaquePointer?
+    defer { sqlite3_finalize(insertStatement) }
+
+    guard sqlite3_prepare_v2(db, insertSQL, -1, &insertStatement, nil) == SQLITE_OK else {
+      return
+    }
+
+    let updatedAt = Date().timeIntervalSince1970
+    for (index, folder) in folders.enumerated() {
+      sqlite3_reset(insertStatement)
+      sqlite3_clear_bindings(insertStatement)
+      sqlite3_bind_text(insertStatement, 1, idString, -1, Self.transientDestructor)
+      sqlite3_bind_text(insertStatement, 2, folder.id, -1, Self.transientDestructor)
+      sqlite3_bind_text(insertStatement, 3, folder.name, -1, Self.transientDestructor)
+      sqlite3_bind_int64(insertStatement, 4, Int64(index))
+      sqlite3_bind_double(insertStatement, 5, updatedAt)
+      guard sqlite3_step(insertStatement) == SQLITE_DONE else {
+        return
+      }
+    }
+    shouldCommit = true
+  }
+
+  func closeDatabase() {
+    guard db != nil else { return }
+    sqlite3_close(db)
+    db = nil
   }
 
   private func openIfNeeded() -> Bool {
@@ -94,14 +127,7 @@ actor LibraryFoldersCacheStore {
         return false
       }
 
-      let createTableSQL = """
-        CREATE TABLE IF NOT EXISTS music_folders_cache (
-          server_id TEXT PRIMARY KEY,
-          payload BLOB NOT NULL,
-          updated_at REAL NOT NULL
-        );
-        """
-      guard sqlite3_exec(db, createTableSQL, nil, nil, nil) == SQLITE_OK else {
+      guard migrateSchemaIfNeeded() else {
         sqlite3_close(db)
         db = nil
         return false
@@ -111,6 +137,68 @@ actor LibraryFoldersCacheStore {
     } catch {
       return false
     }
+  }
+
+  private func migrateSchemaIfNeeded() -> Bool {
+    guard execute("""
+      CREATE TABLE IF NOT EXISTS music_folders_cache (
+        server_id TEXT NOT NULL,
+        folder_id TEXT NOT NULL,
+        folder_name TEXT NOT NULL,
+        sort_index INTEGER NOT NULL,
+        updated_at REAL NOT NULL,
+        PRIMARY KEY (server_id, folder_id)
+      );
+      """
+    ) else {
+      return false
+    }
+
+    // If a previous payload-based schema exists, recreate with row-based storage.
+    let existingColumns = tableColumns(for: "music_folders_cache")
+    guard !existingColumns.contains("payload") else {
+      guard execute("DROP TABLE IF EXISTS music_folders_cache;") else {
+        return false
+      }
+      return execute("""
+        CREATE TABLE IF NOT EXISTS music_folders_cache (
+          server_id TEXT NOT NULL,
+          folder_id TEXT NOT NULL,
+          folder_name TEXT NOT NULL,
+          sort_index INTEGER NOT NULL,
+          updated_at REAL NOT NULL,
+          PRIMARY KEY (server_id, folder_id)
+        );
+        """
+      )
+    }
+
+    return existingColumns.contains("folder_id")
+      && existingColumns.contains("folder_name")
+      && existingColumns.contains("sort_index")
+  }
+
+  private func tableColumns(for tableName: String) -> Set<String> {
+    let sql = "PRAGMA table_info(\(tableName));"
+    var statement: OpaquePointer?
+    defer { sqlite3_finalize(statement) }
+
+    guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else {
+      return []
+    }
+
+    var columns = Set<String>()
+    while sqlite3_step(statement) == SQLITE_ROW {
+      guard let nameCString = sqlite3_column_text(statement, 1) else {
+        continue
+      }
+      columns.insert(String(cString: nameCString))
+    }
+    return columns
+  }
+
+  private func execute(_ sql: String) -> Bool {
+    sqlite3_exec(db, sql, nil, nil, nil) == SQLITE_OK
   }
 
   private static func databaseURL() throws -> URL {

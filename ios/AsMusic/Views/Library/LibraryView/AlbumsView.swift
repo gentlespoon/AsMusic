@@ -15,6 +15,7 @@ struct AlbumsView: View {
   @Environment(\.libraryClient) private var client
 
   @State private var allSongs: [Song] = []
+  @State private var cachedLibraryAlbums: [Album] = []
   @State private var songClientsByID: [String: AsNavidromeClient] = [:]
   @State private var isLoading = false
   @State private var errorMessage: String?
@@ -26,7 +27,7 @@ struct AlbumsView: View {
 
   private var displayAlbums: [Album] {
     guard let artist else {
-      return LibraryIndexFromSongs.albums(from: allSongs)
+      return cachedLibraryAlbums
     }
     return LibraryIndexFromSongs.albums(for: artist, from: allSongs)
   }
@@ -57,6 +58,42 @@ struct AlbumsView: View {
 
   private var showsNoSearchResults: Bool {
     !searchQuery.isEmpty && filteredAlbums.isEmpty && !showsAllSongsRow
+  }
+
+  private func artistLine(for album: Album) -> String? {
+    let trimmedAlbumArtist = album.artist?.trimmingCharacters(in: .whitespacesAndNewlines)
+    if let trimmedAlbumArtist, !trimmedAlbumArtist.isEmpty {
+      return trimmedAlbumArtist
+    }
+    let trimmedSelectedArtist = artist?.name.trimmingCharacters(in: .whitespacesAndNewlines)
+    if let trimmedSelectedArtist, !trimmedSelectedArtist.isEmpty {
+      return trimmedSelectedArtist
+    }
+    return nil
+  }
+
+  private func songCountLine(for album: Album) -> String {
+    let songCount: Int
+    if let artist {
+      songCount = LibraryIndexFromSongs.songs(in: album, for: artist, from: allSongs).count
+    } else {
+      songCount = LibraryIndexFromSongs.songs(in: album, from: allSongs).count
+    }
+    return "\(songCount) \(songCount == 1 ? "song" : "songs")"
+  }
+
+  private func subtitleLine(for album: Album) -> String {
+    if let artistLine = artistLine(for: album) {
+      return "\(artistLine) · \(songCountLine(for: album))"
+    }
+    return "· \(songCountLine(for: album))"
+  }
+
+  private func albumArtworkURL(for album: Album) -> URL? {
+    guard let client else { return nil }
+    let artworkID = album.coverArt?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    guard !artworkID.isEmpty else { return nil }
+    return client.media.coverArt(forID: artworkID, size: 600)
   }
 
   var body: some View {
@@ -106,23 +143,22 @@ struct AlbumsView: View {
               SongsView(
                 songs: LibraryIndexFromSongs.songs(in: album, for: artist, from: allSongs),
                 navigationTitle: album.name,
+                albumArtworkURL: albumArtworkURL(for: album),
                 songClientsByID: songClientsByID
               )
             } else {
               SongsView(
                 songs: LibraryIndexFromSongs.songs(in: album, from: allSongs),
                 navigationTitle: album.name,
+                albumArtworkURL: albumArtworkURL(for: album),
                 songClientsByID: songClientsByID
               )
             }
           } label: {
             VStack(alignment: .leading, spacing: 2) {
               Text(album.name)
-              if let line = album.artist, !line.isEmpty {
-                Text(line)
-                  .font(.caption)
-                  .foregroundStyle(.secondary)
-              }
+              Text(subtitleLine(for: album))
+                .font(.caption)
             }
           }
         }
@@ -142,13 +178,37 @@ struct AlbumsView: View {
       return
     }
 
-    let cacheKey = LibrarySongCacheKey.current(for: client)
-    if let cachedSongs = await SongCacheStore.shared.loadSongs(for: cacheKey),
-      !cachedSongs.isEmpty
-    {
-      allSongs = cachedSongs
-      errorMessage = nil
-      return
+    if let scope = await LibrarySongCacheScope.current(for: client) {
+      if artist == nil,
+        let cachedAlbums = await AlbumCacheStore.shared.loadAlbums(
+          serverID: scope.serverID,
+          libraryID: scope.libraryID
+        ),
+        !cachedAlbums.isEmpty
+      {
+        cachedLibraryAlbums = cachedAlbums
+        allSongs =
+          await SongCacheStore.shared.loadSongs(
+            serverID: scope.serverID,
+            libraryID: scope.libraryID
+          ) ?? []
+        errorMessage = nil
+        return
+      }
+
+      if let cachedSongs = await SongCacheStore.shared.loadSongs(
+        serverID: scope.serverID,
+        libraryID: scope.libraryID
+      ),
+        !cachedSongs.isEmpty
+      {
+        allSongs = cachedSongs
+        if artist == nil {
+          cachedLibraryAlbums = LibraryIndexFromSongs.albums(from: cachedSongs)
+        }
+        errorMessage = nil
+        return
+      }
     }
 
     await reloadAlbumsFromSongServer()
@@ -160,16 +220,38 @@ struct AlbumsView: View {
       return
     }
 
-    let cacheKey = LibrarySongCacheKey.current(for: client)
     isLoading = true
     defer { isLoading = false }
 
     do {
-      let (songs, clientsMap) = try await LibrarySongFetch.loadSongs(client: client)
-
-      allSongs = songs
+      let (_, clientsMap) = try await LibrarySongFetch.loadSongs(client: client)
       songClientsByID = clientsMap
-      await SongCacheStore.shared.saveSongs(songs, for: cacheKey)
+      try await LibrarySongCacheReload.fetchAndSave(client: client)
+
+      if let scope = await LibrarySongCacheScope.current(for: client) {
+        if artist == nil {
+          cachedLibraryAlbums =
+            await AlbumCacheStore.shared.loadAlbums(
+              serverID: scope.serverID,
+              libraryID: scope.libraryID
+            ) ?? []
+          allSongs =
+            await SongCacheStore.shared.loadSongs(
+              serverID: scope.serverID,
+              libraryID: scope.libraryID
+            ) ?? []
+        } else {
+          allSongs =
+            await SongCacheStore.shared.loadSongs(
+              serverID: scope.serverID,
+              libraryID: scope.libraryID
+            ) ?? []
+          cachedLibraryAlbums = []
+        }
+      } else {
+        allSongs = []
+        cachedLibraryAlbums = []
+      }
       errorMessage = nil
     } catch {
       errorMessage = error.localizedDescription

@@ -285,6 +285,7 @@ struct PlayerSheetView: View {
             Spacer()
           }
         }
+        .padding(16)
         .toolbar {
           ToolbarItem(placement: .topBarLeading) {
             Button {

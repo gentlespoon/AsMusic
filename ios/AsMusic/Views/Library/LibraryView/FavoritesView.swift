@@ -40,46 +40,28 @@ struct FavoritesView: View {
     }
     .navigationTitle("Favorites")
     .task(id: refreshCoordinator.generation) {
-      await loadFromCacheOrServer()
+      await loadFromCache()
     }
     .refreshable {
-      await reloadFromServer()
+      await loadFromCache()
       refreshCoordinator.bump()
     }
   }
 
-  private func loadFromCacheOrServer() async {
+  private func loadFromCache() async {
+    isLoading = true
+    defer { isLoading = false }
     if let scope = await LibrarySongCacheScope.current(for: client),
       let cachedSongs = await SongCacheStore.shared.loadSongs(
         serverID: scope.serverID,
         libraryID: scope.libraryID
-      ),
-      !cachedSongs.isEmpty
+      )
     {
       songs = cachedSongs
-      errorMessage = nil
-      return
+    } else {
+      songs = []
     }
-    await reloadFromServer()
-  }
-
-  private func reloadFromServer() async {
-    isLoading = true
-    defer { isLoading = false }
-    do {
-      try await LibrarySongCacheReload.fetchAndSave(client: client)
-      if let scope = await LibrarySongCacheScope.current(for: client) {
-        songs = await SongCacheStore.shared.loadSongs(
-          serverID: scope.serverID,
-          libraryID: scope.libraryID
-        ) ?? []
-      } else {
-        songs = []
-      }
-      errorMessage = nil
-    } catch {
-      errorMessage = error.localizedDescription
-    }
+    errorMessage = nil
   }
 }
 

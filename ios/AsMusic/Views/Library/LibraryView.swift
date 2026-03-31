@@ -118,11 +118,16 @@ struct LibraryView: View {
 
   private func reloadLibraryContents() async {
     do {
-      try await LibrarySongCacheReload.fetchAndSave(client: client)
+      try await fetchAndSave()
       refreshCoordinator.bump()
     } catch {
       // Pull-to-refresh has no dedicated error UI; child screens show load failures.
     }
+  }
+
+  private func fetchAndSave() async throws {
+    // Refreshes songs plus playlist summaries for the selected library cache.
+    try await LibrarySongCacheReload.fetchAndSave(client: client)
   }
 
   private func refreshCounts() async {

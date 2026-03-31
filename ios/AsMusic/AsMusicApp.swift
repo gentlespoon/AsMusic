@@ -6,12 +6,16 @@
 //
 
 import AVFoundation
+import AppIntents
+import CarPlay
 import SwiftUI
+import UIKit
 
 @main
 struct AsMusicApp: App {
-  @State private var navidromeSession = NavidromeSession()
-  @State private var musicPlayer = MusicPlayerController()
+  @UIApplicationDelegateAdaptor(AsMusicAppDelegate.self) private var appDelegate
+  @State private var navidromeSession = AppDependencies.navidromeSession
+  @State private var musicPlayer = AppDependencies.musicPlayer
   @AppStorage("app.appearance") private var appAppearanceRaw = AppAppearance.system.rawValue
 
   init() {
@@ -48,5 +52,24 @@ struct AsMusicApp: App {
     } catch {
       print("Failed to configure audio session: \(error.localizedDescription)")
     }
+  }
+}
+
+final class AsMusicAppDelegate: NSObject, UIApplicationDelegate {
+  func application(
+    _ application: UIApplication,
+    configurationForConnecting connectingSceneSession: UISceneSession,
+    options: UIScene.ConnectionOptions
+  ) -> UISceneConfiguration {
+    if connectingSceneSession.role == .carTemplateApplication {
+      let configuration = UISceneConfiguration(name: "CarPlay", sessionRole: connectingSceneSession.role)
+      configuration.delegateClass = CarPlaySceneDelegate.self
+      return configuration
+    }
+
+    return UISceneConfiguration(
+      name: "Default Configuration",
+      sessionRole: connectingSceneSession.role
+    )
   }
 }

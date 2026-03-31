@@ -83,7 +83,7 @@ struct AlbumsView: View {
           systemImage: "exclamationmark.triangle",
           description: Text(errorMessage)
         )
-      } else if let artist, artistSongs.isEmpty, albumSummaries.isEmpty {
+      } else if artist != nil, artistSongs.isEmpty, albumSummaries.isEmpty {
         ContentUnavailableView(
           "No Music",
           systemImage: "opticaldisc",

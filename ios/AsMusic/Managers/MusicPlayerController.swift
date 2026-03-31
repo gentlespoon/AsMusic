@@ -302,7 +302,6 @@ final class MusicPlayerController {
 
 }
 
-#if DEBUG
   extension MusicPlayerController {
     static func previewMockedController(
       currentIndex: Int = 0,
@@ -403,4 +402,3 @@ final class MusicPlayerController {
       updateNowPlayingInfo()
     }
   }
-#endif

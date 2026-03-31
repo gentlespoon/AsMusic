@@ -103,6 +103,7 @@ enum SongFileCache {
 
     let parentDirectory = finalURL.deletingLastPathComponent()
     try FileManager.default.createDirectory(at: parentDirectory, withIntermediateDirectories: true)
+    try setExcludedFromBackupIfNeeded(url: parentDirectory)
 
     let (asyncBytes, response) = try await URLSession.shared.bytes(from: remoteURL)
     guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
@@ -150,6 +151,7 @@ enum SongFileCache {
         bytesWritten += Int64(buffer.count)
       }
       try handle.synchronize()
+      try setExcludedFromBackupIfNeeded(url: finalURL)
       onProgress?(1.0)
       try Data().write(to: markerURL, options: .atomic)
     } catch {
@@ -226,6 +228,7 @@ enum SongFileCache {
       )
       let dir = docs.appending(path: subdirectory, directoryHint: .isDirectory)
       try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+      try setExcludedFromBackupIfNeeded(url: dir)
       return dir
     }
   }
@@ -304,6 +307,13 @@ enum SongFileCache {
     let host = (url.host ?? "unknown").lowercased()
     let port = url.port.map(String.init) ?? "-"
     return "\(scheme)://\(host):\(port)"
+  }
+
+  private static func setExcludedFromBackupIfNeeded(url: URL) throws {
+    var values = URLResourceValues()
+    values.isExcludedFromBackup = true
+    var mutableURL = url
+    try mutableURL.setResourceValues(values)
   }
 
   @MainActor

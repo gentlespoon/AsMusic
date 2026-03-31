@@ -23,6 +23,7 @@ enum AudioCache {
             )
             let dir = docs.appending(path: subdirectory, directoryHint: .isDirectory)
             try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            try setExcludedFromBackupIfNeeded(url: dir)
             return dir
         }
     }
@@ -101,6 +102,14 @@ enum AudioCache {
         if !buffer.isEmpty {
             try fileHandle.write(contentsOf: buffer)
         }
+        try setExcludedFromBackupIfNeeded(url: local)
+    }
+
+    private static func setExcludedFromBackupIfNeeded(url: URL) throws {
+        var values = URLResourceValues()
+        values.isExcludedFromBackup = true
+        var mutableURL = url
+        try mutableURL.setResourceValues(values)
     }
 }
 

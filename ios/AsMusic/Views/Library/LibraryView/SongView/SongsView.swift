@@ -36,6 +36,7 @@ struct SongsView: View {
   @State private var isLoading = false
   @State private var errorMessage: String?
   @State private var downloadErrorMessage: String?
+  @State private var deleteErrorMessage: String?
   @State private var downloadingProgressBySongID: [String: Double] = [:]
   @State private var searchText = ""
 
@@ -212,6 +213,13 @@ struct SongsView: View {
     } message: {
       Text(downloadErrorMessage ?? "Unknown error.")
     }
+    .alert("Unable to Delete Downloaded Song", isPresented: deleteErrorBinding) {
+      Button("OK", role: .cancel) {
+        deleteErrorMessage = nil
+      }
+    } message: {
+      Text(deleteErrorMessage ?? "Unknown error.")
+    }
     .onReceive(NotificationCenter.default.publisher(for: DownloadManager.downloadingSongsDidChangeNotification)) { _ in
       Task {
         if isDownloadingMode {
@@ -317,6 +325,17 @@ struct SongsView: View {
     )
   }
 
+  private var deleteErrorBinding: Binding<Bool> {
+    Binding(
+      get: { deleteErrorMessage != nil },
+      set: { isPresented in
+        if !isPresented {
+          deleteErrorMessage = nil
+        }
+      }
+    )
+  }
+
   private func downloadAllSongsInView() async {
     let failedCount = await DownloadManager.downloadAllMissing(
       songs: filteredSongs,
@@ -365,6 +384,16 @@ struct SongsView: View {
           Label("Remove from Downloading", systemImage: "xmark.circle")
         }
       } else {
+        if isLocalDownloadedMode {
+          Button(role: .destructive) {
+            Task {
+              await deleteDownloadedSong(song)
+            }
+          } label: {
+            Label("Delete Download", systemImage: "trash")
+          }
+        }
+
         Button {
           guard canQueue else { return }
           let item = queueItem(for: song)
@@ -387,6 +416,28 @@ struct SongsView: View {
         .tint(.blue)
         .disabled(!canQueue)
       }
+    }
+  }
+
+  private func deleteDownloadedSong(_ song: Song) async {
+    guard isLocalDownloadedMode else { return }
+    guard let localURL = localPlaybackURLs[song.id] else {
+      await loadLocalDownloadedSongs()
+      return
+    }
+
+    do {
+      let fileManager = FileManager.default
+      if fileManager.fileExists(atPath: localURL.path(percentEncoded: false)) {
+        try fileManager.removeItem(at: localURL)
+      }
+      let markerURL = localURL.appendingPathExtension("cachecomplete")
+      if fileManager.fileExists(atPath: markerURL.path(percentEncoded: false)) {
+        try fileManager.removeItem(at: markerURL)
+      }
+      await loadLocalDownloadedSongs()
+    } catch {
+      deleteErrorMessage = "Could not delete \(song.title)."
     }
   }
 

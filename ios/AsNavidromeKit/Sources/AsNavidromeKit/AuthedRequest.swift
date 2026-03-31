@@ -24,6 +24,7 @@ enum HTTPMethod: String {
 }
 
 struct AuthedRequest: Sendable {
+  private static let fallbackInvalidHost = "invalid.invalid"
   let host: String
   let username: String
   let password: String
@@ -42,8 +43,8 @@ struct AuthedRequest: Sendable {
   private func urlWithAdditionalParameters(
     path: String,
     additionalParameters: [String: String] = [:]
-  ) -> URL {
-    var url = endpointURL(path: path)
+  ) throws -> URL {
+    var url = try endpointURL(path: path)
     let queryItems = additionalParameters.map { key, value in
       URLQueryItem(name: key, value: value)
     }
@@ -101,10 +102,18 @@ struct AuthedRequest: Sendable {
     additionalParameters: [String: String] = [:],
     includeResponseFormat: Bool = true
   ) -> URL {
-    let urlWithAdditionalParameters = urlWithAdditionalParameters(
-      path: path,
-      additionalParameters: additionalParameters
-    )
+    guard
+      let urlWithAdditionalParameters = try? urlWithAdditionalParameters(
+        path: path,
+        additionalParameters: additionalParameters
+      )
+    else {
+      var components = URLComponents()
+      components.scheme = "https"
+      components.host = Self.fallbackInvalidHost
+      components.path = "/"
+      return components.url ?? URL(fileURLWithPath: "/dev/null")
+    }
     return urlByAddingAuthenticationAndFormatParameters(
       to: urlWithAdditionalParameters,
       includeResponseFormat: includeResponseFormat
@@ -115,7 +124,7 @@ struct AuthedRequest: Sendable {
     async throws
     -> [String: Any]
   {
-    let urlWithDebugParameters = urlWithAdditionalParameters(
+    let urlWithDebugParameters = try urlWithAdditionalParameters(
       path: path,
       additionalParameters: additionalParameters
     )
@@ -124,7 +133,8 @@ struct AuthedRequest: Sendable {
 
     var request = URLRequest(url: authenticatedRequestURL)
     request.httpMethod = method.rawValue
-    request.addValue("Basic \(username):\(password)", forHTTPHeaderField: "Authorization")
+    let basicCredential = Data("\(username):\(password)".utf8).base64EncodedString()
+    request.addValue("Basic \(basicCredential)", forHTTPHeaderField: "Authorization")
 
     let (data, response) = try await URLSession.shared.data(for: request)
     guard let httpResponse = response as? HTTPURLResponse,
@@ -141,8 +151,11 @@ struct AuthedRequest: Sendable {
     return dictionary
   }
 
-  private func endpointURL(path: String) -> URL {
+  private func endpointURL(path: String) throws -> URL {
     let trimmedHost = host.trimmingCharacters(in: .whitespacesAndNewlines)
-    return URL(string: "\(trimmedHost)\(path)")!
+    guard let url = URL(string: "\(trimmedHost)\(path)") else {
+      throw URLError(.badURL)
+    }
+    return url
   }
 }

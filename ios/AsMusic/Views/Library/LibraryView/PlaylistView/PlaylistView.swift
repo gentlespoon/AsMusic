@@ -116,21 +116,21 @@ struct PlaylistView: View {
       await loadPlaylistsFromCache()
     }
     .refreshable {
-      await reloadPlaylistsFromServer()
+      await loadPlaylistsFromCache()
     }
     .navigationDestination(item: $playlistPendingEdit) { playlist in
       PlaylistEditorView(
         playlistID: playlist.id,
         playlistName: playlist.name,
         onSaved: {
-          await reloadPlaylistsFromServer()
+          await loadPlaylistsFromCache()
         }
       )
     }
   }
 
   private func loadPlaylistsFromCache() async {
-    guard let context = await resolvePlaylistCacheContext() else {
+    guard let cacheKey = await resolvePlaylistCacheKey() else {
       errorMessage = "Add a server in Settings to load playlists."
       playlists = []
       return
@@ -140,37 +140,14 @@ struct PlaylistView: View {
     defer { isLoading = false }
 
     if let cached = await PlaylistSummaryCacheStore.shared.loadPlaylists(
-      serverID: context.serverID,
-      libraryID: context.libraryID
+      serverID: cacheKey.serverID,
+      libraryID: cacheKey.libraryID
     ) {
       playlists = cached
     } else {
       playlists = []
     }
     errorMessage = nil
-  }
-
-  private func reloadPlaylistsFromServer() async {
-    guard let context = await resolvePlaylistCacheContext() else {
-      errorMessage = "Add a server in Settings to load playlists."
-      playlists = []
-      return
-    }
-
-    isLoading = true
-    defer { isLoading = false }
-
-    do {
-      playlists = try await context.client.getPlaylists()
-      await PlaylistSummaryCacheStore.shared.savePlaylists(
-        playlists,
-        serverID: context.serverID,
-        libraryID: context.libraryID
-      )
-      errorMessage = nil
-    } catch {
-      errorMessage = error.localizedDescription
-    }
   }
 
   private var createPlaylistErrorBinding: Binding<Bool> {
@@ -198,8 +175,7 @@ struct PlaylistView: View {
 
     do {
       try await context.client.createPlaylist(name: name)
-      // Pull latest playlists and persist cache so the new playlist appears immediately.
-      await reloadPlaylistsFromServer()
+      await loadPlaylistsFromCache()
     } catch {
       createPlaylistErrorMessage = error.localizedDescription
     }
@@ -274,6 +250,19 @@ private struct PlaylistCacheContext {
   let client: AsNavidromeClient
   let serverID: UUID
   let libraryID: String
+}
+
+private struct PlaylistCacheKey {
+  let serverID: UUID
+  let libraryID: String
+}
+
+private func resolvePlaylistCacheKey() async -> PlaylistCacheKey? {
+  let selection = await MainActor.run(resultType: SelectedLibrary?.self) {
+    SelectedLibraryStore.shared.selection
+  }
+  guard let selection else { return nil }
+  return PlaylistCacheKey(serverID: selection.serverID, libraryID: selection.folderID)
 }
 
 private func resolvePlaylistCacheContext() async -> PlaylistCacheContext?

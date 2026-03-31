@@ -89,7 +89,7 @@ struct SongsView: View {
       if let artworkURL = resolvedAlbumArtworkURL {
         HStack(alignment: .center) {
           Spacer()
-          PlayerArtworkView(artworkURL: artworkURL)
+          ArtworkView(artworkURL: artworkURL)
             .frame(maxHeight: 180)
             .aspectRatio(1, contentMode: .fit)
           Spacer()
@@ -152,7 +152,7 @@ struct SongsView: View {
               await downloadAllSongsInView()
             }
           } label: {
-            Label("Download all songs in view", systemImage: "arrow.down.circle")
+            Label("Download all songs", systemImage: "arrow.down.circle")
           }
           .disabled(!canDownloadVisibleSongs)
 

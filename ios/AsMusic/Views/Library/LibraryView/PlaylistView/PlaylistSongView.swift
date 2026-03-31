@@ -126,7 +126,7 @@ struct PlaylistSongView: View {
                 await downloadAllSongsInView()
               }
             } label: {
-              Label("Download all songs in view", systemImage: "arrow.down.circle")
+              Label("Download all songs", systemImage: "arrow.down.circle")
             }
             .disabled(!canDownloadVisibleSongs)
 

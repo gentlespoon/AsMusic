@@ -121,7 +121,7 @@ struct PlayerSheetView: View {
             }
           } else {
 
-            PlayerArtworkView(artworkURL: resolvedArtworkURL)
+            ArtworkView(artworkURL: resolvedArtworkURL)
               .frame(maxWidth: .infinity)
               .aspectRatio(1, contentMode: .fit)
               .padding(16)

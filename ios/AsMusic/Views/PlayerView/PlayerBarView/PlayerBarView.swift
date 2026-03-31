@@ -6,6 +6,9 @@
 //
 
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 struct PlayerBarView: View {
   @Environment(MusicPlayerController.self) private var playback
@@ -44,6 +47,28 @@ struct PlayerBarView: View {
     static let scrubSeekThrottle: TimeInterval = 0.12
     static let spring = Animation.spring(response: 0.35, dampingFraction: 0.82)
     static let carouselFinishDelayNs: UInt64 = 320_000_000
+    static let titleHintDurationNs: UInt64 = 450_000_000
+    static let titleHintFade = Animation.easeInOut(duration: 0.18)
+  }
+
+  private enum PlayingTitleHint {
+    case play
+    case pause
+    case next
+    case previous
+
+    var systemImageName: String {
+      switch self {
+      case .play:
+        return "play.fill"
+      case .pause:
+        return "pause.fill"
+      case .next:
+        return "forward.fill"
+      case .previous:
+        return "backward.fill"
+      }
+    }
   }
 
   private var nextQueueMetadata: PlaybackTrackMetadata? {
@@ -64,6 +89,8 @@ struct PlayerBarView: View {
 
   // MARK: - Main stack
 
+  @State private var playingTitleHint: PlayingTitleHint? = nil
+
   private var playingTitle: some View {
     GeometryReader { geo in
       let barWidth = geo.size.width
@@ -79,23 +106,36 @@ struct PlayerBarView: View {
           )
         }
 
-        if let prev = previousQueueMetadata {
-          PlayerBarTrackTitleRow(metadata: prev, contentWidth: titleWidth)
+        if let playingTitleHint = playingTitleHint {
+          Image(systemName: playingTitleHint.systemImageName)
+            .font(.headline.weight(.semibold))
             .frame(width: barWidth, alignment: .center)
-            .offset(x: -barWidth + horizontalDrag)
-        }
-        if let next = nextQueueMetadata {
-          PlayerBarTrackTitleRow(metadata: next, contentWidth: titleWidth)
+            .transition(.opacity)
+        } else {
+          Group {
+            if let prev = previousQueueMetadata {
+              PlayerBarTrackTitleRow(metadata: prev, contentWidth: titleWidth)
+                .frame(width: barWidth, alignment: .center)
+                .offset(x: -barWidth + horizontalDrag)
+            }
+            if let next = nextQueueMetadata {
+              PlayerBarTrackTitleRow(metadata: next, contentWidth: titleWidth)
+                .frame(width: barWidth, alignment: .center)
+                .offset(x: barWidth + horizontalDrag)
+            }
+            PlayerBarTrackTitleRow(
+              metadata: playback.currentQueueIndex.flatMap { playback.metadataForQueueIndex($0) }
+                ?? playback.currentMetadata,
+              contentWidth: titleWidth
+            )
             .frame(width: barWidth, alignment: .center)
-            .offset(x: barWidth + horizontalDrag)
+            .offset(x: horizontalDrag)
+          }
+          .transition(.opacity)
         }
-        PlayerBarTrackTitleRow(
-          metadata: playback.currentQueueIndex.flatMap { playback.metadataForQueueIndex($0) }
-            ?? playback.currentMetadata,
-          contentWidth: titleWidth)
-          .frame(width: barWidth, alignment: .center)
-          .offset(x: horizontalDrag)
       }
+      .animation(Bar.titleHintFade, value: playingTitleHint)
+      .foregroundStyle(playback.isPlaying ? .primary : .secondary)
       .frame(width: barWidth, alignment: .leading)
       .clipped()
       .offset(y: verticalDrag)
@@ -217,7 +257,9 @@ struct PlayerBarView: View {
     case .undecided:
       resetBarGestureState()
       if dist <= Bar.tapMaxDistance, elapsed < Bar.longPressSeconds {
+        let toggleHint: PlayingTitleHint = playback.isPlaying ? .pause : .play
         playback.togglePlayPause()
+        showPlaybackToggleHint(toggleHint)
         springResetDrag()
         return
       }
@@ -259,7 +301,8 @@ struct PlayerBarView: View {
     abs(h) > abs(v) && h > Bar.swipeThreshold && playback.hasPreviousInQueue
   }
 
-  private func tryCommitQuickSwipeToCarousel(h: CGFloat, v: CGFloat, elapsed: TimeInterval) -> Bool {
+  private func tryCommitQuickSwipeToCarousel(h: CGFloat, v: CGFloat, elapsed: TimeInterval) -> Bool
+  {
     guard elapsed < Bar.longPressSeconds,
       abs(h) > Bar.quickSwipeCommitSlop,
       abs(h) > abs(v)
@@ -327,14 +370,47 @@ struct PlayerBarView: View {
       try? await Task.sleep(nanoseconds: Bar.carouselFinishDelayNs)
       if skipNext {
         await playback.skipToNext()
+        fireFeedback()
+        showPlayingTitleHint(.next)
       } else {
         await playback.skipToPrevious()
+        fireFeedback()
+        showPlayingTitleHint(.previous)
       }
       withAnimation(nil) {
         horizontalDrag = 0
       }
       isCarouselFinishing = false
     }
+  }
+
+  @MainActor
+  private func showPlaybackToggleHint(_ hint: PlayingTitleHint) {
+    fireFeedback()
+    showPlayingTitleHint(hint)
+  }
+
+  @MainActor
+  private func showPlayingTitleHint(_ hint: PlayingTitleHint) {
+    withAnimation(Bar.titleHintFade) {
+      playingTitleHint = hint
+    }
+
+    Task { @MainActor in
+      try? await Task.sleep(nanoseconds: Bar.titleHintDurationNs)
+      if playingTitleHint == hint {
+        withAnimation(Bar.titleHintFade) {
+          playingTitleHint = nil
+        }
+      }
+    }
+  }
+
+  private func fireFeedback() {
+    #if canImport(UIKit)
+      let generator = UIImpactFeedbackGenerator(style: .soft)
+      generator.impactOccurred()
+    #endif
   }
 }
 

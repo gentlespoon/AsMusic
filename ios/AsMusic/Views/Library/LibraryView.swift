@@ -17,28 +17,41 @@ struct LibraryView: View {
   var body: some View {
     List {
       Section {
-        NavigationLink("All Songs") {
+        NavigationLink {
           SongsView()
+        } label: {
+          Label("All Songs", systemImage: "music.note")
         }
-        NavigationLink("Artists") {
+        NavigationLink {
           ArtistsView()
+        } label: {
+          Label("Artists", systemImage: "music.mic")
         }
-        NavigationLink("Albums") {
+        NavigationLink {
           AlbumsView()
+        } label: {
+          Label("Albums", systemImage: "square.stack")
         }
-        NavigationLink("Playlists") {
+        NavigationLink {
           PlaylistView()
+        } label: {
+          Label("Playlists", systemImage: "music.note.list")
         }
-        NavigationLink("Favorites") {
+        NavigationLink {
           FavoritesView(client: client)
+        } label: {
+          Label("Favorites", systemImage: "heart.fill")
         }
       }
       Section {
-        NavigationLink("Downloaded") {
+        NavigationLink {
           SongsView(navigationTitle: "Downloaded", listSource: .localDownloaded)
+        } label: {
+          Label("Downloaded", systemImage: "arrow.down.circle")
         }
       }
     }
+    .foregroundStyle(.primary)
     .navigationTitle(libraryName)
     .refreshable {
       await reloadLibraryContents()

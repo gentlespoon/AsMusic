@@ -8,16 +8,26 @@ import SwiftUI
 
 struct SongRowContentView: View {
   let song: Song
+  @Environment(\.libraryClient) private var client
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 2) {
-      Text(song.title)
-      if let subtitle = songRowSubtitle(artist: song.artist, album: song.album) {
-        Text(subtitle)
-          .font(.caption)
-          .foregroundStyle(.secondary)
+    HStack(alignment: .center) {
+      ArtworkView(artworkURL: songArtworkURL)
+        .frame(width: 40, height: 40)
+        .cornerRadius(4)
+      VStack(alignment: .leading, spacing: 2) {
+        Text(song.title)
+        if let subtitle = songRowSubtitle(artist: song.artist, album: song.album) {
+          Text(subtitle)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        }
       }
     }
+  }
+
+  private var songArtworkURL: URL? {
+    ArtworkURLSupport.coverArtURL(client: client, artworkID: song.coverArt)
   }
 
   /// Artist and album on one line; separator only when both are non-empty. `nil` if neither is usable.

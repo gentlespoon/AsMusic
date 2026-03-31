@@ -39,22 +39,31 @@ struct SettingsView: View {
         .pickerStyle(.segmented)
       }
       Section("Libraries") {
-        NavigationLink("Server Manager") {
+        NavigationLink {
           ServerManagerView()
+        } label: {
+          Label("Server Manager", systemImage: "server.rack")
         }
-        NavigationLink("Libraries") {
+        NavigationLink {
           LibrariesView()
+        } label: {
+          Label("Libraries", systemImage: "books.vertical")
         }
       }
       Section("Cache") {
-        Button("Reset Library Database Cache", role: .destructive) {
+        Button(role: .destructive) {
           isConfirmingCacheReset = true
+        } label: {
+          Label("Reset Library Database Cache", systemImage: "arrow.clockwise")
         }
-        Button("Delete Downloaded Songs and Artwork", role: .destructive) {
+        Button(role: .destructive) {
           isConfirmingFileCacheReset = true
+        } label: {
+          Label("Delete Downloaded Songs and Artwork", systemImage: "trash")
         }
       }
     }
+    .foregroundStyle(.primary)
     .navigationTitle("Settings")
     .confirmationDialog(
       "Reset Library Cache?",

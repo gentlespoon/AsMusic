@@ -1,11 +1,11 @@
 //
-//  PlayerArtworkView.swift
+//  ArtworkView.swift
 //  AsMusic
 //
 
 import SwiftUI
 
-struct PlayerArtworkView: View {
+struct ArtworkView: View {
   let artworkURL: URL?
 
   var body: some View {
@@ -32,18 +32,25 @@ struct PlayerArtworkView: View {
   }
 }
 
-private extension PlayerArtworkView {
+private extension ArtworkView {
   var placeholder: some View {
     RoundedRectangle(cornerRadius: 12)
       .fill(.ultraThinMaterial)
       .overlay {
-        Image(systemName: "music.note")
-          .font(.system(size: 64))
-          .foregroundStyle(.secondary)
+        GeometryReader { proxy in
+          let iconSize = min(proxy.size.width, proxy.size.height) * 0.4
+
+          Image(systemName: "music.note")
+            .resizable()
+            .scaledToFit()
+            .frame(width: iconSize, height: iconSize)
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
       }
   }
 }
 
 #Preview {
-  PlayerArtworkView(artworkURL: URL(string: ""))
+  ArtworkView(artworkURL: URL(string: ""))
 }

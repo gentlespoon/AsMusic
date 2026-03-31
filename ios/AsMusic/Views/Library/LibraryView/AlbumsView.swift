@@ -72,10 +72,7 @@ struct AlbumsView: View {
   }
 
   private func albumArtworkURL(for album: AlbumSummary) -> URL? {
-    guard let client else { return nil }
-    let artworkID = album.artworkID?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-    guard !artworkID.isEmpty else { return nil }
-    return client.media.coverArt(forID: artworkID, size: 600)
+    ArtworkURLSupport.coverArtURL(client: client, artworkID: album.artworkID)
   }
 
   var body: some View {
@@ -124,10 +121,15 @@ struct AlbumsView: View {
               albumArtworkURL: albumArtworkURL(for: album)
             )
           } label: {
-            VStack(alignment: .leading, spacing: 2) {
-              Text(album.name)
-              Text(subtitleLine(for: album))
-                .font(.caption)
+            HStack(alignment: .center) {
+              ArtworkView(artworkURL: albumArtworkURL(for: album))
+                .frame(width: 40, height: 40)
+                .cornerRadius(4)
+              VStack(alignment: .leading, spacing: 2) {
+                Text(album.name)
+                Text(subtitleLine(for: album))
+                  .font(.caption)
+              }
             }
           }
         }

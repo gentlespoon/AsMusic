@@ -72,22 +72,24 @@ struct PlayerBarView: View {
       ZStack(alignment: .leading) {
         TimelineView(.animation(minimumInterval: 1.0 / 60.0, paused: !playback.isPlaying)) {
           timeline in
-          progressBar(
+          PlayerBarProgressBar(
             containerSize: geo.size,
-            displayedTime: scrubDisplayTime ?? displayedPlaybackTime(at: timeline.date))
+            displayedTime: scrubDisplayTime ?? displayedPlaybackTime(at: timeline.date),
+            duration: playback.duration
+          )
         }
 
         if let prev = previousQueueMetadata {
-          trackTitleRow(metadata: prev, contentWidth: titleWidth)
+          PlayerBarTrackTitleRow(metadata: prev, contentWidth: titleWidth)
             .frame(width: barWidth, alignment: .center)
             .offset(x: -barWidth + horizontalDrag)
         }
         if let next = nextQueueMetadata {
-          trackTitleRow(metadata: next, contentWidth: titleWidth)
+          PlayerBarTrackTitleRow(metadata: next, contentWidth: titleWidth)
             .frame(width: barWidth, alignment: .center)
             .offset(x: barWidth + horizontalDrag)
         }
-        trackTitleRow(
+        PlayerBarTrackTitleRow(
           metadata: playback.currentQueueIndex.flatMap { playback.metadataForQueueIndex($0) }
             ?? playback.currentMetadata,
           contentWidth: titleWidth)
@@ -116,48 +118,6 @@ struct PlayerBarView: View {
     DragGesture(minimumDistance: 0)
       .onChanged { handleBarDragChanged($0) }
       .onEnded { handleBarDragEnded($0) }
-  }
-
-  @ViewBuilder
-  private func trackTitleRow(metadata: PlaybackTrackMetadata?, contentWidth: CGFloat) -> some View {
-    VStack(spacing: 0) {
-      if let meta = metadata, !meta.title.isEmpty {
-        MarqueeTextLine(text: meta.title, lineStyle: .title, contentWidth: contentWidth)
-        if let album = meta.album, !album.isEmpty {
-          MarqueeTextLine(text: album, lineStyle: .album, contentWidth: contentWidth)
-        }
-        if let artist = meta.artist, !artist.isEmpty {
-          MarqueeTextLine(text: artist, lineStyle: .artist, contentWidth: contentWidth)
-        }
-      } else {
-        MarqueeTextLine(
-          text: " - Not Playing -", lineStyle: .placeholder, contentWidth: contentWidth)
-      }
-    }
-    .frame(maxHeight: .infinity)
-    .multilineTextAlignment(.center)
-    .frame(maxWidth: .infinity)
-    .padding(.horizontal, Bar.horizontalPadding)
-  }
-
-  private func progressBar(containerSize: CGSize, displayedTime: Double) -> some View {
-    let w = max(containerSize.width, 0)
-    let h = max(containerSize.height, 0)
-    let d = playback.duration
-    let playedFraction: CGFloat =
-      d > 0
-      ? CGFloat(min(1, max(0, displayedTime / d))) : 0
-
-    return ZStack(alignment: .leading) {
-      Rectangle()
-        .fill(Color.primary.opacity(0.05))
-        .frame(width: w, height: h)
-      Rectangle()
-        .fill(Color.primary.opacity(0.1))
-        .frame(width: w * playedFraction, height: h)
-    }
-    .frame(width: w, height: h)
-    .allowsHitTesting(false)
   }
 
   // MARK: - Playback

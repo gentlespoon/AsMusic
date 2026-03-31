@@ -6,38 +6,6 @@
 import AsNavidromeKit
 import Foundation
 
-// MARK: - Cache key (shared with `SongCacheStore`)
-
-enum LibrarySongCacheKey {
-  static func current(for client: AsNavidromeClient) -> String {
-    "songs::\(client.host)::\(client.username)"
-  }
-}
-
-// MARK: - Fetch (single source for library song list)
-
-enum LibrarySongFetch {
-  /// Loads the library song list and a map from song id to client (for album drill-down rows that reuse `SongsView`).
-  static func loadSongs(client: AsNavidromeClient) async throws -> (
-    songs: [Song],
-    songClientsByID: [String: AsNavidromeClient]
-  ) {
-    let songs = try await client.song.getSongs()
-    let map = Dictionary(uniqueKeysWithValues: songs.map { ($0.id, client) })
-    return (songs, map)
-  }
-}
-
-// MARK: - Full library cache refresh (LibraryView pull-to-refresh)
-
-enum LibrarySongCacheReload {
-  static func fetchAndSave(client: AsNavidromeClient) async throws {
-    let cacheKey = LibrarySongCacheKey.current(for: client)
-    let (songs, _) = try await LibrarySongFetch.loadSongs(client: client)
-    await SongCacheStore.shared.saveSongs(songs, for: cacheKey)
-  }
-}
-
 // MARK: - Albums / artists derived from cached songs
 
 enum LibraryIndexFromSongs {
@@ -222,33 +190,3 @@ enum LibraryIndexFromSongs {
   }
 }
 
-// MARK: - Songs with locally cached files
-
-enum LocalCachedSongList {
-  struct Entry {
-    let song: Song
-    let localURL: URL
-  }
-
-  /// From the cached library list, songs that have a complete on-disk cache; sorted by title.
-  static func entries(from cachedSongs: [Song], client: AsNavidromeClient?) async -> [Entry] {
-    var result: [Entry] = []
-    for song in cachedSongs {
-      if let localURL = await resolveLocalFileURLIfDownloaded(for: song, client: client) {
-        result.append(Entry(song: song, localURL: localURL))
-      }
-    }
-    result.sort {
-      $0.song.title.localizedCaseInsensitiveCompare($1.song.title) == .orderedAscending
-    }
-    return result
-  }
-
-  private static func resolveLocalFileURLIfDownloaded(for song: Song, client: AsNavidromeClient?)
-    async -> URL?
-  {
-    guard let client else { return nil }
-    let remote = client.media.download(forSongID: song.id)
-    return SongFileCache.existingLocalFileURLIfPresent(for: remote, relativePath: song.path)
-  }
-}

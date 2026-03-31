@@ -5,11 +5,8 @@
 //  Created by An So on 2026-03-27.
 //
 
-import AVFoundation
 import AsNavidromeKit
-import MediaPlayer
 import SwiftUI
-import UIKit
 
 struct PlayerSheetView: View {
   @Environment(MusicPlayerController.self) private var playback
@@ -315,126 +312,6 @@ struct PlayerSheetView: View {
     let servers = ServerManager().servers
     guard let server = servers.first(where: { $0.id == selection.serverID }) else { return nil }
     return await NavidromeClientStore.shared.client(for: server)
-  }
-}
-
-private enum PlayerLibraryRoute: Hashable {
-  case artist(id: String, name: String)
-  case album(id: String, title: String, artistLine: String?)
-}
-
-extension PlaybackTrackMetadata {
-  fileprivate var navigableArtist: (id: String, name: String)? {
-    let name = artist?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-    guard !name.isEmpty else { return nil }
-    if let bucket = libraryArtistBucketId?.trimmingCharacters(in: .whitespacesAndNewlines),
-      !bucket.isEmpty
-    {
-      return (bucket, name)
-    }
-    if let id = artistId?.trimmingCharacters(in: .whitespacesAndNewlines), !id.isEmpty {
-      return (id, name)
-    }
-    return ("name:\(name.lowercased())", name)
-  }
-
-  fileprivate var navigableAlbum: (id: String, title: String, artistLine: String?)? {
-    let title = album?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-    guard !title.isEmpty else { return nil }
-    let id = albumId?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-    return (id, title, artist)
-  }
-}
-
-private struct PlayerCachedAlbumSongsView: View {
-  let albumId: String
-  let albumTitle: String
-  let artistLine: String?
-  let client: AsNavidromeClient
-
-  @State private var songs: [Song] = []
-  @State private var songClientsByID: [String: AsNavidromeClient] = [:]
-
-  var body: some View {
-    Group {
-      if songs.isEmpty {
-        ProgressView("Loading album…")
-          .frame(maxWidth: .infinity, maxHeight: .infinity)
-      } else {
-        SongsView(songs: songs, navigationTitle: albumTitle, songClientsByID: songClientsByID)
-      }
-    }
-    .environment(\.libraryClient, client)
-    .task {
-      await loadSongs()
-    }
-  }
-
-  private func loadSongs() async {
-    let cacheKey = LibrarySongCacheKey.current(for: client)
-    guard let cached = await SongCacheStore.shared.loadSongs(for: cacheKey), !cached.isEmpty else {
-      songs = []
-      return
-    }
-
-    let derived = LibraryIndexFromSongs.albums(from: cached)
-    let album: Album
-    if !albumId.isEmpty, let match = derived.first(where: { $0.id == albumId }) {
-      album = match
-    } else if let match = derived.first(where: {
-      $0.name.caseInsensitiveCompare(albumTitle) == .orderedSame
-    }) {
-      album = match
-    } else {
-      album = Album(
-        id: albumId.isEmpty ? "player:\(albumTitle.lowercased())" : albumId, name: albumTitle,
-        artist: artistLine)
-    }
-
-    let list = LibraryIndexFromSongs.songs(in: album, from: cached)
-    songs = list
-    songClientsByID = Dictionary(uniqueKeysWithValues: list.map { ($0.id, client) })
-  }
-}
-
-private struct SystemVolumeSlider: UIViewRepresentable {
-  func makeUIView(context: Context) -> MPVolumeView {
-    let v = MPVolumeView(frame: .zero)
-    configure(v)
-    return v
-  }
-
-  func updateUIView(_ uiView: MPVolumeView, context: Context) {
-    configure(uiView)
-  }
-
-  private func configure(_ volumeView: MPVolumeView) {
-    hideRouteButton(in: volumeView)
-    hideVolumeSliderThumb(in: volumeView)
-  }
-
-  private func hideRouteButton(in volumeView: MPVolumeView) {
-    for subview in volumeView.subviews {
-      guard let button = subview as? UIButton else { continue }
-      let className = NSStringFromClass(type(of: button))
-      if className.contains("RouteButton") {
-        button.isHidden = true
-        button.isUserInteractionEnabled = false
-      }
-    }
-  }
-
-  private func hideVolumeSliderThumb(in root: UIView) {
-    if let slider = root as? UISlider {
-      let clear = UIImage()
-      slider.setThumbImage(clear, for: .normal)
-      slider.setThumbImage(clear, for: .highlighted)
-      slider.setThumbImage(clear, for: .selected)
-      slider.setThumbImage(clear, for: .disabled)
-    }
-    for sub in root.subviews {
-      hideVolumeSliderThumb(in: sub)
-    }
   }
 }
 

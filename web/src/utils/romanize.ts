@@ -56,8 +56,12 @@ function splitLatinNonLatin(str: string): string[] {
   return segments;
 }
 
+type KuroshiroConvertOpts = { to: string; romajiSystem?: string };
+
 /** Lazy-initialized kuroshiro instance for full Japanese (kanji + kana) → romaji */
-let kuroshiroPromise: Promise<{ convert: (str: string, opts: { to: string }) => Promise<string> }> | null = null;
+let kuroshiroPromise: Promise<{
+  convert: (str: string, opts: KuroshiroConvertOpts) => Promise<string>;
+}> | null = null;
 let kuroshiroInitError: unknown = null;
 
 /**
@@ -66,7 +70,9 @@ let kuroshiroInitError: unknown = null;
  */
 const KUROMOJI_DICT_PATH = '/kuromoji-dict/';
 
-async function getKuroshiro(): Promise<{ convert: (str: string, opts: { to: string }) => Promise<string> }> {
+async function getKuroshiro(): Promise<{
+  convert: (str: string, opts: KuroshiroConvertOpts) => Promise<string>;
+}> {
   if (kuroshiroInitError) throw kuroshiroInitError;
   if (!kuroshiroPromise) {
     kuroshiroPromise = (async () => {

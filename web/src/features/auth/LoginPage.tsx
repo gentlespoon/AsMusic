@@ -7,16 +7,16 @@ export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { login, isAuthenticated } = useAuth();
-
-  if (isAuthenticated) {
-    const from = (location.state as { from?: { pathname: string } })?.from?.pathname ?? '/';
-    return <Navigate to={from} replace />;
-  }
   const [serverUrl, setServerUrl] = useState(getApiBase());
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  if (isAuthenticated) {
+    const from = (location.state as { from?: { pathname: string } })?.from?.pathname ?? '/';
+    return <Navigate to={from} replace />;
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

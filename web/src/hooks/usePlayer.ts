@@ -10,8 +10,14 @@ export function usePlayer() {
     position: 0,
     play: () => {},
     pause: () => {},
-    seek: (_position: number) => {},
-    playTrack: (_id: string) => {},
-    setQueue: (_ids: string[]) => {},
+    seek: (position: number) => {
+      void position;
+    },
+    playTrack: (id: string) => {
+      void id;
+    },
+    setQueue: (ids: string[]) => {
+      void ids;
+    },
   };
 }

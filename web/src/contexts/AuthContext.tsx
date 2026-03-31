@@ -73,7 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isRestoring, setIsRestoring] = useState(true);
 
   const applyLogin = useCallback(
-    (url: string, username: string, password: string, api: SubsonicAPI) => {
+    (url: string, username: string, api: SubsonicAPI) => {
       let subsonicToken: string | null = null;
       let subsonicSalt: string | null = null;
       return (async () => {
@@ -105,7 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
         const api = createNavidromeApi(url, auth);
-        return applyLogin(url, stored.username, stored.password, api);
+        return applyLogin(url, stored.username, api);
       })
       .catch(() => saveSession(null))
       .finally(() => setIsRestoring(false));

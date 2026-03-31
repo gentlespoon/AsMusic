@@ -1,5 +1,5 @@
-import { usePlayer } from '@/contexts';
-import { formatDuration } from '@/utils';
+import { usePlayer } from "@/contexts";
+import { formatDuration } from "@/utils";
 
 export function NowPlayingBar() {
   const {
@@ -13,7 +13,6 @@ export function NowPlayingBar() {
   } = usePlayer();
 
   const duration = currentTrack?.duration ?? 0;
-  const progress = duration > 0 ? (position / duration) * 100 : 0;
 
   if (!currentTrack) {
     return (
@@ -28,7 +27,7 @@ export function NowPlayingBar() {
       <div className="now-playing__track">
         <span className="now-playing__title">{currentTrack.title}</span>
         <span className="now-playing__artist">
-          {currentTrack.artist ?? currentTrack.album ?? '—'}
+          {currentTrack.artist ?? currentTrack.album ?? "—"}
         </span>
       </div>
       <div className="now-playing__controls">
@@ -44,9 +43,9 @@ export function NowPlayingBar() {
           type="button"
           className="now-playing__btn now-playing__btn--play"
           onClick={togglePlayPause}
-          aria-label={isPlaying ? 'Pause' : 'Play'}
+          aria-label={isPlaying ? "Pause" : "Play"}
         >
-          {isPlaying ? '‖' : '▶'}
+          {isPlaying ? "‖" : "▶"}
         </button>
         <button
           type="button"

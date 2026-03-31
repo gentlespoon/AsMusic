@@ -29,7 +29,7 @@ export function LibraryPage() {
   const { setQueue } = usePlayer();
   const { sortLanguage } = useSettings();
   const [view, setView] = useState<'index' | 'artist' | 'album'>('index');
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [, setSelectedId] = useState<string | null>(null);
   const [indexes, setIndexes] = useState<IndexEntry[]>([]);
   const [sortedIndexes, setSortedIndexes] = useState<IndexEntry[] | null>(null);
   const [artistRomanizedKeys, setArtistRomanizedKeys] = useState<Map<string, string>>(new Map());

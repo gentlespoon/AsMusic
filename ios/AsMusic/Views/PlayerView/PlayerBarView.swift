@@ -6,7 +6,6 @@
 //
 
 import SwiftUI
-import UIKit
 
 struct PlayerBarView: View {
   @Environment(MusicPlayerController.self) private var playback
@@ -51,12 +50,12 @@ struct PlayerBarView: View {
     guard let idx = playback.currentQueueIndex,
       idx + 1 < playback.nowPlayingQueue.count
     else { return nil }
-    return playback.nowPlayingQueue[idx + 1].metadata
+    return playback.metadataForQueueIndex(idx + 1)
   }
 
   private var previousQueueMetadata: PlaybackTrackMetadata? {
     guard let idx = playback.currentQueueIndex, idx > 0 else { return nil }
-    return playback.nowPlayingQueue[idx - 1].metadata
+    return playback.metadataForQueueIndex(idx - 1)
   }
 
   var body: some View {
@@ -88,7 +87,10 @@ struct PlayerBarView: View {
             .frame(width: barWidth, alignment: .center)
             .offset(x: barWidth + horizontalDrag)
         }
-        trackTitleRow(metadata: playback.currentMetadata, contentWidth: titleWidth)
+        trackTitleRow(
+          metadata: playback.currentQueueIndex.flatMap { playback.metadataForQueueIndex($0) }
+            ?? playback.currentMetadata,
+          contentWidth: titleWidth)
           .frame(width: barWidth, alignment: .center)
           .offset(x: horizontalDrag)
       }
@@ -274,9 +276,9 @@ struct PlayerBarView: View {
   }
 
   private func springResetDrag() {
+    verticalDrag = 0
     withAnimation(Bar.spring) {
       horizontalDrag = 0
-      verticalDrag = 0
     }
   }
 
@@ -376,97 +378,7 @@ struct PlayerBarView: View {
   }
 }
 
-// MARK: - Marquee line
-
-private enum MarqueeLineStyle {
-  case title
-  case album
-  case artist
-  case placeholder
-
-  var uiTextStyle: UIFont.TextStyle {
-    switch self {
-    case .title: return .subheadline
-    case .album, .placeholder: return .caption1
-    case .artist: return .caption2
-    }
-  }
-
-  var uiWeight: UIFont.Weight {
-    switch self {
-    case .title: return .bold
-    case .album: return .semibold
-    case .artist, .placeholder: return .regular
-    }
-  }
-
-  func measureWidth(for text: String) -> CGFloat {
-    let base = UIFont.preferredFont(forTextStyle: uiTextStyle)
-    let metrics = UIFontMetrics(forTextStyle: uiTextStyle)
-    let font = metrics.scaledFont(for: UIFont.systemFont(ofSize: base.pointSize, weight: uiWeight))
-    return ceil((text as NSString).size(withAttributes: [.font: font]).width)
-  }
-
-  @ViewBuilder
-  func textView(_ text: String) -> some View {
-    switch self {
-    case .title:
-      Text(text).font(.subheadline.weight(.bold))
-    case .album:
-      Text(text).font(.caption).fontWeight(.semibold)
-    case .artist:
-      Text(text).font(.caption2)
-    case .placeholder:
-      Text(text).font(.caption)
-    }
-  }
-}
-
-private struct MarqueeTextLine: View {
-  let text: String
-  let lineStyle: MarqueeLineStyle
-  let contentWidth: CGFloat
-
-  private let gap: CGFloat = 32
-  private let speed: CGFloat = 42
-
-  @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-  private var measuredWidth: CGFloat {
-    lineStyle.measureWidth(for: text)
-  }
-
-  private var needsMarquee: Bool {
-    contentWidth > 1 && measuredWidth > contentWidth + 0.5
-  }
-
-  private var cycle: CGFloat {
-    measuredWidth + gap
-  }
-
-  var body: some View {
-    Group {
-      if needsMarquee && !reduceMotion {
-        TimelineView(.animation(minimumInterval: 1 / 60, paused: false)) { timeline in
-          let t = timeline.date.timeIntervalSinceReferenceDate
-          let segment = Double(cycle)
-          let p = CGFloat((t * Double(speed)).truncatingRemainder(dividingBy: segment))
-          HStack(spacing: gap) {
-            lineStyle.textView(text)
-            lineStyle.textView(text)
-          }
-          .fixedSize(horizontal: true, vertical: false)
-          .offset(x: -p)
-        }
-      } else {
-        lineStyle.textView(text)
-          .lineLimit(1)
-          .multilineTextAlignment(.center)
-          .truncationMode(.tail)
-          .frame(maxWidth: .infinity)
-      }
-    }
-    .frame(width: contentWidth, alignment: .leading)
-    .clipped()
-  }
+#Preview {
+  PlayerBarView()
+    .environment(MusicPlayerController.previewMockedController())
 }

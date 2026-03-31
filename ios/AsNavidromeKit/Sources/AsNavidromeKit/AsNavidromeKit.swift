@@ -1,5 +1,9 @@
-// The Swift Programming Language
-// https://docs.swift.org/swift-book
+  //
+  //  AsNavidromeKit.swift
+  //  AsNavidromeKit
+  //
+  //  Created by An So on 2026-03-26.
+  //
 
 import Foundation
 
@@ -110,6 +114,20 @@ extension AsNavidromeClient {
       }
 
       return allSongs
+    }
+
+    public func star(songID: String) async throws {
+      let _ = try await authedRequest.get(
+        path: ApiPaths.star,
+        additionalParameters: ["id": songID]
+      )
+    }
+
+    public func unstar(songID: String) async throws {
+      let _ = try await authedRequest.get(
+        path: ApiPaths.unstar,
+        additionalParameters: ["id": songID]
+      )
     }
   }
 }

@@ -46,7 +46,7 @@ struct RootTabView: View {
       }
     }
     .sheet(isPresented: $isQueueSheetPresented) {
-      NowPlayingQueueSheetView()
+      PlayingQueueSheetView()
         .environment(playback)
     }
     .sheet(
@@ -58,4 +58,10 @@ struct RootTabView: View {
       PlayerSheetView()
     }
   }
+}
+
+
+#Preview {
+  RootTabView()
+    .environment(MusicPlayerController.previewMockedController())
 }

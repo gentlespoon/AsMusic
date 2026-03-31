@@ -27,6 +27,12 @@ struct PlaybackTrackMetadata: Equatable, Sendable, Codable {
   var albumId: String?
   /// Matches `LibraryIndexFromSongs.artistBucketId(for:)` so artist drill-down finds the same rows as the library.
   var libraryArtistBucketId: String?
+  /// File extension / container from Subsonic (e.g. `mp3`, `flac`).
+  var suffix: String?
+  /// Nominal bitrate in kilobits per second when known.
+  var bitRate: Int?
+  /// Mirrors Subsonic star state for the active track.
+  var isStarred: Bool?
 
   init(
     title: String,
@@ -36,7 +42,10 @@ struct PlaybackTrackMetadata: Equatable, Sendable, Codable {
     durationSeconds: Double? = nil,
     artistId: String? = nil,
     albumId: String? = nil,
-    libraryArtistBucketId: String? = nil
+    libraryArtistBucketId: String? = nil,
+    suffix: String? = nil,
+    bitRate: Int? = nil,
+    isStarred: Bool? = nil
   ) {
     self.title = title
     self.artist = artist
@@ -46,6 +55,9 @@ struct PlaybackTrackMetadata: Equatable, Sendable, Codable {
     self.artistId = artistId
     self.albumId = albumId
     self.libraryArtistBucketId = libraryArtistBucketId
+    self.suffix = suffix
+    self.bitRate = bitRate
+    self.isStarred = isStarred
   }
 }
 
@@ -68,6 +80,7 @@ final class MusicPlayerController {
   /// Fills on-disk cache while streaming remote playback; cancelled when switching tracks.
   private var cacheFillTask: Task<Void, Never>?
   private var loadedSourceURL: URL?
+  private var loadedSongID: String?
   private var loadedCachePath: String?
   private var metadata: PlaybackTrackMetadata?
   private var artworkLoadTask: Task<Void, Never>?
@@ -78,6 +91,10 @@ final class MusicPlayerController {
   private(set) var nowPlayingQueue: [NowPlayingQueueItem] = []
   /// Index into `nowPlayingQueue` for the track currently loaded in `player`, if any.
   private(set) var currentQueueIndex: Int?
+  /// Resolved from cached library songs; queue ids are source-of-truth keys.
+  private var cachedSongsByID: [String: Song] = [:]
+  private var cachedClientBySongID: [String: AsNavidromeClient] = [:]
+  private var starredSongIDs: Set<String> = []
 
   var currentSourceURL: URL? {
     loadedSourceURL
@@ -91,10 +108,24 @@ final class MusicPlayerController {
     metadata
   }
 
-  /// Current queue row (includes stable Subsonic `id` and rich metadata when playing from the library).
+  /// Current queue row (stable Subsonic `id`; metadata resolves from cached song list).
   var currentQueueItem: NowPlayingQueueItem? {
     guard let idx = currentQueueIndex, nowPlayingQueue.indices.contains(idx) else { return nil }
     return nowPlayingQueue[idx]
+  }
+
+  var currentTrackIsStarred: Bool {
+    if let id = currentQueueItem?.id ?? loadedSongID {
+      return starredSongIDs.contains(id)
+    }
+    return metadata?.isStarred ?? false
+  }
+
+  func metadataForQueueIndex(_ index: Int) -> PlaybackTrackMetadata? {
+    guard nowPlayingQueue.indices.contains(index) else { return nil }
+    let songID = nowPlayingQueue[index].id
+    guard let song = cachedSongsByID[songID] else { return nil }
+    return Self.metadata(from: song)
   }
 
   var hasNextInQueue: Bool {
@@ -158,9 +189,7 @@ final class MusicPlayerController {
         )
         nowPlayingQueue = restored
         currentQueueIndex = targetIndex
-        let item = restored[targetIndex]
-        await load(
-          url: item.url, cacheRelativePath: item.cacheRelativePath, metadata: item.metadata)
+        await loadQueueItem(at: targetIndex)
         await seekToRestoredPosition(state.positionSeconds)
         isRestoringPlayback = false
         persistPlaybackState()
@@ -222,6 +251,7 @@ final class MusicPlayerController {
     tearDownPlayer()
     loadError = nil
     loadedSourceURL = url
+    loadedSongID = Self.songId(from: url)
     loadedCachePath = cacheRelativePath
     self.metadata = metadata
 
@@ -268,14 +298,8 @@ final class MusicPlayerController {
   }
 
   private func replaceQueueWithSingleCurrentTrack() {
-    guard let url = loadedSourceURL, let meta = metadata else { return }
-    let id = Self.songId(from: url) ?? url.absoluteString
-    let item = NowPlayingQueueItem(
-      id: id,
-      url: url,
-      cacheRelativePath: loadedCachePath,
-      metadata: meta
-    )
+    guard let songID = loadedSongID else { return }
+    let item = NowPlayingQueueItem(id: songID)
     nowPlayingQueue = [item]
     currentQueueIndex = 0
     refreshRemoteCommandAvailability()
@@ -310,6 +334,72 @@ final class MusicPlayerController {
     persistPlaybackState()
   }
 
+  private func loadQueueItem(at index: Int) async {
+    guard nowPlayingQueue.indices.contains(index) else { return }
+    let songID = nowPlayingQueue[index].id
+    guard let resolved = await resolveSongAndClient(for: songID) else { return }
+    let streamURL = resolved.client.media.stream(forSongID: songID)
+    await load(
+      url: streamURL,
+      cacheRelativePath: resolved.song.path,
+      metadata: Self.metadata(from: resolved.song)
+    )
+  }
+
+  private func resolveSongAndClient(for songID: String) async -> (song: Song, client: AsNavidromeClient)? {
+    if let song = cachedSongsByID[songID], let client = cachedClientBySongID[songID] {
+      return (song, client)
+    }
+
+    let manager = ServerManager()
+    let servers = manager.servers
+    guard !servers.isEmpty else { return nil }
+    let preferredServerID = SelectedLibraryStore.shared.selection?.serverID
+    let orderedServers = servers.sorted { lhs, rhs in
+      if lhs.id == preferredServerID { return true }
+      if rhs.id == preferredServerID { return false }
+      return false
+    }
+
+    for server in orderedServers {
+      let client = await NavidromeClientStore.shared.client(for: server)
+      let cacheKey = LibrarySongCacheKey.current(for: client)
+      guard let songs = await SongCacheStore.shared.loadSongs(for: cacheKey), !songs.isEmpty else { continue }
+      for song in songs {
+        cachedSongsByID[song.id] = song
+        cachedClientBySongID[song.id] = client
+        if song.starred != nil {
+          starredSongIDs.insert(song.id)
+        }
+      }
+      if let match = cachedSongsByID[songID], let sourceClient = cachedClientBySongID[songID] {
+        return (match, sourceClient)
+      }
+    }
+    return nil
+  }
+
+  func setCurrentTrackStarred(_ shouldStar: Bool) async {
+    guard let songID = currentQueueItem?.id ?? loadedSongID else { return }
+    guard let resolved = await resolveSongAndClient(for: songID) else { return }
+    do {
+      if shouldStar {
+        try await resolved.client.song.star(songID: songID)
+        starredSongIDs.insert(songID)
+      } else {
+        try await resolved.client.song.unstar(songID: songID)
+        starredSongIDs.remove(songID)
+      }
+      if var current = metadata, currentQueueItem?.id == songID || loadedSongID == songID {
+        current.isStarred = shouldStar
+        metadata = current
+      }
+      refreshRemoteFeedbackState()
+    } catch {
+      // Keep playback uninterrupted if starring fails.
+    }
+  }
+
   func presentPlayer() {
     isPlayerPresented = true
   }
@@ -325,7 +415,9 @@ final class MusicPlayerController {
       currentQueueIndex = insertAt
     }
     refreshRemoteCommandAvailability()
-    await load(url: item.url, cacheRelativePath: item.cacheRelativePath, metadata: item.metadata)
+    if let idx = currentQueueIndex {
+      await loadQueueItem(at: idx)
+    }
     play()
   }
 
@@ -355,17 +447,15 @@ final class MusicPlayerController {
     nowPlayingQueue = items
     currentQueueIndex = index
     refreshRemoteCommandAvailability()
-    let item = items[index]
-    await load(url: item.url, cacheRelativePath: item.cacheRelativePath, metadata: item.metadata)
+    await loadQueueItem(at: index)
     play()
   }
 
   func jumpToQueueIndex(_ index: Int) async {
     guard nowPlayingQueue.indices.contains(index) else { return }
     currentQueueIndex = index
-    let item = nowPlayingQueue[index]
     refreshRemoteCommandAvailability()
-    await load(url: item.url, cacheRelativePath: item.cacheRelativePath, metadata: item.metadata)
+    await loadQueueItem(at: index)
     play()
   }
 
@@ -396,6 +486,7 @@ final class MusicPlayerController {
       currentQueueIndex = nil
       tearDownPlayer()
       loadedSourceURL = nil
+      loadedSongID = nil
       loadedCachePath = nil
       metadata = nil
       loadError = nil
@@ -416,10 +507,8 @@ final class MusicPlayerController {
           newIdx = nowPlayingQueue.count - 1
         }
         currentQueueIndex = newIdx
-        let item = nowPlayingQueue[newIdx]
         refreshRemoteCommandAvailability()
-        await load(
-          url: item.url, cacheRelativePath: item.cacheRelativePath, metadata: item.metadata)
+        await loadQueueItem(at: newIdx)
         play()
         persistPlaybackState()
         return
@@ -577,14 +666,29 @@ final class MusicPlayerController {
     }
     let next = idx + 1
     currentQueueIndex = next
-    let item = nowPlayingQueue[next]
     refreshRemoteCommandAvailability()
-    await load(url: item.url, cacheRelativePath: item.cacheRelativePath, metadata: item.metadata)
+    await loadQueueItem(at: next)
     play()
   }
 
   private func syncPlayingState(from p: AVPlayer?) {
     isPlaying = p?.timeControlStatus == .playing
+  }
+
+  private static func metadata(from song: Song) -> PlaybackTrackMetadata {
+    PlaybackTrackMetadata(
+      title: song.title,
+      artist: LibraryIndexFromSongs.trackArtistCreditLine(for: song) ?? song.artist,
+      album: song.album,
+      artworkID: song.coverArt,
+      durationSeconds: song.duration.map { Double($0) },
+      artistId: song.artistId,
+      albumId: song.albumId,
+      libraryArtistBucketId: LibraryIndexFromSongs.artistBucketId(for: song),
+      suffix: song.suffix,
+      bitRate: song.bitRate,
+      isStarred: song.starred != nil
+    )
   }
 
   // MARK: - Now Playing & Remote Commands
@@ -650,13 +754,46 @@ final class MusicPlayerController {
       return .success
     }
 
+    center.likeCommand.isEnabled = false
+    center.likeCommand.localizedTitle = "Star"
+    center.likeCommand.isActive = false
+    center.likeCommand.addTarget { [weak self] _ in
+      guard let self else { return .commandFailed }
+      Task { @MainActor in
+        await self.setCurrentTrackStarred(true)
+      }
+      return .success
+    }
+
+    center.dislikeCommand.isEnabled = false
+    center.dislikeCommand.localizedTitle = "Unstar"
+    center.dislikeCommand.isActive = false
+    center.dislikeCommand.addTarget { [weak self] _ in
+      guard let self else { return .commandFailed }
+      Task { @MainActor in
+        await self.setCurrentTrackStarred(false)
+      }
+      return .success
+    }
+
     refreshRemoteCommandAvailability()
+    refreshRemoteFeedbackState()
   }
 
   private func refreshRemoteCommandAvailability() {
     let center = MPRemoteCommandCenter.shared()
     center.nextTrackCommand.isEnabled = hasNextInQueue
     center.previousTrackCommand.isEnabled = hasPreviousInQueue
+  }
+
+  private func refreshRemoteFeedbackState() {
+    let center = MPRemoteCommandCenter.shared()
+    let hasTrack = (currentQueueItem?.id ?? loadedSongID) != nil
+    center.likeCommand.isEnabled = hasTrack
+    center.dislikeCommand.isEnabled = hasTrack
+    let starred = currentTrackIsStarred
+    center.likeCommand.isActive = starred
+    center.dislikeCommand.isActive = !starred
   }
 
   private func updateNowPlayingInfo() {
@@ -679,6 +816,7 @@ final class MusicPlayerController {
     info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = currentTime
     info[MPNowPlayingInfoPropertyPlaybackRate] = isPlaying ? 1.0 : 0.0
     MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+    refreshRemoteFeedbackState()
     refreshNowPlayingArtworkIfNeeded()
   }
 
@@ -758,11 +896,6 @@ final class MusicPlayerController {
   /// Serializable queue row (rebuilds stream URL via Subsonic id + server base; local files by path).
   private struct PersistedQueueEntry: Codable {
     var id: String
-    var songId: String?
-    var streamBaseURLString: String?
-    var localFileURLString: String?
-    var cacheRelativePath: String?
-    var metadata: PlaybackTrackMetadata
   }
 
   private struct PersistedPlaybackState: Codable {
@@ -817,96 +950,17 @@ final class MusicPlayerController {
     if !nowPlayingQueue.isEmpty {
       return nowPlayingQueue.map { Self.persistEntry(from: $0) }
     }
-    guard let url = loadedSourceURL, let meta = metadata else { return [] }
-    let id = Self.songId(from: url) ?? url.absoluteString
-    return [
-      Self.persistEntry(
-        fromLoadedURL: url, cacheRelativePath: loadedCachePath, metadata: meta, id: id)
-    ]
+    guard let id = loadedSongID else { return [] }
+    return [PersistedQueueEntry(id: id)]
   }
 
   private static func persistEntry(from item: NowPlayingQueueItem) -> PersistedQueueEntry {
-    let url = item.url
-    if url.isFileURL {
-      return PersistedQueueEntry(
-        id: item.id,
-        songId: nil,
-        streamBaseURLString: nil,
-        localFileURLString: url.absoluteString,
-        cacheRelativePath: item.cacheRelativePath,
-        metadata: item.metadata
-      )
-    }
-    return PersistedQueueEntry(
-      id: item.id,
-      songId: songId(from: url),
-      streamBaseURLString: streamBaseURLString(from: url),
-      localFileURLString: nil,
-      cacheRelativePath: item.cacheRelativePath,
-      metadata: item.metadata
-    )
-  }
-
-  private static func persistEntry(
-    fromLoadedURL url: URL,
-    cacheRelativePath: String?,
-    metadata: PlaybackTrackMetadata,
-    id: String
-  ) -> PersistedQueueEntry {
-    if url.isFileURL {
-      return PersistedQueueEntry(
-        id: id,
-        songId: nil,
-        streamBaseURLString: nil,
-        localFileURLString: url.absoluteString,
-        cacheRelativePath: cacheRelativePath,
-        metadata: metadata
-      )
-    }
-    return PersistedQueueEntry(
-      id: id,
-      songId: songId(from: url),
-      streamBaseURLString: streamBaseURLString(from: url),
-      localFileURLString: nil,
-      cacheRelativePath: cacheRelativePath,
-      metadata: metadata
-    )
+    PersistedQueueEntry(id: item.id)
   }
 
   private func restoreQueueEntries(_ entries: [PersistedQueueEntry]) async -> [NowPlayingQueueItem]
   {
-    var result: [NowPlayingQueueItem] = []
-    for entry in entries {
-      if let item = await restoreQueueEntry(entry) {
-        result.append(item)
-      }
-    }
-    return result
-  }
-
-  private func restoreQueueEntry(_ entry: PersistedQueueEntry) async -> NowPlayingQueueItem? {
-    if let fileStr = entry.localFileURLString, let fileURL = URL(string: fileStr), fileURL.isFileURL
-    {
-      guard FileManager.default.fileExists(atPath: fileURL.path(percentEncoded: false)) else {
-        return nil
-      }
-      return NowPlayingQueueItem(
-        id: entry.id,
-        url: fileURL,
-        cacheRelativePath: entry.cacheRelativePath,
-        metadata: entry.metadata
-      )
-    }
-    guard let songId = entry.songId, let baseStr = entry.streamBaseURLString else { return nil }
-    guard let server = Self.serverMatching(streamBaseURLString: baseStr) else { return nil }
-    let client = await NavidromeClientStore.shared.client(for: server)
-    let streamURL = client.media.stream(forSongID: songId)
-    return NowPlayingQueueItem(
-      id: entry.id,
-      url: streamURL,
-      cacheRelativePath: entry.cacheRelativePath,
-      metadata: entry.metadata
-    )
+    entries.map { NowPlayingQueueItem(id: $0.id) }
   }
 
   private static func resolveQueueIndexAfterRestore(
@@ -980,6 +1034,55 @@ final class MusicPlayerController {
 
 #if DEBUG
   extension MusicPlayerController {
+    static func previewMockedController(
+      currentIndex: Int = 0,
+      currentTime: Double = 61,
+      isPlaying: Bool = true
+    ) -> MusicPlayerController {
+      let playback = MusicPlayerController()
+      playback.applyPreviewNowPlaying(
+        queue: previewQueue,
+        currentIndex: currentIndex,
+        currentTime: currentTime,
+        isPlaying: isPlaying
+      )
+      return playback
+    }
+
+    static var previewQueue: [NowPlayingQueueItem] {
+      [
+        NowPlayingQueueItem(id: "preview-1"),
+        NowPlayingQueueItem(id: "preview-2"),
+      ]
+    }
+
+    static let previewMetadataByID: [String: PlaybackTrackMetadata] = [
+      "preview-1": PlaybackTrackMetadata(
+        title: "Mockingbird",
+        artist: "Preview Artist",
+        album: "Preview Album",
+        artworkID: "cover-preview-1",
+        durationSeconds: 236,
+        artistId: "artist-preview-1",
+        albumId: "album-preview-1",
+        libraryArtistBucketId: "preview artist",
+        suffix: "flac",
+        bitRate: 1411
+      ),
+      "preview-2": PlaybackTrackMetadata(
+        title: "Second Song",
+        artist: "Preview Artist",
+        album: "Preview Album",
+        artworkID: "cover-preview-2",
+        durationSeconds: 204,
+        artistId: "artist-preview-1",
+        albumId: "album-preview-1",
+        libraryArtistBucketId: "preview artist",
+        suffix: "mp3",
+        bitRate: 320
+      ),
+    ]
+
     /// Fills queue state for SwiftUI previews only; does not load media or touch persistence.
     func applyPreviewState(queue: [NowPlayingQueueItem], currentIndex: Int?) {
       nowPlayingQueue = queue
@@ -989,6 +1092,45 @@ final class MusicPlayerController {
         currentQueueIndex = queue.isEmpty ? nil : 0
       }
       refreshRemoteCommandAvailability()
+    }
+
+    /// Seeds now-playing fields for SwiftUI previews without creating real playback.
+    func applyPreviewNowPlaying(
+      queue: [NowPlayingQueueItem],
+      currentIndex: Int = 0,
+      currentTime: Double = 42,
+      isPlaying: Bool = true
+    ) {
+      guard !queue.isEmpty, queue.indices.contains(currentIndex) else {
+        applyPreviewState(queue: [], currentIndex: nil)
+        loadedSourceURL = nil
+        loadedSongID = nil
+        loadedCachePath = nil
+        metadata = nil
+        loadError = nil
+        isBuffering = false
+        duration = 0
+        self.currentTime = 0
+        player = nil
+        isReady = false
+        self.isPlaying = false
+        return
+      }
+
+      let current = queue[currentIndex]
+      applyPreviewState(queue: queue, currentIndex: currentIndex)
+      loadedSourceURL = URL(string: "https://example.com/rest/stream.view?id=\(current.id)")!
+      loadedSongID = current.id
+      loadedCachePath = nil
+      metadata = Self.previewMetadataByID[current.id]
+      loadError = nil
+      isBuffering = false
+      duration = max(0, metadata?.durationSeconds ?? 0)
+      self.currentTime = min(max(0, currentTime), duration > 0 ? duration : currentTime)
+      player = AVPlayer()
+      isReady = true
+      self.isPlaying = isPlaying
+      updateNowPlayingInfo()
     }
   }
 #endif

@@ -11,16 +11,11 @@ import Foundation
 struct NowPlayingQueueItem: Identifiable, Equatable {
   /// Stable row identity for list reorder / duplicate `id` (same song twice).
   let rowId: UUID
+  /// Subsonic song id. Queue stores only ids; song list cache is the source of truth.
   let id: String
-  let url: URL
-  let cacheRelativePath: String?
-  let metadata: PlaybackTrackMetadata
 
-  init(rowId: UUID = UUID(), id: String, url: URL, cacheRelativePath: String?, metadata: PlaybackTrackMetadata) {
+  init(rowId: UUID = UUID(), id: String) {
     self.rowId = rowId
     self.id = id
-    self.url = url
-    self.cacheRelativePath = cacheRelativePath
-    self.metadata = metadata
   }
 }

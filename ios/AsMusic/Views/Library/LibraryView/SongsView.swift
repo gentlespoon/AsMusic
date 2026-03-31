@@ -70,8 +70,8 @@ struct SongsView: View {
   /// Songs currently shown in the list that can be played (respects search filter).
   private var playableQueueItems: [NowPlayingQueueItem] {
     filteredSongs.compactMap { song in
-      guard let url = playbackURL(for: song) else { return nil }
-      return queueItem(for: song, playURL: url)
+      guard playbackURL(for: song) != nil else { return nil }
+      return queueItem(for: song)
     }
   }
 
@@ -107,14 +107,14 @@ struct SongsView: View {
         ForEach(filteredSongs) { song in
           if let playURL = playbackURL(for: song) {
             Button {
-              openPlayer(for: song, with: playURL)
+              openPlayer(for: song)
             } label: {
               songRow(song)
             }
             .buttonStyle(.plain)
             .swipeActions(edge: .trailing, allowsFullSwipe: false) {
               Button {
-                let item = queueItem(for: song, playURL: playURL)
+                let item = queueItem(for: song)
                 Task { @MainActor in
                   await playback.insertAfterCurrentWithoutPlaying(item)
                 }
@@ -124,7 +124,7 @@ struct SongsView: View {
               .tint(.orange)
 
               Button {
-                let item = queueItem(for: song, playURL: playURL)
+                let item = queueItem(for: song)
                 playback.appendToEndOfQueue(item)
               } label: {
                 Label("Add to Queue", systemImage: "text.line.last.and.arrowtriangle.forward")
@@ -255,26 +255,12 @@ struct SongsView: View {
     return nil
   }
 
-  private func queueItem(for song: Song, playURL: URL) -> NowPlayingQueueItem {
-    NowPlayingQueueItem(
-      id: song.id,
-      url: playURL,
-      cacheRelativePath: playURL.isFileURL ? nil : song.path,
-      metadata: PlaybackTrackMetadata(
-        title: song.title,
-        artist: LibraryIndexFromSongs.trackArtistCreditLine(for: song) ?? song.artist,
-        album: song.album,
-        artworkID: song.coverArt,
-        durationSeconds: song.duration.map { Double($0) },
-        artistId: song.artistId,
-        albumId: song.albumId,
-        libraryArtistBucketId: LibraryIndexFromSongs.artistBucketId(for: song)
-      )
-    )
+  private func queueItem(for song: Song) -> NowPlayingQueueItem {
+    NowPlayingQueueItem(id: song.id)
   }
 
-  private func openPlayer(for song: Song, with playURL: URL) {
-    let item = queueItem(for: song, playURL: playURL)
+  private func openPlayer(for song: Song) {
+    let item = queueItem(for: song)
     Task { @MainActor in
       await playback.insertAfterCurrentAndPlay(item)
     }
@@ -300,15 +286,29 @@ struct SongsView: View {
   private func songRow(_ song: Song) -> some View {
     VStack(alignment: .leading, spacing: 2) {
       Text(song.title)
-      if let artist = song.artist, !artist.isEmpty {
-        Text(artist)
-          .font(.caption)
-          .foregroundStyle(.secondary)
-      } else if let album = song.album, !album.isEmpty {
-        Text(album)
+      if let subtitle = songRowSubtitle(artist: song.artist, album: song.album) {
+        Text(subtitle)
           .font(.caption)
           .foregroundStyle(.secondary)
       }
     }
   }
+
+  /// Artist and album on one line; separator only when both are non-empty. `nil` if neither is usable.
+  private func songRowSubtitle(artist: String?, album: String?) -> String? {
+    let a = trimmedNonEmpty(artist)
+    let b = trimmedNonEmpty(album)
+    switch (a, b) {
+    case (nil, nil): return nil
+    case (let x?, nil): return x
+    case (nil, let y?): return y
+    case (let x?, let y?): return "\(x) - \(y)"
+    }
+  }
+
+  private func trimmedNonEmpty(_ s: String?) -> String? {
+    guard let t = s?.trimmingCharacters(in: .whitespacesAndNewlines), !t.isEmpty else { return nil }
+    return t
+  }
 }
+

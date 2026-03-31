@@ -48,6 +48,7 @@ public struct Song: Identifiable, Codable, Equatable, Sendable {
   public let contributors: [Contributor]?
   public let displayComposer: String?
   public let explicitStatus: String?
+  public let starred: String?
 
   enum CodingKeys: String, CodingKey {
     case id
@@ -88,6 +89,7 @@ public struct Song: Identifiable, Codable, Equatable, Sendable {
     case contributors
     case displayComposer
     case explicitStatus
+    case starred
   }
 
   public init(from decoder: Decoder) throws {
@@ -130,6 +132,7 @@ public struct Song: Identifiable, Codable, Equatable, Sendable {
     contributors = try container.decodeIfPresent([Contributor].self, forKey: .contributors)
     displayComposer = try container.decodeIfPresent(String.self, forKey: .displayComposer)
     explicitStatus = try container.decodeIfPresent(String.self, forKey: .explicitStatus)
+    starred = try container.decodeIfPresent(String.self, forKey: .starred)
 
     if let genreNames = try? container.decode([String].self, forKey: .genres) {
       genres = genreNames

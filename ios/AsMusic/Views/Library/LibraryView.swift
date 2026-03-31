@@ -29,7 +29,7 @@ struct LibraryView: View {
         PlayListView()
       }
       NavigationLink("Favorites") {
-        LibraryPlaceholderView(title: "Favorites")
+        FavoritesView(client: client)
       }
       NavigationLink("Downloaded") {
         SongsView(navigationTitle: "Downloaded", listSource: .localDownloaded)
@@ -48,22 +48,6 @@ struct LibraryView: View {
     } catch {
       // Pull-to-refresh has no dedicated error UI; child screens show load failures.
     }
-  }
-}
-
-private struct LibraryPlaceholderView: View {
-  let title: String
-
-  var body: some View {
-    VStack(spacing: 12) {
-      Image(systemName: "music.note")
-        .font(.largeTitle)
-        .foregroundStyle(.secondary)
-      Text("\(title) placeholder")
-        .font(.headline)
-    }
-    .frame(maxWidth: .infinity, maxHeight: .infinity)
-    .navigationTitle(title)
   }
 }
 

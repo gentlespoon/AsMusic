@@ -246,18 +246,24 @@ enum DownloadManager {
   }
 
   nonisolated private static func postDownloadingSongsDidChange() {
-    NotificationCenter.default.post(name: downloadingSongsDidChangeNotification, object: nil)
+    Task { @MainActor in
+      NotificationCenter.default.post(name: downloadingSongsDidChangeNotification, object: nil)
+    }
   }
 
   nonisolated private static func postDownloadDidFinish(songID: String) {
-    NotificationCenter.default.post(
-      name: downloadDidFinishNotification,
-      object: nil,
-      userInfo: ["songID": songID]
-    )
+    Task { @MainActor in
+      NotificationCenter.default.post(
+        name: downloadDidFinishNotification,
+        object: nil,
+        userInfo: ["songID": songID]
+      )
+    }
   }
 
   nonisolated private static func postDownloadProgressDidChange() {
-    NotificationCenter.default.post(name: downloadProgressDidChangeNotification, object: nil)
+    Task { @MainActor in
+      NotificationCenter.default.post(name: downloadProgressDidChangeNotification, object: nil)
+    }
   }
 }

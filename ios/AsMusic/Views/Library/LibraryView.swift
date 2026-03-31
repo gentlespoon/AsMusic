@@ -70,6 +70,8 @@ struct LibraryView: View {
           }
         }
       }
+      .foregroundStyle(.primary)
+
       Section {
         NavigationLink {
           SongsView(navigationTitle: "Downloaded", listSource: .downloaded)
@@ -90,8 +92,33 @@ struct LibraryView: View {
           }
         }
       }
+      .foregroundStyle(.primary)
+      
+      Section {
+        EmptyView()
+      } header: {
+        EmptyView()
+      } footer: {
+        VStack(alignment: .leading) {
+          Text(
+          """
+          Empty library? Missing songs?
+            Pull to reload from server.
+          
+          How to use Player Bar?
+            Short tap            play/pause
+            Swipe horizontally   skip track
+            Swipe up             show player
+            Hold and drag        seek
+          """)
+          .font(.caption2)
+          
+        }
+        .font(.caption2)
+        .monospaced(true)
+      }
+      
     }
-    .foregroundStyle(.primary)
     .navigationTitle(libraryName)
     .refreshable {
       await reloadLibraryContents()
@@ -102,12 +129,17 @@ struct LibraryView: View {
     .task(id: refreshCoordinator.generation) {
       await refreshCounts()
     }
-    .onReceive(NotificationCenter.default.publisher(for: DownloadManager.downloadingSongsDidChangeNotification)) { _ in
+    .onReceive(
+      NotificationCenter.default.publisher(
+        for: DownloadManager.downloadingSongsDidChangeNotification)
+    ) { _ in
       Task {
         downloadingCount = await DownloadManager.downloadingSongs().count
       }
     }
-    .onReceive(NotificationCenter.default.publisher(for: DownloadManager.downloadDidFinishNotification)) { _ in
+    .onReceive(
+      NotificationCenter.default.publisher(for: DownloadManager.downloadDidFinishNotification)
+    ) { _ in
       Task {
         let downloaded = await DownloadManager.localDownloadedSongs(for: client)
         downloadedCount = downloaded.songs.count
@@ -142,10 +174,11 @@ struct LibraryView: View {
       return
     }
 
-    let songs = await SongCacheStore.shared.loadSongs(
-      serverID: scope.serverID,
-      libraryID: scope.libraryID
-    ) ?? []
+    let songs =
+      await SongCacheStore.shared.loadSongs(
+        serverID: scope.serverID,
+        libraryID: scope.libraryID
+      ) ?? []
     allSongsCount = songs.count
     favoritesCount = songs.reduce(into: 0) { count, song in
       if song.starred != nil {

@@ -13,6 +13,7 @@ struct LibraryTabRootView: View {
     Group {
       if let selection = selectionStore.selection {
         LibraryResolvedView(selection: selection)
+          .id("\(selection.serverID.uuidString):\(selection.folderID)")
       } else {
         NavigationStack {
           ContentUnavailableView(
@@ -50,7 +51,7 @@ private struct LibraryResolvedView: View {
         }
       }
     }
-    .task(id: selection.serverID) {
+    .task(id: "\(selection.serverID.uuidString):\(selection.folderID)") {
       await resolveClient()
     }
   }

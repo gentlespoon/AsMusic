@@ -16,21 +16,6 @@ struct SettingsView: View {
   var body: some View {
     List {
 
-      Section {
-        EmptyView()
-      } header: {
-        Text("How to use Player Bar?")
-      } footer: {
-        Text(
-          """
-            Short tap to play/pause.
-            Swipe horizontally to skip tracks.
-            Swipe up to show player.
-            Hold and drag to seek.
-          """)
-      }
-      .foregroundStyle(.primary)
-
       Section("Appearance") {
         Picker("Color Scheme", selection: $appAppearanceRaw) {
           ForEach(AppAppearance.allCases) { appearance in
@@ -39,6 +24,8 @@ struct SettingsView: View {
         }
         .pickerStyle(.segmented)
       }
+      .foregroundStyle(.primary)
+      
       Section("Libraries") {
         NavigationLink {
           ServerManagerView()
@@ -52,7 +39,7 @@ struct SettingsView: View {
         }
       }
       .foregroundStyle(.primary)
-      
+
       Section("Cache") {
         Button(role: .destructive) {
           isConfirmingCacheReset = true
@@ -65,8 +52,28 @@ struct SettingsView: View {
           Label("Delete downloaded media", systemImage: "trash")
         }
       }
+      .tint(.red)
+
+      Section {
+        EmptyView()
+      } header: {
+        EmptyView()
+      } footer: {
+        Text(
+          """
+            Made by An So © 2026
+
+            Source code:
+              https://github.com/gentlespoon/asmusic
+          
+            Feedback and issues:
+              https://github.com/gentlespoon/asmusic/issues
+          """
+        )
+        .font(.caption2)
+        .monospaced(true)
+      }
     }
-    .tint(.red)
     .navigationTitle("Settings")
     .confirmationDialog(
       "Reset library database?",
@@ -123,4 +130,9 @@ struct SettingsView: View {
       }
     )
   }
+}
+
+
+#Preview {
+  SettingsView()
 }

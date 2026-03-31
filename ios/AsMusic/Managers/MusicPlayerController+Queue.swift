@@ -229,6 +229,25 @@ extension MusicPlayerController {
     await jumpToQueueIndex(idx - 1)
   }
 
+  /// Fully clears queue and playback state, including persisted now-playing state.
+  func clearQueueAndStopPlayback() {
+    nowPlayingQueue = []
+    currentQueueIndex = nil
+    tearDownPlayer()
+    loadedSourceURL = nil
+    loadedSongID = nil
+    loadedCachePath = nil
+    metadata = nil
+    loadError = nil
+    isBuffering = false
+    cachedSongsByID = [:]
+    cachedClientBySongID = [:]
+    starredSongIDs = []
+    MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+    Self.clearPersistedPlaybackState()
+    refreshRemoteCommandAvailability()
+  }
+
   /// Drops every queue row except the one currently loaded in the player. No reload; playback continues.
   func clearQueueExceptCurrent() {
     guard !nowPlayingQueue.isEmpty else { return }

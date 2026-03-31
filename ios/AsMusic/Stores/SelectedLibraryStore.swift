@@ -29,12 +29,15 @@ final class SelectedLibraryStore {
   }
 
   func setSelection(serverID: UUID, folder: MusicFolder) {
-    selection = SelectedLibrary(
+    let nextSelection = SelectedLibrary(
       serverID: serverID,
       folderID: folder.id,
       folderName: folder.name
     )
+    guard selection != nextSelection else { return }
+    selection = nextSelection
     save()
+    AppDependencies.musicPlayer.clearQueueAndStopPlayback()
   }
 
   func clearSelection() {

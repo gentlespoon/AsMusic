@@ -179,15 +179,24 @@ extension MusicPlayerController {
       guard !Task.isCancelled else { return }
       guard let imageData = try? Data(contentsOf: resolvedURL), let image = UIImage(data: imageData) else { return }
       let artwork = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
-      await MainActor.run {
-        guard let self else { return }
-        guard !Task.isCancelled else { return }
-        guard self.currentArtworkID == expectedArtworkID else { return }
-        guard self.loadedSourceURL == expectedSourceURL else { return }
-        self.currentNowPlayingArtwork = artwork
-        self.updateNowPlayingInfo()
-      }
+      await self?.commitLoadedNowPlayingArtwork(
+        artwork,
+        expectedArtworkID: expectedArtworkID,
+        expectedSourceURL: expectedSourceURL
+      )
     }
+  }
+
+  private func commitLoadedNowPlayingArtwork(
+    _ artwork: MPMediaItemArtwork,
+    expectedArtworkID: String,
+    expectedSourceURL: URL?
+  ) {
+    guard !Task.isCancelled else { return }
+    guard currentArtworkID == expectedArtworkID else { return }
+    guard loadedSourceURL == expectedSourceURL else { return }
+    currentNowPlayingArtwork = artwork
+    updateNowPlayingInfo()
   }
 
   private func coverArtRemoteURL(for artworkID: String) -> URL? {

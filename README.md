@@ -4,6 +4,12 @@
 
 Purely 🤖 vibe-coded music players compatible with Navidrome/Subsonic servers.
 
+| Platform | Status                                                                                            |
+| -------- | ------------------------------------------------------------------------------------------------- |
+| iOS      | ![iOS Workflow](https://github.com/gentlespoon/asmusic/actions/workflows/build-ios.yml/badge.svg) |
+| Android  |                                                                                                   |
+| Web      | ![Web Workflow](https://github.com/gentlespoon/asmusic/actions/workflows/build-web.yml/badge.svg) |
+
 ---
 
 **🐈 This is a pet project.**
@@ -14,10 +20,10 @@ Purely 🤖 vibe-coded music players compatible with Navidrome/Subsonic servers.
 
 All functionalities are tailored to my personal habits.
 
-| Platform   | Status                          |
-| ---------- | ------------------------------- |
-| iOS        | Try it :)                       |
-| Android    | Not started                     |
-| JavaScript | Basic streaming functionalities |
+| Platform | Status                          |
+| -------- | ------------------------------- |
+| iOS      | Try it :)                       |
+| Android  | Not started                     |
+| Web      | Basic streaming functionalities |
 
 YOLO and have fun.

@@ -56,6 +56,7 @@ struct PlayerBarView: View {
     case pause
     case next
     case previous
+    case expand
 
     var systemImageName: String {
       switch self {
@@ -67,6 +68,8 @@ struct PlayerBarView: View {
         return "forward.fill"
       case .previous:
         return "backward.fill"
+      case .expand:
+        return "chevron.up.2"
       }
     }
   }
@@ -285,8 +288,9 @@ struct PlayerBarView: View {
   }
 
   private func handlePresentPlayer() {
-    playback.presentPlayer()
     springResetDrag()
+    showPlayingTitleHint(.expand)
+    playback.presentPlayer()
   }
 
   private func wantsPresentPlayer(h: CGFloat, v: CGFloat) -> Bool {
@@ -369,13 +373,13 @@ struct PlayerBarView: View {
     Task { @MainActor in
       try? await Task.sleep(nanoseconds: Bar.carouselFinishDelayNs)
       if skipNext {
-        await playback.skipToNext()
-        fireFeedback()
         showPlayingTitleHint(.next)
-      } else {
-        await playback.skipToPrevious()
         fireFeedback()
+        await playback.skipToNext()
+      } else {
         showPlayingTitleHint(.previous)
+        fireFeedback()
+        await playback.skipToPrevious()
       }
       withAnimation(nil) {
         horizontalDrag = 0
@@ -386,8 +390,8 @@ struct PlayerBarView: View {
 
   @MainActor
   private func showPlaybackToggleHint(_ hint: PlayingTitleHint) {
-    fireFeedback()
     showPlayingTitleHint(hint)
+    fireFeedback()
   }
 
   @MainActor
@@ -408,6 +412,9 @@ struct PlayerBarView: View {
 
   private func fireFeedback() {
     #if canImport(UIKit)
+      guard UserDefaults.standard.bool(forKey: AppUserDefaultsKey.Feedback.hapticsEnabled) else {
+        return
+      }
       let generator = UIImpactFeedbackGenerator(style: .soft)
       generator.impactOccurred()
     #endif

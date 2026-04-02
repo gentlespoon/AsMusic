@@ -168,7 +168,7 @@ struct PlaylistSongView: View {
               isConfirmingDelete = true
             }
           } label: {
-            Label("More actions", systemImage: "ellipsis.circle")
+            Label("More actions", systemImage: "ellipsis")
           }
           .confirmationDialog(
             "Delete playlist?",

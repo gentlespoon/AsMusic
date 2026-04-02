@@ -14,12 +14,23 @@ enum AppAppearance: String, CaseIterable, Identifiable {
 
   var id: String { rawValue }
 
+  var symbolName: String {
+    switch self {
+    case .light:
+      return "sun.max"
+    case .system:
+      return "circle.lefthalf.filled"
+    case .dark:
+      return "moon"
+    }
+  }
+
   var title: String {
     switch self {
-    case .system:
-      return "System"
     case .light:
       return "Light"
+    case .system:
+      return "System"
     case .dark:
       return "Dark"
     }
@@ -27,10 +38,10 @@ enum AppAppearance: String, CaseIterable, Identifiable {
 
   var colorScheme: ColorScheme? {
     switch self {
-    case .system:
-      return nil
     case .light:
       return .light
+    case .system:
+      return nil
     case .dark:
       return .dark
     }

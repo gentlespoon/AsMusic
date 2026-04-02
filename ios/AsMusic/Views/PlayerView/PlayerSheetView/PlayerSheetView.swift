@@ -295,35 +295,36 @@ struct PlayerSheetView: View {
             }
           }
           ToolbarItemGroup(placement: .topBarTrailing) {
-            Button {
-              sleepTimerSelectionMinutes = Double(sleepTimer.activeMinutes ?? 15)
-              isSleepTimerSheetPresented = true
-            } label: {
-              HStack {
-                Image(systemName: sleepTimer.activeMinutes == nil ? "timer" : "timer.circle.fill")
-                if let countdown = sleepTimer.countdownLabel {
-                  Text(countdown)
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
+            if (sleepTimer.activeMinutes != nil) {
+              sleeperTimerButton
+            }
+
+            Menu {
+              sleeperTimerButton
+              .disabled(currentSongID == nil)
+              
+              Divider()
+              
+              Button {
+                Task {
+                  await loadPlaylistsForPicker()
                 }
+              } label: {
+                Label("Add to Playlist", systemImage: "plus")
               }
-            }
-
-            Button {
-              Task {
-                await loadPlaylistsForPicker()
+              .disabled(currentSongID == nil)
+              
+              Divider()
+              
+              Button {
+                isMetadataAlertPresented = true
+              } label: {
+                Label("Info", systemImage: "info.circle")
               }
+              .disabled(activeMetadata == nil)
             } label: {
-              Image(systemName: "plus")
+              Label("More actions", systemImage: "ellipsis")
             }
-            .disabled(currentSongID == nil)
-
-            Button {
-              isMetadataAlertPresented = true
-            } label: {
-              Image(systemName: "info.circle")
-            }
-            .disabled(activeMetadata == nil)
           }
         }
         .sheet(isPresented: $isSleepTimerSheetPresented) {
@@ -437,6 +438,26 @@ struct PlayerSheetView: View {
         systemImage: "music.note",
         description: Text("Choose a song to open the player.")
       )
+    }
+  }
+  
+  private var sleeperTimerButton: some View {
+    Button {
+      sleepTimerSelectionMinutes = Double(sleepTimer.activeMinutes ?? 15)
+      isSleepTimerSheetPresented = true
+    } label: {
+      HStack {
+        Image(systemName: sleepTimer.activeMinutes == nil ? "timer" : "timer.circle.fill")
+        if let timerSet = sleepTimer.activeMinutes {
+          if let countdown = sleepTimer.countdownLabel {
+            Text(countdown)
+              .font(.caption.monospacedDigit())
+              .foregroundStyle(.secondary)
+          }
+        } else {
+          Text("Sleep Timer")
+        }
+      }
     }
   }
 

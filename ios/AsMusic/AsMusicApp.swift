@@ -16,12 +16,16 @@ struct AsMusicApp: App {
   @UIApplicationDelegateAdaptor(AsMusicAppDelegate.self) private var appDelegate
   @State private var navidromeSession = AppDependencies.navidromeSession
   @State private var musicPlayer = AppDependencies.musicPlayer
-  @AppStorage("app.appearance") private var appAppearanceRaw = AppAppearance.system.rawValue
+  @AppStorage(AppUserDefaultsKey.UI.appearance) private var appAppearanceRaw =
+    AppAppearance.system.rawValue
 
   init() {
     // iOS 26+: Enable Observation for AVPlayer so SwiftUI can observe playback state.
     AVPlayer.isObservationEnabled = true
     configureAudioSession()
+    UserDefaults.standard.register(defaults: [
+      AppUserDefaultsKey.Feedback.hapticsEnabled: true,
+    ])
   }
 
   var body: some Scene {

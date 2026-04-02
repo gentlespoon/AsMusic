@@ -5,8 +5,8 @@
 //  Created by An So on 2026-03-26.
 //
 
-import SwiftUI
 import AsNavidromeKit
+import SwiftUI
 
 struct LibrariesView: View {
   @State private var selectionStore = SelectedLibraryStore.shared
@@ -16,6 +16,18 @@ struct LibrariesView: View {
 
   var body: some View {
     List {
+      Section {
+        EmptyView()
+      } footer: {
+        VStack(alignment: .leading) {
+          Text("""
+            Select a library to start listening.
+            Switching to a large library may take a while to load.
+          """)
+            .font(.caption)
+        }
+      }
+      
       if isLoading && sections.isEmpty {
         ProgressView("Loading music folders...")
       } else if sections.isEmpty {

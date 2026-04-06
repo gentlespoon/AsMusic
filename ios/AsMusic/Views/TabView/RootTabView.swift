@@ -13,7 +13,10 @@ private enum RootTab: Hashable {
   case settings
 }
 
-struct RootTabView: View {
+/// Hosts the main `TabView` and player accessory without `@AppStorage`, so `MusicPlayerController`
+/// observation in `PlayerBarView` stays reliable (mixing `@AppStorage` + `@Environment` on the same
+/// view that owns `tabViewBottomAccessory` can suppress accessory updates on some OS versions).
+private struct RootTabContent: View {
   @Environment(MusicPlayerController.self) private var playback
   @State private var selectedTab: RootTab = .library
   @State private var isQueueSheetPresented = false
@@ -61,6 +64,33 @@ struct RootTabView: View {
   }
 }
 
+struct RootTabView: View {
+  @AppStorage(AppUserDefaultsKey.Onboarding.completed) private var hasCompletedOnboarding = false
+  @State private var presentOnboarding = false
+
+  var body: some View {
+    RootTabContent()
+      .task {
+        await MainActor.run {
+          if !hasCompletedOnboarding {
+            let servers = ServerManager().servers
+            if !servers.isEmpty, SelectedLibraryStore.shared.selection != nil {
+              hasCompletedOnboarding = true
+            }
+          }
+          presentOnboarding = !hasCompletedOnboarding
+        }
+      }
+      .fullScreenCover(isPresented: $presentOnboarding) {
+        OnboardingView()
+      }
+      .onChange(of: hasCompletedOnboarding) { _, completed in
+        if completed {
+          presentOnboarding = false
+        }
+      }
+  }
+}
 
 #Preview {
   RootTabView()

@@ -26,4 +26,9 @@ enum AppUserDefaultsKey {
     /// Master switch for haptic feedback in the UI.
     static let hapticsEnabled = "app.feedback.haptics.enabled"
   }
+
+  enum Onboarding {
+    /// First-run setup (server + library) has been finished or skipped.
+    static let completed = "app.onboarding.completed"
+  }
 }

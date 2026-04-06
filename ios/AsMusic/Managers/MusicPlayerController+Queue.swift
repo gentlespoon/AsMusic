@@ -220,13 +220,25 @@ extension MusicPlayerController {
   }
 
   func skipToNext() async {
-    guard let idx = currentQueueIndex, idx + 1 < nowPlayingQueue.count else { return }
-    await jumpToQueueIndex(idx + 1)
+    guard let idx = currentQueueIndex, !nowPlayingQueue.isEmpty else { return }
+    if idx + 1 < nowPlayingQueue.count {
+      await jumpToQueueIndex(idx + 1)
+      return
+    }
+    if loopCurrentQueue {
+      await jumpToQueueIndex(0)
+    }
   }
 
   func skipToPrevious() async {
-    guard let idx = currentQueueIndex, idx > 0 else { return }
-    await jumpToQueueIndex(idx - 1)
+    guard let idx = currentQueueIndex, !nowPlayingQueue.isEmpty else { return }
+    if idx > 0 {
+      await jumpToQueueIndex(idx - 1)
+      return
+    }
+    if loopCurrentQueue {
+      await jumpToQueueIndex(nowPlayingQueue.count - 1)
+    }
   }
 
   /// Fully clears queue and playback state, including persisted now-playing state.

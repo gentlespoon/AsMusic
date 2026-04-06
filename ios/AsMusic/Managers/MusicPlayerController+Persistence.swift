@@ -26,6 +26,10 @@ extension MusicPlayerController {
     /// When present and non-empty, restores the full queue; otherwise legacy single-track restore runs.
     var queueEntries: [PersistedQueueEntry]?
     var currentQueueIndex: Int?
+    var loopCurrentQueue: Bool?
+    var loopCurrentSong: Bool?
+    /// Legacy single field (`off` / `all` / `one`); omitted when encoding new saves.
+    var repeatMode: String?
   }
 
   func persistPlaybackStateThrottled() {
@@ -55,7 +59,10 @@ extension MusicPlayerController {
       positionSeconds: currentTime,
       wasPlaying: isPlaying,
       queueEntries: queueEntries.isEmpty ? nil : queueEntries,
-      currentQueueIndex: queueEntries.isEmpty ? nil : min(idx, max(0, queueEntries.count - 1))
+      currentQueueIndex: queueEntries.isEmpty ? nil : min(idx, max(0, queueEntries.count - 1)),
+      loopCurrentQueue: loopCurrentQueue,
+      loopCurrentSong: loopCurrentSong,
+      repeatMode: nil
     )
 
     guard let data = try? JSONEncoder().encode(state) else { return }

@@ -185,16 +185,46 @@ struct PlayingQueueSheetView: View {
           }
         }
         ToolbarItemGroup(placement: .status) {
-          Button {
-            playback.reshuffleQueuePreservingCurrentTrack()
-            queueScrollToCurrentTick &+= 1
-          } label: {
-            HStack {
-              Label("Shuffle", systemImage: "shuffle")
-              Text("Shuffle")
+          HStack {
+            Button {
+              playback.reshuffleQueuePreservingCurrentTrack()
+              queueScrollToCurrentTick &+= 1
+            } label: {
+              VStack {
+                Label("Shuffle", systemImage: "shuffle")
+                Text("Shuffle")
+                  .font(.caption2)
+              }
+            }
+            .disabled(playback.nowPlayingQueue.count <= 1)
+            
+            Button {
+              playback.toggleLoopCurrentQueue()
+            } label: {
+              VStack {
+                Label(
+                  "Loop queue",
+                  systemImage: "repeat")
+                Text("Loop queue")
+                  .font(.caption2)
+              }
+              .foregroundColor(playback.loopCurrentQueue ? .accentColor : .secondary)
+            }
+            
+            Button {
+              playback.toggleLoopCurrentSong()
+            } label: {
+              VStack {
+                Label(
+                  "Loop song",
+                  systemImage: "repeat.1")
+                Text("Loop song")
+                  .font(.caption2)
+              }
+              .foregroundColor(playback.loopCurrentSong ? .accentColor : .secondary)
             }
           }
-          .disabled(playback.nowPlayingQueue.count <= 1)
+          .padding(.horizontal, 24)
         }
         ToolbarItemGroup(placement: .destructiveAction) {
           Button {

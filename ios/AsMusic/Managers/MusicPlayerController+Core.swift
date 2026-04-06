@@ -109,18 +109,46 @@ extension MusicPlayerController {
   }
 
   func handlePlaybackEnded() async {
-    guard let idx = currentQueueIndex, idx + 1 < nowPlayingQueue.count else {
+    guard let idx = currentQueueIndex, nowPlayingQueue.indices.contains(idx) else {
       player?.pause()
       syncPlayingState(from: player)
       updateNowPlayingPlaybackOnly()
       persistPlaybackState()
       return
     }
-    let next = idx + 1
-    currentQueueIndex = next
-    refreshRemoteCommandAvailability()
-    await loadQueueItem(at: next)
-    play()
+
+    if loopCurrentSong {
+      seek(to: 0)
+      play()
+      return
+    }
+
+    if idx + 1 < nowPlayingQueue.count {
+      let next = idx + 1
+      currentQueueIndex = next
+      refreshRemoteCommandAvailability()
+      await loadQueueItem(at: next)
+      play()
+      return
+    }
+
+    if loopCurrentQueue, !nowPlayingQueue.isEmpty {
+      if nowPlayingQueue.count <= 1 {
+        seek(to: 0)
+        play()
+        return
+      }
+      currentQueueIndex = 0
+      refreshRemoteCommandAvailability()
+      await loadQueueItem(at: 0)
+      play()
+      return
+    }
+
+    player?.pause()
+    syncPlayingState(from: player)
+    updateNowPlayingPlaybackOnly()
+    persistPlaybackState()
   }
 
   func syncPlayingState(from p: AVPlayer?) {

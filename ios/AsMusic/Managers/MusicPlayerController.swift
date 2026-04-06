@@ -47,6 +47,11 @@ final class MusicPlayerController {
   var cachedClientBySongID: [String: AsNavidromeClient] = [:]
   var starredSongIDs: Set<String> = []
 
+  /// After the last queue row, continue from the first (skip / remote next wrap).
+  var loopCurrentQueue: Bool = false
+  /// When the current track ends, seek to the start and keep playing (takes precedence over queue advance).
+  var loopCurrentSong: Bool = false
+
   var currentSourceURL: URL? {
     loadedSourceURL
   }
@@ -80,13 +85,15 @@ final class MusicPlayerController {
   }
 
   var hasNextInQueue: Bool {
-    guard let idx = currentQueueIndex, idx + 1 < nowPlayingQueue.count else { return false }
-    return true
+    guard let idx = currentQueueIndex, !nowPlayingQueue.isEmpty else { return false }
+    if idx + 1 < nowPlayingQueue.count { return true }
+    return loopCurrentQueue
   }
 
   var hasPreviousInQueue: Bool {
-    guard let idx = currentQueueIndex, idx > 0 else { return false }
-    return true
+    guard let idx = currentQueueIndex, !nowPlayingQueue.isEmpty else { return false }
+    if idx > 0 { return true }
+    return loopCurrentQueue
   }
 
   /// Updated via KVO on `AVPlayerItem.status` — the item often becomes `.readyToPlay` after `player` is set.
@@ -100,7 +107,14 @@ final class MusicPlayerController {
   @ObservationIgnored
   private nonisolated(unsafe) var resignActiveObserver: NSObjectProtocol?
 
+  private static let loopQueueStorageKey = "asmusic.loopCurrentQueue"
+  private static let loopSongStorageKey = "asmusic.loopCurrentSong"
+  private static let legacyRepeatModeStorageKey = "asmusic.playbackRepeatMode"
+
   init() {
+    Self.migrateLegacyRepeatModeUserDefaultsIfNeeded()
+    loopCurrentQueue = UserDefaults.standard.bool(forKey: Self.loopQueueStorageKey)
+    loopCurrentSong = UserDefaults.standard.bool(forKey: Self.loopSongStorageKey)
     configureRemoteCommands()
     resignActiveObserver = NotificationCenter.default.addObserver(
       forName: UIApplication.willResignActiveNotification,
@@ -126,6 +140,8 @@ final class MusicPlayerController {
     guard let data = UserDefaults.standard.data(forKey: Self.persistedPlaybackKey),
       let state = try? JSONDecoder().decode(PersistedPlaybackState.self, from: data)
     else { return }
+
+    applyLoopSettings(from: state)
 
     isRestoringPlayback = true
     defer { isRestoringPlayback = false }
@@ -301,6 +317,67 @@ final class MusicPlayerController {
 
   func presentPlayer() {
     isPlayerPresented = true
+  }
+
+  func toggleLoopCurrentQueue() {
+    loopCurrentQueue.toggle()
+    persistLoopSettingsToUserDefaults()
+    refreshRemoteCommandAvailability()
+    persistPlaybackState()
+  }
+
+  func toggleLoopCurrentSong() {
+    loopCurrentSong.toggle()
+    persistLoopSettingsToUserDefaults()
+    refreshRemoteCommandAvailability()
+    persistPlaybackState()
+  }
+
+  private func persistLoopSettingsToUserDefaults() {
+    UserDefaults.standard.set(loopCurrentQueue, forKey: Self.loopQueueStorageKey)
+    UserDefaults.standard.set(loopCurrentSong, forKey: Self.loopSongStorageKey)
+  }
+
+  /// Applies loop flags from persisted playback JSON, including legacy `repeatMode`.
+  fileprivate func applyLoopSettings(from state: PersistedPlaybackState) {
+    if state.loopCurrentQueue != nil || state.loopCurrentSong != nil {
+      loopCurrentQueue = state.loopCurrentQueue ?? false
+      loopCurrentSong = state.loopCurrentSong ?? false
+    } else if let legacy = state.repeatMode {
+      switch legacy {
+      case "all":
+        loopCurrentQueue = true
+        loopCurrentSong = false
+      case "one":
+        loopCurrentQueue = false
+        loopCurrentSong = true
+      default:
+        loopCurrentQueue = false
+        loopCurrentSong = false
+      }
+    }
+    persistLoopSettingsToUserDefaults()
+  }
+
+  private static func migrateLegacyRepeatModeUserDefaultsIfNeeded() {
+    let hasNew =
+      UserDefaults.standard.object(forKey: loopQueueStorageKey) != nil
+      || UserDefaults.standard.object(forKey: loopSongStorageKey) != nil
+    guard !hasNew, let raw = UserDefaults.standard.string(forKey: legacyRepeatModeStorageKey),
+      !raw.isEmpty
+    else { return }
+    switch raw {
+    case "all":
+      UserDefaults.standard.set(true, forKey: loopQueueStorageKey)
+      UserDefaults.standard.set(false, forKey: loopSongStorageKey)
+    case "one":
+      UserDefaults.standard.set(false, forKey: loopQueueStorageKey)
+      UserDefaults.standard.set(true, forKey: loopSongStorageKey)
+    default:
+      UserDefaults.standard.set(false, forKey: loopQueueStorageKey)
+      UserDefaults.standard.set(false, forKey: loopSongStorageKey)
+    }
+    UserDefaults.standard.removeObject(forKey: legacyRepeatModeStorageKey)
   }
 
 }

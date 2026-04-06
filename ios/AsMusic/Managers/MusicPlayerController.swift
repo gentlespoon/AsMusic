@@ -200,6 +200,8 @@ final class MusicPlayerController {
     }
 
     tearDownPlayer()
+
+    AppHaptics.playImpactIfEnabled()
     loadError = nil
     loadedSourceURL = url
     loadedSongID = Self.songId(from: url)
@@ -269,6 +271,7 @@ final class MusicPlayerController {
 
   func togglePlayPause() {
     guard let p = player else { return }
+    AppHaptics.playImpactIfEnabled()
     if p.timeControlStatus == .playing {
       p.pause()
     } else {
@@ -302,103 +305,103 @@ final class MusicPlayerController {
 
 }
 
-  extension MusicPlayerController {
-    static func previewMockedController(
-      currentIndex: Int = 0,
-      currentTime: Double = 61,
-      isPlaying: Bool = true
-    ) -> MusicPlayerController {
-      let playback = MusicPlayerController()
-      playback.applyPreviewNowPlaying(
-        queue: previewQueue,
-        currentIndex: currentIndex,
-        currentTime: currentTime,
-        isPlaying: isPlaying
-      )
-      return playback
-    }
+extension MusicPlayerController {
+  static func previewMockedController(
+    currentIndex: Int = 0,
+    currentTime: Double = 61,
+    isPlaying: Bool = true
+  ) -> MusicPlayerController {
+    let playback = MusicPlayerController()
+    playback.applyPreviewNowPlaying(
+      queue: previewQueue,
+      currentIndex: currentIndex,
+      currentTime: currentTime,
+      isPlaying: isPlaying
+    )
+    return playback
+  }
 
-    static var previewQueue: [NowPlayingQueueItem] {
-      [
-        NowPlayingQueueItem(id: "preview-1"),
-        NowPlayingQueueItem(id: "preview-2"),
-      ]
-    }
-
-    static let previewMetadataByID: [String: PlaybackTrackMetadata] = [
-      "preview-1": PlaybackTrackMetadata(
-        title: "Mockingbird",
-        artist: "Preview Artist",
-        album: "Preview Album",
-        artworkID: "cover-preview-1",
-        durationSeconds: 236,
-        artistId: "artist-preview-1",
-        albumId: "album-preview-1",
-        libraryArtistBucketId: "preview artist",
-        suffix: "flac",
-        bitRate: 1411
-      ),
-      "preview-2": PlaybackTrackMetadata(
-        title: "Second Song",
-        artist: "Preview Artist",
-        album: "Preview Album",
-        artworkID: "cover-preview-2",
-        durationSeconds: 204,
-        artistId: "artist-preview-1",
-        albumId: "album-preview-1",
-        libraryArtistBucketId: "preview artist",
-        suffix: "mp3",
-        bitRate: 320
-      ),
+  static var previewQueue: [NowPlayingQueueItem] {
+    [
+      NowPlayingQueueItem(id: "preview-1"),
+      NowPlayingQueueItem(id: "preview-2"),
     ]
+  }
 
-    /// Fills queue state for SwiftUI previews only; does not load media or touch persistence.
-    func applyPreviewState(queue: [NowPlayingQueueItem], currentIndex: Int?) {
-      nowPlayingQueue = queue
-      if let idx = currentIndex, queue.indices.contains(idx) {
-        currentQueueIndex = idx
-      } else {
-        currentQueueIndex = queue.isEmpty ? nil : 0
-      }
-      refreshRemoteCommandAvailability()
+  static let previewMetadataByID: [String: PlaybackTrackMetadata] = [
+    "preview-1": PlaybackTrackMetadata(
+      title: "Mockingbird",
+      artist: "Preview Artist",
+      album: "Preview Album",
+      artworkID: "cover-preview-1",
+      durationSeconds: 236,
+      artistId: "artist-preview-1",
+      albumId: "album-preview-1",
+      libraryArtistBucketId: "preview artist",
+      suffix: "flac",
+      bitRate: 1411
+    ),
+    "preview-2": PlaybackTrackMetadata(
+      title: "Second Song",
+      artist: "Preview Artist",
+      album: "Preview Album",
+      artworkID: "cover-preview-2",
+      durationSeconds: 204,
+      artistId: "artist-preview-1",
+      albumId: "album-preview-1",
+      libraryArtistBucketId: "preview artist",
+      suffix: "mp3",
+      bitRate: 320
+    ),
+  ]
+
+  /// Fills queue state for SwiftUI previews only; does not load media or touch persistence.
+  func applyPreviewState(queue: [NowPlayingQueueItem], currentIndex: Int?) {
+    nowPlayingQueue = queue
+    if let idx = currentIndex, queue.indices.contains(idx) {
+      currentQueueIndex = idx
+    } else {
+      currentQueueIndex = queue.isEmpty ? nil : 0
     }
+    refreshRemoteCommandAvailability()
+  }
 
-    /// Seeds now-playing fields for SwiftUI previews without creating real playback.
-    func applyPreviewNowPlaying(
-      queue: [NowPlayingQueueItem],
-      currentIndex: Int = 0,
-      currentTime: Double = 42,
-      isPlaying: Bool = true
-    ) {
-      guard !queue.isEmpty, queue.indices.contains(currentIndex) else {
-        applyPreviewState(queue: [], currentIndex: nil)
-        loadedSourceURL = nil
-        loadedSongID = nil
-        loadedCachePath = nil
-        metadata = nil
-        loadError = nil
-        isBuffering = false
-        duration = 0
-        self.currentTime = 0
-        player = nil
-        isReady = false
-        self.isPlaying = false
-        return
-      }
-
-      let current = queue[currentIndex]
-      applyPreviewState(queue: queue, currentIndex: currentIndex)
-      loadedSourceURL = URL(string: "https://example.com/rest/stream.view?id=\(current.id)")!
-      loadedSongID = current.id
+  /// Seeds now-playing fields for SwiftUI previews without creating real playback.
+  func applyPreviewNowPlaying(
+    queue: [NowPlayingQueueItem],
+    currentIndex: Int = 0,
+    currentTime: Double = 42,
+    isPlaying: Bool = true
+  ) {
+    guard !queue.isEmpty, queue.indices.contains(currentIndex) else {
+      applyPreviewState(queue: [], currentIndex: nil)
+      loadedSourceURL = nil
+      loadedSongID = nil
       loadedCachePath = nil
-      metadata = Self.previewMetadataByID[current.id]
+      metadata = nil
       loadError = nil
       isBuffering = false
-      duration = max(0, metadata?.durationSeconds ?? 0)
-      self.currentTime = min(max(0, currentTime), duration > 0 ? duration : currentTime)
-      player = AVPlayer()
-      isReady = true
-      self.isPlaying = isPlaying
-      updateNowPlayingInfo()
+      duration = 0
+      self.currentTime = 0
+      player = nil
+      isReady = false
+      self.isPlaying = false
+      return
     }
+
+    let current = queue[currentIndex]
+    applyPreviewState(queue: queue, currentIndex: currentIndex)
+    loadedSourceURL = URL(string: "https://example.com/rest/stream.view?id=\(current.id)")!
+    loadedSongID = current.id
+    loadedCachePath = nil
+    metadata = Self.previewMetadataByID[current.id]
+    loadError = nil
+    isBuffering = false
+    duration = max(0, metadata?.durationSeconds ?? 0)
+    self.currentTime = min(max(0, currentTime), duration > 0 ? duration : currentTime)
+    player = AVPlayer()
+    isReady = true
+    self.isPlaying = isPlaying
+    updateNowPlayingInfo()
   }
+}

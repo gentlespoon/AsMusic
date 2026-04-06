@@ -108,6 +108,7 @@ struct AlbumsView: View {
               songs: artistSongs,
               navigationTitle: "All Songs"
             )
+            .environment(\.libraryClient, client)
           } label: {
             Label("All Songs", systemImage: "music.note.list")
           }
@@ -120,6 +121,7 @@ struct AlbumsView: View {
               navigationTitle: album.name,
               albumArtworkURL: albumArtworkURL(for: album)
             )
+            .environment(\.libraryClient, client)
           } label: {
             HStack(alignment: .center) {
               ArtworkView(artworkURL: albumArtworkURL(for: album))

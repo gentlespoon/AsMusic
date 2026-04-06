@@ -134,6 +134,28 @@ struct PlayerSheetView: View {
                   contentWidth: marqueeContentWidth
                 )
 
+                if let albumNav = meta.navigableAlbum {
+                  if libraryClient != nil {
+                    NavigationLink(
+                      value: PlayerLibraryRoute.album(
+                        id: albumNav.id, title: albumNav.title, artistLine: albumNav.artistLine)
+                    ) {
+                      MarqueeTextLine(
+                        text: albumNav.title,
+                        lineStyle: .playerSheetAlbum,
+                        contentWidth: marqueeContentWidth
+                      )
+                    }
+                    .buttonStyle(.plain)
+                  } else {
+                    MarqueeTextLine(
+                      text: albumNav.title,
+                      lineStyle: .playerSheetAlbum,
+                      contentWidth: marqueeContentWidth
+                    )
+                  }
+                }
+
                 if let artistNav = meta.navigableArtist {
                   if libraryClient != nil {
                     NavigationLink(
@@ -157,27 +179,6 @@ struct PlayerSheetView: View {
                   }
                 }
 
-                if let albumNav = meta.navigableAlbum {
-                  if libraryClient != nil {
-                    NavigationLink(
-                      value: PlayerLibraryRoute.album(
-                        id: albumNav.id, title: albumNav.title, artistLine: albumNav.artistLine)
-                    ) {
-                      MarqueeTextLine(
-                        text: albumNav.title,
-                        lineStyle: .playerSheetAlbum,
-                        contentWidth: marqueeContentWidth
-                      )
-                    }
-                    .buttonStyle(.plain)
-                  } else {
-                    MarqueeTextLine(
-                      text: albumNav.title,
-                      lineStyle: .playerSheetAlbum,
-                      contentWidth: marqueeContentWidth
-                    )
-                  }
-                }
               }
               .frame(maxWidth: .infinity)
               .onGeometryChange(for: CGFloat.self) { proxy in
@@ -295,16 +296,16 @@ struct PlayerSheetView: View {
             }
           }
           ToolbarItemGroup(placement: .topBarTrailing) {
-            if (sleepTimer.activeMinutes != nil) {
+            if sleepTimer.activeMinutes != nil {
               sleeperTimerButton
             }
 
             Menu {
               sleeperTimerButton
-              .disabled(currentSongID == nil)
-              
+                .disabled(currentSongID == nil)
+
               Divider()
-              
+
               Button {
                 Task {
                   await loadPlaylistsForPicker()
@@ -313,9 +314,9 @@ struct PlayerSheetView: View {
                 Label("Add to Playlist", systemImage: "plus")
               }
               .disabled(currentSongID == nil)
-              
+
               Divider()
-              
+
               Button {
                 isMetadataAlertPresented = true
               } label: {
@@ -440,7 +441,7 @@ struct PlayerSheetView: View {
       )
     }
   }
-  
+
   private var sleeperTimerButton: some View {
     Button {
       sleepTimerSelectionMinutes = Double(sleepTimer.activeMinutes ?? 15)
@@ -448,7 +449,7 @@ struct PlayerSheetView: View {
     } label: {
       HStack {
         Image(systemName: sleepTimer.activeMinutes == nil ? "timer" : "timer.circle.fill")
-        if let timerSet = sleepTimer.activeMinutes {
+        if let _ = sleepTimer.activeMinutes {
           if let countdown = sleepTimer.countdownLabel {
             Text(countdown)
               .font(.caption.monospacedDigit())
@@ -492,10 +493,11 @@ struct PlayerSheetView: View {
       return
     }
 
-    availablePlaylists = await PlaylistSummaryCacheStore.shared.loadPlaylists(
-      serverID: context.serverID,
-      libraryID: context.libraryID
-    ) ?? []
+    availablePlaylists =
+      await PlaylistSummaryCacheStore.shared.loadPlaylists(
+        serverID: context.serverID,
+        libraryID: context.libraryID
+      ) ?? []
     isPlaylistSheetPresented = true
   }
 

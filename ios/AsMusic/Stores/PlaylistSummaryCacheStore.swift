@@ -99,11 +99,11 @@ actor PlaylistSummaryCacheStore {
       sqlite3_bind_text(insertStatement, 1, serverID.uuidString, -1, Self.transientDestructor)
       sqlite3_bind_text(insertStatement, 2, libraryID, -1, Self.transientDestructor)
       sqlite3_bind_text(insertStatement, 3, playlist.id, -1, Self.transientDestructor)
-      playlistJSON.withUnsafeBytes { buffer in
+      _ = playlistJSON.withUnsafeBytes { buffer in
         sqlite3_bind_blob(
           insertStatement, 4, buffer.baseAddress, Int32(buffer.count), Self.transientDestructor)
       }
-      emptySongListJSON.withUnsafeBytes { buffer in
+      _ = emptySongListJSON.withUnsafeBytes { buffer in
         sqlite3_bind_blob(
           insertStatement, 5, buffer.baseAddress, Int32(buffer.count), Self.transientDestructor)
       }
@@ -132,7 +132,7 @@ actor PlaylistSummaryCacheStore {
     defer { sqlite3_finalize(statement) }
     guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else { return }
 
-    songsJSON.withUnsafeBytes { buffer in
+    _ = songsJSON.withUnsafeBytes { buffer in
       sqlite3_bind_blob(
         statement, 1, buffer.baseAddress, Int32(buffer.count), Self.transientDestructor)
     }

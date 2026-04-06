@@ -6,9 +6,6 @@
 //
 
 import SwiftUI
-#if canImport(UIKit)
-import UIKit
-#endif
 
 struct PlayerBarView: View {
   @Environment(MusicPlayerController.self) private var playback
@@ -32,6 +29,8 @@ struct PlayerBarView: View {
 
   @State private var barDragPhase: BarDragPhase = .undecided
   @State private var barGestureStartTime: Date?
+  @State private var barGestureLatestTranslationX: CGFloat = 0
+  @State private var longPressSeekTask: Task<Void, Never>?
   @State private var seekPivotTranslationX: CGFloat = 0
   @State private var seekPivotTime: Double = 0
   @State private var scrubDisplayTime: Double?
@@ -196,11 +195,13 @@ struct PlayerBarView: View {
 
   private func handleBarDragChanged(_ value: DragGesture.Value) {
     guard !isCarouselFinishing else { return }
+    barGestureLatestTranslationX = value.translation.width
     let h = value.translation.width
     let v = value.translation.height
 
     if barGestureStartTime == nil {
       barGestureStartTime = Date()
+      scheduleLongPressSeekAfterHold()
     }
     let elapsed = Date().timeIntervalSince(barGestureStartTime ?? Date())
 
@@ -232,6 +233,7 @@ struct PlayerBarView: View {
 
     switch phase {
     case .seeking:
+      AppHaptics.playImpactIfEnabled()
       let d = playback.duration
       if d > 0 {
         let final = scrubDisplayTime ?? playback.currentTime
@@ -275,9 +277,38 @@ struct PlayerBarView: View {
   }
 
   private func resetBarGestureState() {
+    cancelLongPressSeekTask()
     barDragPhase = .undecided
     barGestureStartTime = nil
     scrubDisplayTime = nil
+  }
+
+  private func cancelLongPressSeekTask() {
+    longPressSeekTask?.cancel()
+    longPressSeekTask = nil
+  }
+
+  /// `DragGesture.onChanged` does not fire again while the finger is still, so time-based seek entry
+  /// must be scheduled explicitly; haptics then run as soon as the hold qualifies, without a drag.
+  private func scheduleLongPressSeekAfterHold() {
+    cancelLongPressSeekTask()
+    let nanoseconds = UInt64(Bar.longPressSeconds * 1_000_000_000)
+    longPressSeekTask = Task { @MainActor in
+      try? await Task.sleep(nanoseconds: nanoseconds)
+      guard !Task.isCancelled else { return }
+      guard barDragPhase == .undecided,
+        barGestureStartTime != nil,
+        playback.duration > 0,
+        !isCarouselFinishing
+      else { return }
+      AppHaptics.playImpactIfEnabled()
+      barDragPhase = .seeking
+      seekPivotTranslationX = barGestureLatestTranslationX
+      seekPivotTime = playback.currentTime
+      lastScrubSeekAt = .distantPast
+      applyScrubSeek(time: seekPivotTime)
+      longPressSeekTask = nil
+    }
   }
 
   private func springResetDrag() {
@@ -289,7 +320,7 @@ struct PlayerBarView: View {
 
   private func handlePresentPlayer() {
     springResetDrag()
-    showPlayingTitleHint(.expand)
+    showPlaybackToggleHint(.expand)
     playback.presentPlayer()
   }
 
@@ -311,6 +342,7 @@ struct PlayerBarView: View {
       abs(h) > Bar.quickSwipeCommitSlop,
       abs(h) > abs(v)
     else { return false }
+    cancelLongPressSeekTask()
     barDragPhase = .carousel
     applyHorizontalCarouselDrag(h)
     return true
@@ -320,6 +352,8 @@ struct PlayerBarView: View {
     -> Bool
   {
     guard elapsed >= Bar.longPressSeconds, playback.duration > 0 else { return false }
+    cancelLongPressSeekTask()
+    AppHaptics.playImpactIfEnabled()
     barDragPhase = .seeking
     seekPivotTranslationX = value.translation.width
     seekPivotTime = playback.currentTime
@@ -373,12 +407,10 @@ struct PlayerBarView: View {
     Task { @MainActor in
       try? await Task.sleep(nanoseconds: Bar.carouselFinishDelayNs)
       if skipNext {
-        showPlayingTitleHint(.next)
-        fireFeedback()
+        showPlaybackToggleHint(.next)
         await playback.skipToNext()
       } else {
-        showPlayingTitleHint(.previous)
-        fireFeedback()
+        showPlaybackToggleHint(.previous)
         await playback.skipToPrevious()
       }
       withAnimation(nil) {
@@ -390,13 +422,7 @@ struct PlayerBarView: View {
 
   @MainActor
   private func showPlaybackToggleHint(_ hint: PlayingTitleHint) {
-    showPlayingTitleHint(hint)
-    fireFeedback()
-  }
-
-  @MainActor
-  private func showPlayingTitleHint(_ hint: PlayingTitleHint) {
-    withAnimation(Bar.titleHintFade) {
+    withAnimation(nil) {
       playingTitleHint = hint
     }
 
@@ -410,15 +436,6 @@ struct PlayerBarView: View {
     }
   }
 
-  private func fireFeedback() {
-    #if canImport(UIKit)
-      guard UserDefaults.standard.bool(forKey: AppUserDefaultsKey.Feedback.hapticsEnabled) else {
-        return
-      }
-      let generator = UIImpactFeedbackGenerator(style: .soft)
-      generator.impactOccurred()
-    #endif
-  }
 }
 
 #Preview {

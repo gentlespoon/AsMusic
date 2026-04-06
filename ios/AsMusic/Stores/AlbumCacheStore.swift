@@ -196,7 +196,7 @@ actor AlbumCacheStore {
       sqlite3_bind_text(insertStatement, 6, album.coverArt ?? "", -1, Self.transientDestructor)
       let songIDs = songIDsByAlbumID[album.id] ?? []
       let songIDsJSON = (try? encoder.encode(songIDs)) ?? Data("[]".utf8)
-      songIDsJSON.withUnsafeBytes { buffer in
+      _ = songIDsJSON.withUnsafeBytes { buffer in
         sqlite3_bind_blob(
           insertStatement,
           7,

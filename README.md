@@ -18,12 +18,3 @@ Purely 🤖 vibe-coded music players compatible with Navidrome/Subsonic servers.
 
 ---
 
-All functionalities are tailored to my personal habits.
-
-| Platform | Status                          |
-| -------- | ------------------------------- |
-| iOS      | Try it :)                       |
-| Android  | Not started                     |
-| Web      | Basic streaming functionalities |
-
-YOLO and have fun.

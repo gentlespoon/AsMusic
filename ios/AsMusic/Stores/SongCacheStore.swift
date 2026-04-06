@@ -98,7 +98,7 @@ actor SongCacheStore {
       sqlite3_bind_text(insertStatement, 4, song.artistId ?? "", -1, Self.transientDestructor)
       sqlite3_bind_text(insertStatement, 5, song.albumId ?? "", -1, Self.transientDestructor)
       sqlite3_bind_text(insertStatement, 6, song.coverArt ?? "", -1, Self.transientDestructor)
-      songJSON.withUnsafeBytes { buffer in
+      _ = songJSON.withUnsafeBytes { buffer in
         sqlite3_bind_blob(
           insertStatement,
           7,

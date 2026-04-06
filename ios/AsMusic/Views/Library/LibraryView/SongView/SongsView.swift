@@ -9,15 +9,6 @@ import AsNavidromeKit
 import SwiftUI
 
 struct SongsView: View {
-  enum ListSource: Equatable {
-    /// Loads the full library list (cache + server).
-    case library
-    /// Cached library songs that have a complete on-disk file (same scan as former Downloaded list).
-    case downloaded
-    /// Songs currently being downloaded by `DownloadManager`.
-    case downloading
-  }
-
   /// When `nil`, loads from `listSource`. When set, shows only these songs.
   private let fixedSongs: [Song]?
   private let navigationTitle: String
@@ -37,6 +28,7 @@ struct SongsView: View {
   @State private var errorMessage: String?
   @State private var downloadErrorMessage: String?
   @State private var deleteErrorMessage: String?
+  @State private var songPendingDeleteConfirmation: Song?
   @State private var downloadingProgressBySongID: [String: Double] = [:]
   @State private var searchText = ""
 
@@ -64,22 +56,12 @@ struct SongsView: View {
   }
 
   private var filteredSongs: [Song] {
-    let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !query.isEmpty else { return displaySongs }
-    let needle = query.lowercased()
-    return displaySongs.filter { song in
-      song.title.lowercased().contains(needle)
-        || (song.artist?.lowercased().contains(needle) ?? false)
-        || (song.album?.lowercased().contains(needle) ?? false)
-    }
+    SongsViewFilter.filteredSongs(from: displaySongs, searchText: searchText)
   }
 
   /// Songs currently shown in the list that can be played (respects search filter).
   private var playableQueueItems: [NowPlayingQueueItem] {
-    filteredSongs.compactMap { song in
-      guard playbackURL(for: song) != nil else { return nil }
-      return queueItem(for: song)
-    }
+    SongsViewFilter.playableQueueItems(from: filteredSongs, playbackURL: playbackURL(for:))
   }
 
   private var canDownloadVisibleSongs: Bool {
@@ -91,165 +73,115 @@ struct SongsView: View {
   }
 
   var body: some View {
-    List {
-      if let artworkURL = resolvedAlbumArtworkURL {
-        HStack(alignment: .center) {
-          Spacer()
-          ArtworkView(artworkURL: artworkURL)
-            .frame(maxHeight: 180)
-            .aspectRatio(1, contentMode: .fit)
-          Spacer()
-        }
-      }
+    songsListWithNotifications
+  }
 
-      if (isLibraryMode || isLocalDownloadedMode || isDownloadingMode) && isLoading && displaySongs.isEmpty {
-        ProgressView(
-          isLocalDownloadedMode
-            ? "Checking downloads…"
-            : isDownloadingMode
-              ? "Checking downloading songs…"
-              : "Loading songs..."
-        )
-      } else if isLibraryMode, let errorMessage {
-        ContentUnavailableView(
-          "Unable to Load Songs",
-          systemImage: "exclamationmark.triangle",
-          description: Text(errorMessage)
-        )
-      } else if displaySongs.isEmpty {
-        ContentUnavailableView(
-          isLocalDownloadedMode ? "No Downloaded Songs" : "No Songs",
-          systemImage: isLocalDownloadedMode
-            ? "arrow.down.circle"
-            : isDownloadingMode
-              ? "arrow.down.circle.dotted"
-              : "music.note.list",
-          description: Text(
-            isLocalDownloadedMode
-              ? "Songs you play are saved under Documents. Open Songs and play a track, then pull to refresh here."
-              : isDownloadingMode
-                ? "No songs are currently downloading."
-              : isLibraryMode
-                ? "No songs found for this library."
-                : "No songs in this album."
-          )
-        )
-      } else if filteredSongs.isEmpty {
-        ContentUnavailableView(
-          "No Results",
-          systemImage: "magnifyingglass",
-          description: Text("No songs match your search.")
-        )
-      } else {
-        ForEach(filteredSongs) { song in
-          songRow(for: song)
-        }
+  private var listWithSearchAndToolbar: some View {
+    List {
+      SongsViewListContents(
+        resolvedAlbumArtworkURL: resolvedAlbumArtworkURL,
+        isLibraryMode: isLibraryMode,
+        isLocalDownloadedMode: isLocalDownloadedMode,
+        isDownloadingMode: isDownloadingMode,
+        isLoading: isLoading,
+        displaySongs: displaySongs,
+        errorMessage: errorMessage,
+        filteredSongs: filteredSongs
+      ) { song in
+        songRow(for: song)
       }
     }
     .searchable(text: $searchText, prompt: "Filter songs")
     .navigationTitle(navigationTitle)
     .toolbar {
-      ToolbarItemGroup(placement: .topBarTrailing) {
-        Button {
-          startPlaybackOrdered()
-        } label: {
-          Label("Play in order", systemImage: "play.circle")
-        }
-        .disabled(playableQueueItems.isEmpty)
+      SongsViewToolbar(
+        playableQueueIsEmpty: playableQueueItems.isEmpty,
+        canDownloadVisibleSongs: canDownloadVisibleSongs,
+        onPlayInOrder: startPlaybackOrdered,
+        onPlayShuffled: startPlaybackShuffled,
+        onDownloadAll: downloadAllSongsInView,
+        onPlayAllNext: playAllSongsNext,
+        onAddAllToQueue: addAllSongsToQueue
+      )
+    }
+  }
 
-        Button {
-          startPlaybackShuffled()
-        } label: {
-          Label("Play shuffled", systemImage: "shuffle")
-        }
-        .disabled(playableQueueItems.isEmpty)
-
-        Menu {
-          Button {
-            Task {
-              await downloadAllSongsInView()
-            }
-          } label: {
-            Label("Download all songs", systemImage: "arrow.down.circle")
-          }
-          .disabled(!canDownloadVisibleSongs)
-
-          Divider()
-          
-          Button {
-            playAllSongsNext()
-          } label: {
-            Label("Play all next", systemImage: "text.insert")
-          }
-          .disabled(playableQueueItems.isEmpty)
-
-          Button {
-            addAllSongsToQueue()
-          } label: {
-            Label("Add all to queue", systemImage: "text.line.last.and.arrowtriangle.forward")
-          }
-          .disabled(playableQueueItems.isEmpty)
-        } label: {
-          Label("More actions", systemImage: "ellipsis.circle")
-        }
-      }
-    }
-    .task {
-      if isLocalDownloadedMode {
-        await loadLocalDownloadedSongs()
-      } else if isDownloadingMode {
-        await loadDownloadingSongs()
-      } else if isLibraryMode {
-        await loadSongsFromCacheOnly()
-      }
-    }
-    .task(id: injectedAlbumArtworkURL?.absoluteString ?? "") {
-      await resolveAlbumArtworkURL()
-    }
-    .alert("Unable to Download Songs", isPresented: downloadErrorBinding) {
-      Button("OK", role: .cancel) {
-        downloadErrorMessage = nil
-      }
-    } message: {
-      Text(downloadErrorMessage ?? "Unknown error.")
-    }
-    .alert("Unable to Delete Downloaded Song", isPresented: deleteErrorBinding) {
-      Button("OK", role: .cancel) {
-        deleteErrorMessage = nil
-      }
-    } message: {
-      Text(deleteErrorMessage ?? "Unknown error.")
-    }
-    .onReceive(NotificationCenter.default.publisher(for: DownloadManager.downloadingSongsDidChangeNotification)) { _ in
-      Task {
-        if isDownloadingMode {
-          await loadDownloadingSongs()
-        }
-      }
-    }
-    .onReceive(NotificationCenter.default.publisher(for: DownloadManager.downloadDidFinishNotification)) { _ in
-      Task {
+  private var songsListWithLifecycle: some View {
+    listWithSearchAndToolbar
+      .task {
         if isLocalDownloadedMode {
           await loadLocalDownloadedSongs()
         } else if isDownloadingMode {
           await loadDownloadingSongs()
+        } else if isLibraryMode {
+          await loadSongsFromCacheOnly()
         }
       }
-    }
-    .onReceive(NotificationCenter.default.publisher(for: DownloadManager.downloadProgressDidChangeNotification)) { _ in
-      guard isDownloadingMode else { return }
-      Task {
-        downloadingProgressBySongID = await DownloadManager.downloadingProgressBySongID()
+      .task(id: injectedAlbumArtworkURL?.absoluteString ?? "") {
+        resolvedAlbumArtworkURL = await SongsViewFileSupport.resolvedAlbumArtworkDisplayURL(
+          for: injectedAlbumArtworkURL
+        )
       }
-    }
   }
 
-  private func resolveAlbumArtworkURL() async {
-    guard let injectedAlbumArtworkURL else {
-      resolvedAlbumArtworkURL = nil
-      return
-    }
-    resolvedAlbumArtworkURL = await ArtworkFileCache.displayURL(for: injectedAlbumArtworkURL)
+  private var songsListWithAlerts: some View {
+    songsListWithLifecycle
+      .alert("Unable to Download Songs", isPresented: downloadErrorBinding) {
+        Button("OK", role: .cancel) {
+          downloadErrorMessage = nil
+        }
+      } message: {
+        Text(downloadErrorMessage ?? "Unknown error.")
+      }
+      .alert("Unable to Delete Downloaded Song", isPresented: deleteErrorBinding) {
+        Button("OK", role: .cancel) {
+          deleteErrorMessage = nil
+        }
+      } message: {
+        Text(deleteErrorMessage ?? "Unknown error.")
+      }
+      .confirmationDialog(
+        "Delete Download",
+        isPresented: deleteDownloadConfirmationBinding,
+        titleVisibility: Visibility.visible
+      ) {
+        Button("Delete Download", role: .destructive) {
+          if let song = songPendingDeleteConfirmation {
+            Task {
+              await deleteDownloadedSong(song)
+            }
+          }
+        }
+        Button("Cancel", role: .cancel) {}
+      } message: {
+        Text("Remove the downloaded file? You can download it again later.")
+      }
+  }
+
+  private var songsListWithNotifications: some View {
+    songsListWithAlerts
+      .onReceive(NotificationCenter.default.publisher(for: DownloadManager.downloadingSongsDidChangeNotification)) { _ in
+        Task {
+          if isDownloadingMode {
+            await loadDownloadingSongs()
+          }
+        }
+      }
+      .onReceive(NotificationCenter.default.publisher(for: DownloadManager.downloadDidFinishNotification)) { _ in
+        Task {
+          if isLocalDownloadedMode {
+            await loadLocalDownloadedSongs()
+          } else if isDownloadingMode {
+            await loadDownloadingSongs()
+          }
+        }
+      }
+      .onReceive(NotificationCenter.default.publisher(for: DownloadManager.downloadProgressDidChangeNotification)) { _ in
+        guard isDownloadingMode else { return }
+        Task {
+          downloadingProgressBySongID = await DownloadManager.downloadingProgressBySongID()
+        }
+      }
   }
 
   private func loadLocalDownloadedSongs() async {
@@ -262,9 +194,9 @@ struct SongsView: View {
       errorMessage = nil
       return
     }
-    let localDownloaded = await DownloadManager.localDownloadedSongs(for: client)
-    loadedSongs = localDownloaded.songs
-    localPlaybackURLs = localDownloaded.playbackURLsBySongID
+    let payload = await SongsViewDataLoading.loadLocalDownloaded(client: client)
+    loadedSongs = payload.songs
+    localPlaybackURLs = payload.playbackURLsBySongID
     errorMessage = nil
   }
 
@@ -285,8 +217,8 @@ struct SongsView: View {
 
     loadedSongs =
       await SongCacheStore.shared.loadSongs(
-      serverID: scope.serverID,
-      libraryID: scope.libraryID
+        serverID: scope.serverID,
+        libraryID: scope.libraryID
       ) ?? []
     errorMessage = nil
   }
@@ -295,8 +227,9 @@ struct SongsView: View {
     isLoading = true
     defer { isLoading = false }
     errorMessage = nil
-    loadedSongs = await DownloadManager.downloadingSongs()
-    downloadingProgressBySongID = await DownloadManager.downloadingProgressBySongID()
+    let state = await SongsViewDataLoading.loadDownloadingState()
+    loadedSongs = state.songs
+    downloadingProgressBySongID = state.progressBySongID
   }
 
   private func playbackURL(for song: Song) -> URL? {
@@ -336,6 +269,17 @@ struct SongsView: View {
     )
   }
 
+  private var deleteDownloadConfirmationBinding: Binding<Bool> {
+    Binding(
+      get: { songPendingDeleteConfirmation != nil },
+      set: { isPresented in
+        if !isPresented {
+          songPendingDeleteConfirmation = nil
+        }
+      }
+    )
+  }
+
   private func downloadAllSongsInView() async {
     let failedCount = await DownloadManager.downloadAllMissing(
       songs: filteredSongs,
@@ -353,73 +297,36 @@ struct SongsView: View {
   @ViewBuilder
   private func songRow(for song: Song) -> some View {
     let canQueue = playbackURL(for: song) != nil
-    Group {
-      if canQueue {
-        Button {
-          openPlayer(for: song)
-        } label: {
-          SongRowContentView(
-            song: song,
-            showsDownloadProgressBar: isDownloadingMode,
-            downloadProgress: downloadingProgressBySongID[song.id]
-          )
+    SongsListRowView(
+      song: song,
+      showsDownloadProgressBar: isDownloadingMode,
+      downloadProgress: downloadingProgressBySongID[song.id],
+      canQueue: canQueue,
+      isDownloadingMode: isDownloadingMode,
+      isLocalDownloadedMode: isLocalDownloadedMode,
+      onPlay: { openPlayer(for: song) },
+      onRemoveFromDownloading: {
+        await DownloadManager.removeFromDownloading(songID: song.id)
+        loadedSongs = await DownloadManager.downloadingSongs()
+      },
+      onPlayNext: {
+        let item = queueItem(for: song)
+        Task { @MainActor in
+          await playback.insertAfterCurrentWithoutPlaying(item)
         }
-      } else {
-        SongRowContentView(
-          song: song,
-          showsDownloadProgressBar: isDownloadingMode,
-          downloadProgress: downloadingProgressBySongID[song.id]
-        )
+      },
+      onAddToQueue: {
+        let item = queueItem(for: song)
+        playback.appendToEndOfQueue(item)
+      },
+      onRequestDeleteDownload: {
+        songPendingDeleteConfirmation = song
       }
-    }
-    .buttonStyle(.plain)
-    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-      if isDownloadingMode {
-        Button(role: .destructive) {
-          Task {
-            await DownloadManager.removeFromDownloading(songID: song.id)
-            loadedSongs = await DownloadManager.downloadingSongs()
-          }
-        } label: {
-          Label("Remove from Downloading", systemImage: "xmark.circle")
-        }
-      } else {
-        if isLocalDownloadedMode {
-          Button(role: .destructive) {
-            Task {
-              await deleteDownloadedSong(song)
-            }
-          } label: {
-            Label("Delete Download", systemImage: "trash")
-          }
-        }
-
-        Button {
-          guard canQueue else { return }
-          let item = queueItem(for: song)
-          Task { @MainActor in
-            await playback.insertAfterCurrentWithoutPlaying(item)
-          }
-        } label: {
-          Label("Play Next", systemImage: "text.insert")
-        }
-        .tint(.orange)
-        .disabled(!canQueue)
-
-        Button {
-          guard canQueue else { return }
-          let item = queueItem(for: song)
-          playback.appendToEndOfQueue(item)
-        } label: {
-          Label("Add to Queue", systemImage: "text.line.last.and.arrowtriangle.forward")
-        }
-        .tint(.blue)
-        .disabled(!canQueue)
-      }
-    }
+    )
   }
 
   private func deleteDownloadedSong(_ song: Song) async {
+    defer { songPendingDeleteConfirmation = nil }
     guard isLocalDownloadedMode else { return }
     guard let localURL = localPlaybackURLs[song.id] else {
       await loadLocalDownloadedSongs()
@@ -427,14 +334,7 @@ struct SongsView: View {
     }
 
     do {
-      let fileManager = FileManager.default
-      if fileManager.fileExists(atPath: localURL.path(percentEncoded: false)) {
-        try fileManager.removeItem(at: localURL)
-      }
-      let markerURL = localURL.appendingPathExtension("cachecomplete")
-      if fileManager.fileExists(atPath: markerURL.path(percentEncoded: false)) {
-        try fileManager.removeItem(at: markerURL)
-      }
+      try SongsViewFileSupport.removeDownloadedFileAndMarker(at: localURL)
       await loadLocalDownloadedSongs()
     } catch {
       deleteErrorMessage = "Could not delete \(song.title)."

@@ -10,14 +10,27 @@ import SwiftUI
 struct SettingsView: View {
   var body: some View {
     List {
-      Section {
+      Section("General") {
+        NavigationLink {
+          AboutView()
+        } label: {
+          Label("About", systemImage: "info.circle")
+        }
         NavigationLink {
           SettingsInterfaceView()
         } label: {
           Label("User Interface", systemImage: "paintpalette")
         }
+      }.foregroundStyle(.primary)
+      
+      Section("Library") {
         NavigationLink {
-          SettingsLibrariesView()
+          ServerManagerView()
+        } label: {
+          Label("Servers", systemImage: "server.rack")
+        }
+        NavigationLink {
+          LibrariesView()
         } label: {
           Label("Libraries", systemImage: "books.vertical")
         }
@@ -26,13 +39,6 @@ struct SettingsView: View {
         } label: {
           Label("Cache", systemImage: "internaldrive")
         }
-      }
-      .foregroundStyle(.primary)
-
-      NavigationLink {
-        AboutView()
-      } label: {
-        Label("About AsMusic", systemImage: "info.circle")
       }
       .foregroundStyle(.primary)
     }

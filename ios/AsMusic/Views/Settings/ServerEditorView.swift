@@ -15,9 +15,7 @@ struct ServerEditorView: View {
   @State private var hostname = ""
   @State private var username = ""
   @State private var password = ""
-  @State private var isConnectionVerified = false
-  @State private var testMessage: String?
-  @State private var testMessageIsError = false
+  @State private var saveErrorMessage: String?
 
   var body: some View {
     NavigationStack {
@@ -29,11 +27,12 @@ struct ServerEditorView: View {
         } header: {
           Text("Server URL")
         } footer: {
-          Text("""
+          Text(
+            """
             https://your-server.com:4533
-            https:// or http:// required")
-            Port is optional.
-          """)
+            Include https:// or http://. Port is optional.
+            """
+          )
           .font(.caption)
           .foregroundStyle(.primary)
         }
@@ -50,34 +49,15 @@ struct ServerEditorView: View {
             .autocorrectionDisabled(true)
         } header: {
           Text("Password")
+        } footer: {
+          Text("Save verifies the connection, then stores this server.")
+            .font(.caption)
         }
 
-        Section {
-          Button {
-            Task {
-              await testServerConnection()
-            }
-          } label: {
-            if navidromeSession.isConnecting {
-              HStack {
-                ProgressView()
-                Text("Testing Connection...")
-              }
-            } else {
-              Text("Test Server Connection")
-            }
-          }
-          .disabled(
-            navidromeSession.isConnecting
-              || hostname.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-              || username.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-          )
-        }
-
-        if let testMessage {
-          Text(testMessage)
+        if let saveErrorMessage {
+          Text(saveErrorMessage)
             .font(.footnote)
-            .foregroundStyle(testMessageIsError ? .red : .green)
+            .foregroundStyle(.red)
         }
       }
       .navigationTitle(editingServer == nil ? "Add Server" : "Edit Server")
@@ -88,21 +68,30 @@ struct ServerEditorView: View {
           }
         }
         ToolbarItem(placement: .topBarTrailing) {
-          Button("Save") {
-            onSave(editingServer?.id, hostname, username, password)
-            dismiss()
+          Button {
+            Task {
+              await verifyConnectionAndSave()
+            }
+          } label: {
+            if navidromeSession.isConnecting {
+              HStack(spacing: 6) {
+                ProgressView()
+                Text("Verifying…")
+              }
+            } else {
+              Text("Save")
+            }
           }
           .disabled(
-            !isConnectionVerified
+            navidromeSession.isConnecting
               || hostname.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
               || username.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-              || navidromeSession.isConnecting
           )
         }
       }
-      .onChange(of: hostname) { _, _ in resetVerificationState() }
-      .onChange(of: username) { _, _ in resetVerificationState() }
-      .onChange(of: password) { _, _ in resetVerificationState() }
+      .onChange(of: hostname) { _, _ in saveErrorMessage = nil }
+      .onChange(of: username) { _, _ in saveErrorMessage = nil }
+      .onChange(of: password) { _, _ in saveErrorMessage = nil }
       .onAppear {
         guard let editingServer else { return }
         hostname = editingServer.hostname
@@ -112,25 +101,19 @@ struct ServerEditorView: View {
     }
   }
 
-  private func resetVerificationState() {
-    isConnectionVerified = false
-    testMessage = nil
-  }
-
-  private func testServerConnection() async {
-    testMessage = nil
+  private func verifyConnectionAndSave() async {
+    saveErrorMessage = nil
     let didConnect = await navidromeSession.testAndSetClient(
       hostname: hostname,
       username: username,
       password: password
     )
-    isConnectionVerified = didConnect
-    if didConnect {
-      testMessage = "Connection successful. You can now save this server."
-      testMessageIsError = false
-    } else {
-      testMessage = navidromeSession.lastConnectionError ?? "Unable to connect to server."
-      testMessageIsError = true
+    guard didConnect else {
+      saveErrorMessage =
+        navidromeSession.lastConnectionError ?? "Unable to connect to server."
+      return
     }
+    onSave(editingServer?.id, hostname, username, password)
+    dismiss()
   }
 }

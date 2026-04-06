@@ -120,12 +120,7 @@ struct PlayerSheetView: View {
                 .foregroundStyle(.secondary)
             }
           } else {
-
-            ArtworkView(artworkURL: resolvedArtworkURL)
-              .frame(maxWidth: .infinity)
-              .aspectRatio(1, contentMode: .fit)
-              .padding(16)
-
+            
             if let meta = activeMetadata {
               VStack(spacing: 12) {
                 MarqueeTextLine(
@@ -133,7 +128,7 @@ struct PlayerSheetView: View {
                   lineStyle: .playerSheetTitle,
                   contentWidth: marqueeContentWidth
                 )
-
+                
                 if let albumNav = meta.navigableAlbum {
                   if libraryClient != nil {
                     NavigationLink(
@@ -155,7 +150,7 @@ struct PlayerSheetView: View {
                     )
                   }
                 }
-
+                
                 if let artistNav = meta.navigableArtist {
                   if libraryClient != nil {
                     NavigationLink(
@@ -166,7 +161,6 @@ struct PlayerSheetView: View {
                         lineStyle: .playerSheetArtist,
                         contentWidth: marqueeContentWidth
                       )
-                      .foregroundStyle(.secondary)
                     }
                     .buttonStyle(.plain)
                   } else {
@@ -175,10 +169,9 @@ struct PlayerSheetView: View {
                       lineStyle: .playerSheetArtist,
                       contentWidth: marqueeContentWidth
                     )
-                    .foregroundStyle(.secondary)
                   }
                 }
-
+                
               }
               .frame(maxWidth: .infinity)
               .onGeometryChange(for: CGFloat.self) { proxy in
@@ -190,6 +183,12 @@ struct PlayerSheetView: View {
               }
               .padding(.horizontal, 24)
             }
+
+            ArtworkView(artworkURL: resolvedArtworkURL)
+              .frame(maxWidth: .infinity)
+              .aspectRatio(1, contentMode: .fit)
+              .padding(.horizontal, 32)
+              .padding(.vertical, 8)
 
             if playback.duration > 0 {
               VStack(spacing: 0) {
@@ -449,7 +448,7 @@ struct PlayerSheetView: View {
     } label: {
       HStack {
         Image(systemName: sleepTimer.activeMinutes == nil ? "timer" : "timer.circle.fill")
-        if let _ = sleepTimer.activeMinutes {
+        if sleepTimer.activeMinutes != nil {
           if let countdown = sleepTimer.countdownLabel {
             Text(countdown)
               .font(.caption.monospacedDigit())

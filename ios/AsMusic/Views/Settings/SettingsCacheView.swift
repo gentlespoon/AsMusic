@@ -18,7 +18,7 @@ struct SettingsCacheView: View {
         Button(role: .destructive) {
           isConfirmingCacheReset = true
         } label: {
-          Label("Reset library database", systemImage: "arrow.clockwise")
+          Label("Reset local library database", systemImage: "arrow.clockwise")
         }
         Button(role: .destructive) {
           isConfirmingFileCacheReset = true

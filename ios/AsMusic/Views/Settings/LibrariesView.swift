@@ -45,7 +45,16 @@ struct LibrariesView: View {
             } else {
               ForEach(section.folders) { folder in
                 Button {
+                  let alreadySelected = selectionStore.isSelected(
+                    serverID: section.id,
+                    folderID: folder.id
+                  )
                   selectionStore.setSelection(serverID: section.id, folder: folder)
+                  if !alreadySelected {
+                    Task {
+                      await reloadLibraryContents(forServerID: section.id)
+                    }
+                  }
                 } label: {
                   HStack {
                     Text(folder.name)
@@ -136,6 +145,19 @@ struct LibrariesView: View {
     }
 
     sections = fetchedSections
+  }
+
+  private func reloadLibraryContents(forServerID serverID: UUID) async {
+    guard let server = serverManager.servers.first(where: { $0.id == serverID }) else { return }
+    let client = await NavidromeClientStore.shared.client(for: server)
+    do {
+      try await LibrarySongCacheReload.fetchAndSave(client: client)
+      await MainActor.run {
+        LibraryRefreshCoordinator.shared.bump()
+      }
+    } catch {
+      // Same as LibraryView pull-to-refresh: no dedicated error surface here.
+    }
   }
 
   private func buildSections(

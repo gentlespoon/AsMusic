@@ -45,8 +45,8 @@ struct PlayerBarView: View {
     static let quickSwipeCommitSlop: CGFloat = 12
     static let scrubSeekThrottle: TimeInterval = 0.12
     static let spring = Animation.spring(response: 0.35, dampingFraction: 0.82)
-    static let carouselFinishDelayNs: UInt64 = 320_000_000
-    static let titleHintDurationNs: UInt64 = 450_000_000
+    static let carouselFinishDelayNs: UInt64 = 200_000_000
+    static let titleHintDurationNs: UInt64 = 500_000_000
     static let titleHintFade = Animation.easeInOut(duration: 0.18)
   }
 
@@ -108,32 +108,37 @@ struct PlayerBarView: View {
           )
         }
 
-        if let playingTitleHint = playingTitleHint {
-          Image(systemName: playingTitleHint.systemImageName)
-            .font(.headline.weight(.semibold))
-            .frame(width: barWidth, alignment: .center)
-            .transition(.opacity)
-        } else {
-          Group {
-            if let prev = previousQueueMetadata {
-              PlayerBarTrackTitleRow(metadata: prev, contentWidth: titleWidth)
-                .frame(width: barWidth, alignment: .center)
-                .offset(x: -barWidth + horizontalDrag)
-            }
-            if let next = nextQueueMetadata {
-              PlayerBarTrackTitleRow(metadata: next, contentWidth: titleWidth)
-                .frame(width: barWidth, alignment: .center)
-                .offset(x: barWidth + horizontalDrag)
-            }
-            PlayerBarTrackTitleRow(
-              metadata: playback.currentQueueIndex.flatMap { playback.metadataForQueueIndex($0) }
-                ?? playback.currentMetadata,
-              contentWidth: titleWidth
-            )
-            .frame(width: barWidth, alignment: .center)
-            .offset(x: horizontalDrag)
+        Group {
+          if let prev = previousQueueMetadata {
+            PlayerBarTrackTitleRow(metadata: prev, contentWidth: titleWidth)
+              .frame(width: barWidth, alignment: .center)
+              .offset(x: -barWidth + horizontalDrag)
           }
+          if let next = nextQueueMetadata {
+            PlayerBarTrackTitleRow(metadata: next, contentWidth: titleWidth)
+              .frame(width: barWidth, alignment: .center)
+              .offset(x: barWidth + horizontalDrag)
+          }
+          PlayerBarTrackTitleRow(
+            metadata: playback.currentQueueIndex.flatMap { playback.metadataForQueueIndex($0) }
+              ?? playback.currentMetadata,
+            contentWidth: titleWidth
+          )
+          .frame(width: barWidth, alignment: .center)
+          .offset(x: horizontalDrag)
+        }
+
+        if let playingTitleHint = playingTitleHint {
+          ZStack {
+            Rectangle()
+              .fill(.regularMaterial)
+            Image(systemName: playingTitleHint.systemImageName)
+              .font(.headline.weight(.semibold))
+              .foregroundStyle(.primary)
+          }
+          .frame(width: barWidth, height: geo.size.height)
           .transition(.opacity)
+          .allowsHitTesting(false)
         }
       }
       .animation(Bar.titleHintFade, value: playingTitleHint)
@@ -319,8 +324,8 @@ struct PlayerBarView: View {
   }
 
   private func handlePresentPlayer() {
-    springResetDrag()
     showPlaybackToggleHint(.expand)
+    springResetDrag()
     playback.presentPlayer()
   }
 
@@ -422,9 +427,7 @@ struct PlayerBarView: View {
 
   @MainActor
   private func showPlaybackToggleHint(_ hint: PlayingTitleHint) {
-    withAnimation(nil) {
-      playingTitleHint = hint
-    }
+    playingTitleHint = hint
 
     Task { @MainActor in
       try? await Task.sleep(nanoseconds: Bar.titleHintDurationNs)

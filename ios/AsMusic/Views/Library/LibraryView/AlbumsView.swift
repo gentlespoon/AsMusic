@@ -17,6 +17,7 @@ struct AlbumsView: View {
   @State private var albumSummaries: [AlbumSummary] = []
   @State private var songsByAlbumID: [String: [Song]] = [:]
   @State private var artistSongs: [Song] = []
+  @State private var isLoading = true
   @State private var errorMessage: String?
   @State private var searchText = ""
 
@@ -83,6 +84,8 @@ struct AlbumsView: View {
           systemImage: "exclamationmark.triangle",
           description: Text(errorMessage)
         )
+      } else if isLoading && albumSummaries.isEmpty && artistSongs.isEmpty {
+        ProgressView("Loading albums…")
       } else if artist != nil, artistSongs.isEmpty, albumSummaries.isEmpty {
         ContentUnavailableView(
           "No Music",
@@ -171,6 +174,9 @@ struct AlbumsView: View {
   }
 
   private func loadAlbumsFromCacheOnly() async {
+    isLoading = true
+    defer { isLoading = false }
+
     guard let client else {
       errorMessage = "No library connection."
       return

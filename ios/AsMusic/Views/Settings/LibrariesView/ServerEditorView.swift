@@ -117,3 +117,8 @@ struct ServerEditorView: View {
     dismiss()
   }
 }
+
+#Preview {
+  ServerEditorView(editingServer: nil, onSave: { _, _, _, _ in })
+    .environment(NavidromeSession())
+}

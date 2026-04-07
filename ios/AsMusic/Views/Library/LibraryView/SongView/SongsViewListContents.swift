@@ -62,7 +62,7 @@ struct SongsViewListContents<Row: View>: View {
     if isDownloadingMode {
       return "Checking downloading songs…"
     }
-    return "Loading songs..."
+    return "Loading songs…"
   }
 
   private var emptyTitle: String {

@@ -12,6 +12,7 @@ struct ArtistsView: View {
   @Environment(\.libraryClient) private var client
 
   @State private var artists: [ArtistSummary] = []
+  @State private var isLoading = true
   @State private var errorMessage: String?
   @State private var searchText = ""
 
@@ -24,7 +25,9 @@ struct ArtistsView: View {
 
   var body: some View {
     List {
-      if let errorMessage {
+      if isLoading && artists.isEmpty {
+        ProgressView("Loading artists…")
+      } else if let errorMessage {
         ContentUnavailableView(
           "Unable to Load Artists",
           systemImage: "exclamationmark.triangle",
@@ -65,6 +68,9 @@ struct ArtistsView: View {
   }
 
   private func loadArtistsFromCacheOnly() async {
+    isLoading = true
+    defer { isLoading = false }
+
     guard let client else {
       errorMessage = "No library connection."
       return

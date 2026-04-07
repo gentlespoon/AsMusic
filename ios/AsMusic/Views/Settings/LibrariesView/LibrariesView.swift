@@ -13,6 +13,7 @@ struct LibrariesView: View {
   @State private var serverManager = ServerManager()
   @State private var sections: [ServerFoldersSection] = []
   @State private var isLoading = false
+  @State private var serverCheckProgress: ServerCheckProgress?
 
   var body: some View {
     List {
@@ -20,17 +21,37 @@ struct LibrariesView: View {
         EmptyView()
       } footer: {
         VStack(alignment: .leading) {
-          Text("""
-            Select a library to start listening.
-            Switching to a large library may take a while to load.
-          """)
-            .font(.caption)
+          Text(
+            """
+              Select a library to start listening.
+              Switching to a large library may take a while to load.
+            """
+          )
+          .font(.caption)
         }
       }
-      
-      if isLoading && sections.isEmpty {
-        ProgressView("Loading music folders...")
-      } else if sections.isEmpty {
+
+      if let progress = serverCheckProgress {
+        Section {
+          HStack(alignment: .center, spacing: 12) {
+            ProgressView()
+            VStack(alignment: .leading, spacing: 4) {
+              Text("Checking \(progress.hostname)")
+                .font(.subheadline)
+              Text("Server \(progress.currentIndex) of \(progress.total)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+          }
+          .accessibilityElement(children: .combine)
+          .accessibilityLabel(
+            "Checking server \(progress.currentIndex) of \(progress.total), \(progress.hostname)"
+          )
+        }
+      }
+
+      if sections.isEmpty, serverCheckProgress == nil, !isLoading {
         ContentUnavailableView(
           "No Library Data",
           systemImage: "music.note.house",
@@ -84,11 +105,13 @@ struct LibrariesView: View {
     }
   }
 
+  @MainActor
   private func loadMusicFolders() async {
     let servers = serverManager.servers
     if servers.isEmpty {
       sections = []
       isLoading = false
+      serverCheckProgress = nil
       return
     }
 
@@ -101,7 +124,7 @@ struct LibrariesView: View {
     let anyCached = cacheByServer.contains { $0.1 != nil }
 
     if anyCached {
-      sections = await buildSections(
+      sections = buildSections(
         servers: servers,
         folders: { id in
           cacheByServer.first(where: { $0.0 == id })?.1 ?? []
@@ -112,10 +135,18 @@ struct LibrariesView: View {
       isLoading = true
     }
 
-    defer { isLoading = false }
+    defer {
+      serverCheckProgress = nil
+      isLoading = false
+    }
 
     var fetchedSections: [ServerFoldersSection] = []
-    for server in servers {
+    for (index, server) in servers.enumerated() {
+      serverCheckProgress = ServerCheckProgress(
+        currentIndex: index + 1,
+        total: servers.count,
+        hostname: server.hostname
+      )
       let client = await NavidromeClientStore.shared.client(for: server)
       do {
         let folders = try await client.library.getMusicFolders()
@@ -151,10 +182,7 @@ struct LibrariesView: View {
     guard let server = serverManager.servers.first(where: { $0.id == serverID }) else { return }
     let client = await NavidromeClientStore.shared.client(for: server)
     do {
-      try await LibrarySongCacheReload.fetchAndSave(client: client)
-      await MainActor.run {
-        LibraryRefreshCoordinator.shared.bump()
-      }
+      try await LibrarySongCacheReload.refreshCachedLibraryFromServer(client: client)
     } catch {
       // Same as LibraryView pull-to-refresh: no dedicated error surface here.
     }
@@ -163,7 +191,7 @@ struct LibrariesView: View {
   private func buildSections(
     servers: [Server],
     folders: (UUID) -> [MusicFolder]
-  ) async -> [ServerFoldersSection] {
+  ) -> [ServerFoldersSection] {
     var result: [ServerFoldersSection] = []
     for server in servers {
       result.append(
@@ -189,4 +217,10 @@ private struct ServerFoldersSection: Identifiable {
   let hostname: String
   let folders: [MusicFolder]
   let errorMessage: String?
+}
+
+private struct ServerCheckProgress: Equatable {
+  var currentIndex: Int
+  var total: Int
+  var hostname: String
 }

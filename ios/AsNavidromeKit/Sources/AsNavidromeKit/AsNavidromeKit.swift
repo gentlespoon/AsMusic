@@ -111,7 +111,11 @@ extension AsNavidromeClient {
   public struct SongRoutes: Sendable {
     let authedRequest: AuthedRequest
 
-    public func getSongs() async throws -> [Song] {
+    /// Paginates through Subsonic `search3` (via `getSongs` path) until all songs are loaded.
+    /// `onProgress` is invoked with the cumulative number of songs loaded after each page (on an arbitrary executor).
+    public func getSongs(
+      onProgress: (@Sendable (Int) -> Void)? = nil
+    ) async throws -> [Song] {
       let pageSize = 500
       var offset = 0
       var allSongs: [Song] = []
@@ -122,13 +126,14 @@ extension AsNavidromeClient {
           additionalParameters: [
             "artistCount": "0",
             "albumCount": "0",
-            "songCount": "500",
+            "songCount": String(pageSize),
             "songOffset": String(offset),
             "query": "",
           ])
         let response = try decodeSubsonicResponse(from: json)
         let pageSongs = response.searchResult3?.song ?? []
         allSongs.append(contentsOf: pageSongs)
+        onProgress?(allSongs.count)
 
         if pageSongs.count < pageSize {
           break

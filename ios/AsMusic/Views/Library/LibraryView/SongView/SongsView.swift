@@ -44,6 +44,7 @@ struct SongsView: View {
     self.injectedAlbumArtworkURL = albumArtworkURL
     self.injectedSongClientsByID = songClientsByID
     self.listSource = listSource
+    _isLoading = State(initialValue: songs == nil)
   }
 
   private var isFixedListMode: Bool { fixedSongs != nil }
@@ -201,6 +202,9 @@ struct SongsView: View {
   }
 
   private func loadSongsFromCacheOnly() async {
+    isLoading = true
+    defer { isLoading = false }
+
     guard let client else {
       errorMessage = "No library connection."
       return
@@ -211,9 +215,6 @@ struct SongsView: View {
       errorMessage = nil
       return
     }
-
-    isLoading = true
-    defer { isLoading = false }
 
     loadedSongs =
       await SongCacheStore.shared.loadSongs(

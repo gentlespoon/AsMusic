@@ -20,7 +20,6 @@ private struct RootTabContent: View {
   @Environment(MusicPlayerController.self) private var playback
   @State private var selectedTab: RootTab = .library
   @State private var isQueueSheetPresented = false
-
   var body: some View {
     TabView(selection: $selectedTab) {
       Tab("Library", systemImage: "music.note.list", value: RootTab.library) {
@@ -61,6 +60,57 @@ private struct RootTabContent: View {
       PlayerSheetView()
         .environment(playback)
     }
+    .overlay {
+      LibraryReloadFromServerOverlay()
+    }
+  }
+}
+
+/// Shown while a full library sync (songs + playlists + indexes) runs after pull-to-refresh or changing library.
+private struct LibraryReloadFromServerOverlay: View {
+  @State private var coordinator = LibraryRefreshCoordinator.shared
+
+  var body: some View {
+    Group {
+      if coordinator.isReloadingFromServer {
+        ZStack {
+          Color.black.opacity(0.32)
+            .ignoresSafeArea()
+          VStack(spacing: 12) {
+            ProgressView()
+              .controlSize(.large)
+            Text("Loading library from server")
+              .font(.headline)
+            Group {
+              switch coordinator.serverReloadStep {
+              case .loadingSongs:
+                if coordinator.songsLoadedSoFar > 0 {
+                  Text(
+                    "\(coordinator.songsLoadedSoFar.formatted(.number.grouping(.automatic))) songs loaded"
+                  )
+                  .contentTransition(.numericText())
+                  .animation(.default, value: coordinator.songsLoadedSoFar)
+                } else {
+                  Text("Starting…")
+                }
+              case .loadingPlaylists:
+                Text("Loading playlists…")
+              case .savingCaches:
+                Text("Building local library…")
+              }
+            }
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+          }
+          .multilineTextAlignment(.center)
+          .padding(24)
+          .frame(maxWidth: 320)
+          .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+        .transition(.opacity)
+      }
+    }
+    .animation(.easeInOut(duration: 0.2), value: coordinator.isReloadingFromServer)
   }
 }
 

@@ -29,14 +29,11 @@ struct AuthedRequest: Sendable {
   let username: String
   let password: String
 
-  func get(path: String, additionalParameters: [String: String] = [:]) async throws -> [String: Any]
-  {
+  func get(path: String, additionalParameters: [String: String] = [:]) async throws -> Data {
     try await send(method: .get, path: path, additionalParameters: additionalParameters)
   }
 
-  func post(path: String, additionalParameters: [String: String] = [:]) async throws -> [String:
-    Any]
-  {
+  func post(path: String, additionalParameters: [String: String] = [:]) async throws -> Data {
     try await send(method: .post, path: path, additionalParameters: additionalParameters)
   }
 
@@ -74,27 +71,32 @@ struct AuthedRequest: Sendable {
     return authenticatedURL
   }
 
+  /// Logs method + path only in Release. In DEBUG, logs a clipped query preview (never includes token `t`).
   private func logRequestURL(_ url: URL, method: HTTPMethod) {
-    guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
-      print("[AsNavidromeKit] \(method.rawValue) \(url.path)")
-      return
-    }
-
-    if let items = components.queryItems, !items.isEmpty {
-      let maxQueryItemsToLog = 8
-      let visibleItems = items.prefix(maxQueryItemsToLog)
-      components.queryItems = visibleItems.map { item in
-        let value = item.value ?? ""
-        let clippedValue = value.count > 80 ? "\(value.prefix(80))..." : value
-        return URLQueryItem(name: item.name, value: clippedValue)
+    #if DEBUG
+      guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+        KitLogging.networking.debug("\(method.rawValue, privacy: .public) \(url.path, privacy: .public)")
+        return
       }
-      if items.count > maxQueryItemsToLog {
-        components.percentEncodedQuery = (components.percentEncodedQuery ?? "")
-          + "&truncated=true"
-      }
-    }
 
-    print("[AsNavidromeKit] \(method.rawValue) \(components.string ?? url.absoluteString)")
+      if let items = components.queryItems, !items.isEmpty {
+        let maxQueryItemsToLog = 8
+        let visibleItems = items.prefix(maxQueryItemsToLog)
+        components.queryItems = visibleItems.map { item in
+          let value = item.value ?? ""
+          let clippedValue = value.count > 80 ? "\(value.prefix(80))..." : value
+          return URLQueryItem(name: item.name, value: clippedValue)
+        }
+        if items.count > maxQueryItemsToLog {
+          components.percentEncodedQuery = (components.percentEncodedQuery ?? "")
+            + "&truncated=true"
+        }
+      }
+
+      KitLogging.networking.debug("\(method.rawValue, privacy: .public) \(components.string ?? url.absoluteString, privacy: .public)")
+    #else
+      KitLogging.networking.debug("\(method.rawValue, privacy: .public) \(url.path, privacy: .public)")
+    #endif
   }
 
   func authenticatedURL(
@@ -122,33 +124,29 @@ struct AuthedRequest: Sendable {
 
   private func send(method: HTTPMethod, path: String, additionalParameters: [String: String])
     async throws
-    -> [String: Any]
+    -> Data
   {
     let urlWithDebugParameters = try urlWithAdditionalParameters(
       path: path,
       additionalParameters: additionalParameters
     )
     logRequestURL(urlWithDebugParameters, method: method)
-    let authenticatedRequestURL = urlByAddingAuthenticationAndFormatParameters(to: urlWithDebugParameters)
+    let authenticatedRequestURL = urlByAddingAuthenticationAndFormatParameters(
+      to: urlWithDebugParameters)
 
     var request = URLRequest(url: authenticatedRequestURL)
     request.httpMethod = method.rawValue
     let basicCredential = Data("\(username):\(password)".utf8).base64EncodedString()
     request.addValue("Basic \(basicCredential)", forHTTPHeaderField: "Authorization")
 
-    let (data, response) = try await URLSession.shared.data(for: request)
+    let (data, response) = try await SubsonicURLSession.shared.data(for: request)
     guard let httpResponse = response as? HTTPURLResponse,
       (200...299).contains(httpResponse.statusCode)
     else {
       throw URLError(.badServerResponse)
     }
 
-    let json = try JSONSerialization.jsonObject(with: data, options: [.allowFragments])
-    guard let dictionary = json as? [String: Any] else {
-      throw URLError(.cannotParseResponse)
-    }
-
-    return dictionary
+    return data
   }
 
   private func endpointURL(path: String) throws -> URL {

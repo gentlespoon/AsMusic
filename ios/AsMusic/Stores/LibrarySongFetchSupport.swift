@@ -66,26 +66,31 @@ enum LibrarySongCacheReload {
       }
     }
     do {
-      async let songsResult = LibrarySongFetch.loadSongs(
-        client: client,
-        onSongProgress: onSongProgress
-      )
-      async let playlistsResult = client.getPlaylists()
-
-      let (songs, _) = try await songsResult
       await MainActor.run {
         LibraryRefreshCoordinator.shared.setServerReloadStep(.loadingPlaylists)
       }
-      let playlists = try await playlistsResult
+      let playlists = try await client.getPlaylists()
+      await MainActor.run {
+        LibraryRefreshCoordinator.shared.setServerReloadStep(.loadingSongs)
+      }
+      try await SongCacheStore.shared.replaceSongsFromPagedFetch(
+        serverID: scope.serverID,
+        libraryID: scope.libraryID,
+        onProgress: onSongProgress,
+        fetchPage: { offset, pageSize in
+          try await client.song.getSongsPage(offset: offset, pageSize: pageSize)
+        }
+      )
       await MainActor.run {
         LibraryRefreshCoordinator.shared.setServerReloadStep(.savingCaches)
       }
 
-      await SongCacheStore.shared.saveSongs(
-        songs,
-        serverID: scope.serverID,
-        libraryID: scope.libraryID
-      )
+      let songs =
+        await SongCacheStore.shared.loadSongs(
+          serverID: scope.serverID,
+          libraryID: scope.libraryID
+        ) ?? []
+
       await PlaylistSummaryCacheStore.shared.savePlaylists(
         playlists,
         serverID: scope.serverID,

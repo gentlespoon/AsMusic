@@ -5,33 +5,44 @@
 
 import Foundation
 
-func decodeSubsonicResponse(from json: [String: Any]) throws -> SubsonicResponse {
-  guard let responseObject = json["subsonic-response"] else {
-    throw URLError(.cannotParseResponse)
+private struct SubsonicRootEnvelope: Decodable {
+  let subsonicResponse: SubsonicResponse
+
+  enum CodingKeys: String, CodingKey {
+    case subsonicResponse = "subsonic-response"
   }
-  let data = try JSONSerialization.data(withJSONObject: responseObject)
+}
+
+public func decodeSubsonicResponse(from data: Data) throws -> SubsonicResponse {
   do {
-    let parsed = try JSONDecoder().decode(SubsonicResponse.self, from: data)
-    return parsed
+    let envelope = try JSONDecoder().decode(SubsonicRootEnvelope.self, from: data)
+    return envelope.subsonicResponse
   } catch let error as DecodingError {
     switch error {
     case .typeMismatch(let type, let context):
-      print("Type mismatch for type \(type) in JSON: \(context.debugDescription)")
-      print("Path: \(context.codingPath)")
+      KitLogging.decoding.error(
+        "Subsonic decode type mismatch: \(String(describing: type)) — \(context.debugDescription, privacy: .public)"
+      )
     case .keyNotFound(let key, let context):
-      print("Key '\(key.stringValue)' not found: \(context.debugDescription)")
-      print("Path: \(context.codingPath)")
+      KitLogging.decoding.error(
+        "Subsonic decode missing key \(key.stringValue, privacy: .public) — \(context.debugDescription, privacy: .public)"
+      )
     case .valueNotFound(let type, let context):
-      print("Value of type \(type) not found: \(context.debugDescription)")
-      print("Path: \(context.codingPath)")
+      KitLogging.decoding.error(
+        "Subsonic decode missing value \(String(describing: type)) — \(context.debugDescription, privacy: .public)"
+      )
     case .dataCorrupted(let context):
-      print("Data corrupted: \(context.debugDescription)")
-      print("Path: \(context.codingPath)")
+      KitLogging.decoding.error(
+        "Subsonic decode corrupted: \(context.debugDescription, privacy: .public)"
+      )
     @unknown default:
-      print("Unknown decoding error: \(error)")
+      KitLogging.decoding.error("Subsonic decode unknown DecodingError")
     }
+    throw URLError(.cannotParseResponse)
   } catch {
-    print("Other error: \(error)")
+    KitLogging.decoding.error(
+      "Subsonic decode failed: \(error.localizedDescription, privacy: .public)"
+    )
+    throw URLError(.cannotParseResponse)
   }
-  throw URLError(.cannotParseResponse)
 }

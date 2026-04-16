@@ -31,6 +31,9 @@ struct SongsView: View {
   @State private var songPendingDeleteConfirmation: Song?
   @State private var downloadingProgressBySongID: [String: Double] = [:]
   @State private var searchText = ""
+  @State private var debouncedSearchText = ""
+  @State private var searchDebounceTask: Task<Void, Never>?
+  @State private var cachedPlayableQueueItems: [NowPlayingQueueItem] = []
 
   init(
     songs: [Song]? = nil,
@@ -57,12 +60,12 @@ struct SongsView: View {
   }
 
   private var filteredSongs: [Song] {
-    SongsViewFilter.filteredSongs(from: displaySongs, searchText: searchText)
+    SongsViewFilter.filteredSongs(from: displaySongs, searchText: debouncedSearchText)
   }
 
-  /// Songs currently shown in the list that can be played (respects search filter).
+  /// Songs currently shown in the list that can be played (respects debounced search filter).
   private var playableQueueItems: [NowPlayingQueueItem] {
-    SongsViewFilter.playableQueueItems(from: filteredSongs, playbackURL: playbackURL(for:))
+    cachedPlayableQueueItems
   }
 
   private var canDownloadVisibleSongs: Bool {
@@ -93,6 +96,27 @@ struct SongsView: View {
       }
     }
     .searchable(text: $searchText, prompt: "Filter songs")
+    .onChange(of: searchText) { _, newValue in
+      scheduleSearchDebounce(to: newValue)
+    }
+    .onChange(of: debouncedSearchText) { _, _ in
+      syncPlayableQueueCache()
+    }
+    .onChange(of: loadedSongs.count) { _, _ in
+      syncPlayableQueueCache()
+    }
+    .onChange(of: localPlaybackURLs.count) { _, _ in
+      syncPlayableQueueCache()
+    }
+    .onChange(of: client?.host ?? "") { _, _ in
+      syncPlayableQueueCache()
+    }
+    .onAppear {
+      if debouncedSearchText != searchText {
+        debouncedSearchText = searchText
+      }
+      syncPlayableQueueCache()
+    }
     .navigationTitle(navigationTitle)
     .toolbar {
       SongsViewToolbar(
@@ -382,5 +406,19 @@ struct SongsView: View {
         await playback.insertAfterCurrentWithoutPlaying(item)
       }
     }
+  }
+
+  private func scheduleSearchDebounce(to newValue: String) {
+    searchDebounceTask?.cancel()
+    searchDebounceTask = Task { @MainActor in
+      try? await Task.sleep(for: .milliseconds(260))
+      guard !Task.isCancelled else { return }
+      debouncedSearchText = newValue
+    }
+  }
+
+  private func syncPlayableQueueCache() {
+    let filtered = SongsViewFilter.filteredSongs(from: displaySongs, searchText: debouncedSearchText)
+    cachedPlayableQueueItems = SongsViewFilter.playableQueueItems(from: filtered, playbackURL: playbackURL(for:))
   }
 }

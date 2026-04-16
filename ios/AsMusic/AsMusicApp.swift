@@ -8,6 +8,7 @@
 import AVFoundation
 import AppIntents
 import CarPlay
+import os
 import SwiftUI
 import UIKit
 
@@ -54,7 +55,9 @@ struct AsMusicApp: App {
       )
       try session.setActive(true)
     } catch {
-      print("Failed to configure audio session: \(error.localizedDescription)")
+      AppLog.audio.error(
+        "Failed to configure audio session: \(error.localizedDescription, privacy: .public)"
+      )
     }
   }
 }

@@ -167,7 +167,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "GIT_ROOT=$(git -C \"$SRCROOT\" rev-parse --show-toplevel 2>/dev/null || true)\nif [ -n \"$GIT_ROOT\" ]; then\n  HASH=$(git -C \"$GIT_ROOT\" rev-parse --short HEAD 2>/dev/null || echo unknown)\nelse\n  HASH=unknown\nfi\nBUILD=$(date +\"%y%m%d\")-${HASH}\nset -e\nPLIST=\"${TARGET_BUILD_DIR}/${INFOPLIST_PATH}\"\nif [ ! -f \"$PLIST\" ]; then\n  echo \"warning: Info.plist not found at $PLIST; skipping build number stamp\"\n  exit 0\nfi\n/usr/libexec/PlistBuddy -c \"Set :CFBundleVersion $BUILD\" \"$PLIST\"\ntouch \"${DERIVED_FILE_DIR}/AsMusicBuildNumber.stamp\"\n";
+			shellScript = "BUILD=$(date +\"%Y%m%d.%H%M%S\")\nset -e\nPLIST=\"${TARGET_BUILD_DIR}/${INFOPLIST_PATH}\"\nif [ ! -f \"$PLIST\" ]; then\n  echo \"warning: Info.plist not found at $PLIST; skipping build number stamp\"\n  exit 0\nfi\n/usr/libexec/PlistBuddy -c \"Set :CFBundleVersion $BUILD\" \"$PLIST\"\ntouch \"${DERIVED_FILE_DIR}/AsMusicBuildNumber.stamp\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

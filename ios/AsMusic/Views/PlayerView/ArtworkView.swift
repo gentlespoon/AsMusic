@@ -4,31 +4,30 @@
 //
 
 import SwiftUI
+import UIKit
 
 struct ArtworkView: View {
   let artworkURL: URL?
 
+  @State private var loadedImage: UIImage?
+
   var body: some View {
     Group {
-      if let artworkURL {
-        AsyncImage(url: artworkURL) { phase in
-          switch phase {
-          case .success(let image):
-            image
-              .resizable()
-              .scaledToFill()
-          case .failure, .empty:
-            placeholder
-          @unknown default:
-            placeholder
-          }
-        }
+      if let loadedImage {
+        Image(uiImage: loadedImage)
+          .resizable()
+          .scaledToFill()
       } else {
         placeholder
       }
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .clipShape(RoundedRectangle(cornerRadius: 12))
+    .task(id: artworkURL?.absoluteString ?? "") {
+      loadedImage = nil
+      guard let artworkURL else { return }
+      loadedImage = await ArtworkLoader.shared.uiImage(for: artworkURL)
+    }
   }
 }
 

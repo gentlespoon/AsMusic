@@ -9,6 +9,12 @@ import AsNavidromeKit
 import Foundation
 import SQLite3
 
+enum SongCacheStoreError: Error {
+  case databaseUnavailable
+  case transactionFailed
+  case insertFailed
+}
+
 actor SongCacheStore {
   static let shared = SongCacheStore()
   nonisolated(unsafe) private static let transientDestructor = unsafeBitCast(
@@ -111,6 +117,90 @@ actor SongCacheStore {
       sqlite3_bind_double(insertStatement, 9, updatedAt)
       guard sqlite3_step(insertStatement) == SQLITE_DONE else { return }
     }
+    shouldCommit = true
+  }
+
+  /// Deletes existing rows for the library, then inserts one page at a time in a single transaction
+  /// so peak memory stays near one page size instead of holding the full library in RAM.
+  func replaceSongsFromPagedFetch(
+    serverID: UUID,
+    libraryID: String,
+    onProgress: (@Sendable (Int) -> Void)? = nil,
+    fetchPage: @Sendable (_ offset: Int, _ pageSize: Int) async throws -> [Song]
+  ) async throws {
+    let pageSize = 500
+    guard openIfNeeded() else { throw SongCacheStoreError.databaseUnavailable }
+    guard execute("BEGIN TRANSACTION;") else { throw SongCacheStoreError.transactionFailed }
+    var shouldCommit = false
+    defer { _ = execute(shouldCommit ? "COMMIT;" : "ROLLBACK;") }
+
+    let deleteSQL = "DELETE FROM song_cache WHERE server_id = ? AND library_id = ?;"
+    var deleteStatement: OpaquePointer?
+    defer { sqlite3_finalize(deleteStatement) }
+    guard sqlite3_prepare_v2(db, deleteSQL, -1, &deleteStatement, nil) == SQLITE_OK else {
+      throw SongCacheStoreError.transactionFailed
+    }
+    sqlite3_bind_text(deleteStatement, 1, serverID.uuidString, -1, Self.transientDestructor)
+    sqlite3_bind_text(deleteStatement, 2, libraryID, -1, Self.transientDestructor)
+    guard sqlite3_step(deleteStatement) == SQLITE_DONE else {
+      throw SongCacheStoreError.transactionFailed
+    }
+
+    let insertSQL = """
+      INSERT INTO song_cache(
+        server_id, library_id, song_id, artist_id, album_id, artwork_id, song_json, sort_index, updated_at
+      )
+      VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?);
+      """
+    var insertStatement: OpaquePointer?
+    defer { sqlite3_finalize(insertStatement) }
+    guard sqlite3_prepare_v2(db, insertSQL, -1, &insertStatement, nil) == SQLITE_OK else {
+      throw SongCacheStoreError.transactionFailed
+    }
+
+    let updatedAt = Date().timeIntervalSince1970
+    var nextSortIndex = 0
+    var offset = 0
+
+    while true {
+      let page = try await fetchPage(offset, pageSize)
+      for song in page {
+        guard let songJSON = try? encoder.encode(song) else {
+          throw SongCacheStoreError.insertFailed
+        }
+        sqlite3_reset(insertStatement)
+        sqlite3_clear_bindings(insertStatement)
+        sqlite3_bind_text(insertStatement, 1, serverID.uuidString, -1, Self.transientDestructor)
+        sqlite3_bind_text(insertStatement, 2, libraryID, -1, Self.transientDestructor)
+        sqlite3_bind_text(insertStatement, 3, song.id, -1, Self.transientDestructor)
+        sqlite3_bind_text(insertStatement, 4, song.artistId ?? "", -1, Self.transientDestructor)
+        sqlite3_bind_text(insertStatement, 5, song.albumId ?? "", -1, Self.transientDestructor)
+        sqlite3_bind_text(insertStatement, 6, song.coverArt ?? "", -1, Self.transientDestructor)
+        _ = songJSON.withUnsafeBytes { buffer in
+          sqlite3_bind_blob(
+            insertStatement,
+            7,
+            buffer.baseAddress,
+            Int32(buffer.count),
+            Self.transientDestructor
+          )
+        }
+        sqlite3_bind_int64(insertStatement, 8, Int64(nextSortIndex))
+        sqlite3_bind_double(insertStatement, 9, updatedAt)
+        guard sqlite3_step(insertStatement) == SQLITE_DONE else {
+          throw SongCacheStoreError.insertFailed
+        }
+        nextSortIndex &+= 1
+      }
+
+      onProgress?(nextSortIndex)
+
+      if page.count < pageSize {
+        break
+      }
+      offset += pageSize
+    }
+
     shouldCommit = true
   }
 

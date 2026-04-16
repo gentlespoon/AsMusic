@@ -70,8 +70,8 @@ extension AsNavidromeClient {
     let authedRequest: AuthedRequest
 
     public func ping() async throws -> Bool {
-      let json = try await authedRequest.get(path: ApiPaths.ping)
-      let response = try decodeSubsonicResponse(from: json)
+      let data = try await authedRequest.get(path: ApiPaths.ping)
+      let response = try decodeSubsonicResponse(from: data)
       return response.status == "ok"
     }
   }
@@ -84,8 +84,8 @@ extension AsNavidromeClient {
     let authedRequest: AuthedRequest
 
     public func getMusicFolders() async throws -> [MusicFolder] {
-      let json = try await authedRequest.get(path: ApiPaths.getMusicFolders)
-      let response = try decodeSubsonicResponse(from: json)
+      let data = try await authedRequest.get(path: ApiPaths.getMusicFolders)
+      let response = try decodeSubsonicResponse(from: data)
       return response.musicFolders?.musicFolder ?? []
     }
   }
@@ -98,8 +98,8 @@ extension AsNavidromeClient {
     let authedRequest: AuthedRequest
 
     public func getArtists() async throws -> [Artist] {
-      let json = try await authedRequest.get(path: ApiPaths.getArtists)
-      let response = try decodeSubsonicResponse(from: json)
+      let data = try await authedRequest.get(path: ApiPaths.getArtists)
+      let response = try decodeSubsonicResponse(from: data)
       return response.artists?.index.flatMap(\.artist) ?? []
     }
   }
@@ -111,6 +111,21 @@ extension AsNavidromeClient {
   public struct SongRoutes: Sendable {
     let authedRequest: AuthedRequest
 
+    /// One page of library songs (Subsonic `search3` via `getSongs` path).
+    public func getSongsPage(offset: Int, pageSize: Int = 500) async throws -> [Song] {
+      let data = try await authedRequest.get(
+        path: ApiPaths.getSongs,
+        additionalParameters: [
+          "artistCount": "0",
+          "albumCount": "0",
+          "songCount": String(pageSize),
+          "songOffset": String(offset),
+          "query": "",
+        ])
+      let response = try decodeSubsonicResponse(from: data)
+      return response.searchResult3?.song ?? []
+    }
+
     /// Paginates through Subsonic `search3` (via `getSongs` path) until all songs are loaded.
     /// `onProgress` is invoked with the cumulative number of songs loaded after each page (on an arbitrary executor).
     public func getSongs(
@@ -121,17 +136,7 @@ extension AsNavidromeClient {
       var allSongs: [Song] = []
 
       while true {
-        let json = try await authedRequest.get(
-          path: ApiPaths.getSongs,
-          additionalParameters: [
-            "artistCount": "0",
-            "albumCount": "0",
-            "songCount": String(pageSize),
-            "songOffset": String(offset),
-            "query": "",
-          ])
-        let response = try decodeSubsonicResponse(from: json)
-        let pageSongs = response.searchResult3?.song ?? []
+        let pageSongs = try await getSongsPage(offset: offset, pageSize: pageSize)
         allSongs.append(contentsOf: pageSongs)
         onProgress?(allSongs.count)
 
@@ -145,17 +150,19 @@ extension AsNavidromeClient {
     }
 
     public func star(songID: String) async throws {
-      let _ = try await authedRequest.get(
+      let data = try await authedRequest.get(
         path: ApiPaths.star,
         additionalParameters: ["id": songID]
       )
+      _ = try decodeSubsonicResponse(from: data)
     }
 
     public func unstar(songID: String) async throws {
-      let _ = try await authedRequest.get(
+      let data = try await authedRequest.get(
         path: ApiPaths.unstar,
         additionalParameters: ["id": songID]
       )
+      _ = try decodeSubsonicResponse(from: data)
     }
   }
 }
@@ -172,14 +179,14 @@ extension AsNavidromeClient {
       var allAlbums: [Album] = []
 
       while true {
-        let json = try await authedRequest.get(
+        let data = try await authedRequest.get(
           path: ApiPaths.getAlbums,
           additionalParameters: [
             "type": "alphabeticalByName",
             "size": String(pageSize),
             "offset": String(offset),
           ])
-        let response = try decodeSubsonicResponse(from: json)
+        let response = try decodeSubsonicResponse(from: data)
         let pageAlbums = response.albumList2?.album ?? []
         allAlbums.append(contentsOf: pageAlbums)
 
@@ -201,8 +208,8 @@ extension AsNavidromeClient {
     let authedRequest: AuthedRequest
 
     public func getPlaylists() async throws -> [PlaylistSummary] {
-      let json = try await authedRequest.get(path: ApiPaths.getPlaylists)
-      let response = try decodeSubsonicResponse(from: json)
+      let data = try await authedRequest.get(path: ApiPaths.getPlaylists)
+      let response = try decodeSubsonicResponse(from: data)
       let list = response.playlists?.playlist ?? []
       return list.sorted { lhs, rhs in
         lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
@@ -210,10 +217,10 @@ extension AsNavidromeClient {
     }
 
     public func getPlaylist(id: String) async throws -> PlaylistDetail {
-      let json = try await authedRequest.get(
+      let data = try await authedRequest.get(
         path: ApiPaths.getPlaylist,
         additionalParameters: ["id": id])
-      let response = try decodeSubsonicResponse(from: json)
+      let response = try decodeSubsonicResponse(from: data)
       guard let detail = response.playlist else {
         throw URLError(.cannotParseResponse)
       }
@@ -221,20 +228,20 @@ extension AsNavidromeClient {
     }
 
     public func createPlaylist(name: String) async throws {
-      let json = try await authedRequest.get(
+      let data = try await authedRequest.get(
         path: ApiPaths.createPlaylist,
         additionalParameters: ["name": name])
-      let response = try decodeSubsonicResponse(from: json)
+      let response = try decodeSubsonicResponse(from: data)
       guard response.status == "ok" else {
         throw URLError(.cannotParseResponse)
       }
     }
 
     public func deletePlaylist(id: String) async throws {
-      let json = try await authedRequest.get(
+      let data = try await authedRequest.get(
         path: ApiPaths.deletePlaylist,
         additionalParameters: ["id": id])
-      let response = try decodeSubsonicResponse(from: json)
+      let response = try decodeSubsonicResponse(from: data)
       guard response.status == "ok" else {
         throw URLError(.cannotParseResponse)
       }
@@ -246,26 +253,26 @@ extension AsNavidromeClient {
       songIndexesToRemove: [Int]
     ) async throws {
       for index in songIndexesToRemove.sorted(by: >) {
-        let json = try await authedRequest.get(
+        let data = try await authedRequest.get(
           path: ApiPaths.updatePlaylist,
           additionalParameters: [
             "playlistId": id,
             "songIndexToRemove": String(index),
           ])
-        let response = try decodeSubsonicResponse(from: json)
+        let response = try decodeSubsonicResponse(from: data)
         guard response.status == "ok" else {
           throw URLError(.cannotParseResponse)
         }
       }
 
       for songID in songIDsToAdd {
-        let json = try await authedRequest.get(
+        let data = try await authedRequest.get(
           path: ApiPaths.updatePlaylist,
           additionalParameters: [
             "playlistId": id,
             "songIdToAdd": songID,
           ])
-        let response = try decodeSubsonicResponse(from: json)
+        let response = try decodeSubsonicResponse(from: data)
         guard response.status == "ok" else {
           throw URLError(.cannotParseResponse)
         }

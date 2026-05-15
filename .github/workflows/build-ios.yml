@@ -5,11 +5,21 @@ on:
     branches: [main]
     paths:
       - "ios/**"
+      - "apps/web/**"
+      - "packages/**"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "package.json"
       - ".github/workflows/build-ios.yml"
   pull_request:
     branches: [main]
     paths:
       - "ios/**"
+      - "apps/web/**"
+      - "packages/**"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "package.json"
       - ".github/workflows/build-ios.yml"
 
 jobs:
@@ -20,13 +30,40 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Swift 6.3 (ios/AsNavidromeKit/Package.swift) needs a matching Xcode; default on the runner may be older.
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      # Capacitor iOS depends on a matching Xcode / Swift toolchain.
       - name: Set up Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: latest-stable
 
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Build web and sync Capacitor iOS
+        run: pnpm run cap:sync
+
       # Device SDK only — no iOS Simulator runtime download (avoids runner-images#13853 actool issues).
-      - name: Build
+      - name: Build native (Xcode, iphoneos)
         run: |
-          xcodebuild clean build -project ios/AsMusic.xcodeproj -scheme AsMusic -sdk iphoneos -destination 'generic/platform=iOS' ONLY_ACTIVE_ARCH=YES CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
+          xcodebuild clean build \
+            -project ios/App/App.xcodeproj \
+            -scheme AsMusic \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            ONLY_ACTIVE_ARCH=YES \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO

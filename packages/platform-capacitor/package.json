@@ -1,0 +1,20 @@
+{
+  "name": "@asmusic/platform-capacitor",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@asmusic/core": "workspace:*",
+    "@capacitor/clipboard": "^8.0.1",
+    "@capacitor/core": "^8.3.4",
+    "@capacitor/haptics": "^8.0.2",
+    "subsonic-api": "^3.2.0"
+  },
+  "devDependencies": {
+    "typescript": "~5.6.2"
+  }
+}

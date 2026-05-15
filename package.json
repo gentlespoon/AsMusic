@@ -1,0 +1,12 @@
+{
+  "name": "asmusic",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --filter asmusic-web dev",
+    "build": "pnpm --filter asmusic-web build",
+    "lint": "pnpm --filter asmusic-web lint",
+    "cap:sync": "pnpm --filter asmusic-web cap:sync",
+    "cap:open:ios": "pnpm --filter asmusic-web cap:open:ios",
+    "build:release": "bash scripts/build.sh"
+  }
+}

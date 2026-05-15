@@ -1,0 +1,19 @@
+{
+  "name": "@asmusic/shell",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@asmusic/core": "workspace:*",
+    "@asmusic/platform-capacitor": "workspace:*",
+    "@asmusic/platform-web": "workspace:*",
+    "@capacitor/core": "^8.3.4"
+  },
+  "devDependencies": {
+    "typescript": "~5.6.2"
+  }
+}

@@ -1,0 +1,1 @@
+This directory is reserved for a future Tauri/Electron desktop app. Reuse the same React bundle from `apps/web/` (Vite output) and implement **`PlatformHost`** (see `packages/core/src/host/types.ts`) for desktop-specific playback, file picks, shortcuts, and updater—same contract planned for Android.

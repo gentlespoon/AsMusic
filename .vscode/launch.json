@@ -1,15 +1,55 @@
 {
-  // Use IntelliSense to learn about possible attributes.
-  // Hover to view descriptions of existing attributes.
-  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
   "version": "0.2.0",
   "configurations": [
     {
       "type": "chrome",
       "request": "launch",
-      "name": "Web: Chrome Debug",
+      "name": "Web (Vite): Chrome",
       "url": "http://localhost:3000",
-      "webRoot": "${workspaceFolder}/web"
+      "webRoot": "${workspaceFolder}/apps/web",
+      "sourceMaps": true,
+      "resolveSourceMapLocations": [
+        "${workspaceFolder}/**",
+        "!**/node_modules/**"
+      ],
+      "preLaunchTask": "web: Vite dev (background)"
+    },
+    {
+      "type": "msedge",
+      "request": "launch",
+      "name": "Web (Vite): Edge",
+      "url": "http://localhost:3000",
+      "webRoot": "${workspaceFolder}/apps/web",
+      "sourceMaps": true,
+      "resolveSourceMapLocations": [
+        "${workspaceFolder}/**",
+        "!**/node_modules/**"
+      ],
+      "preLaunchTask": "web: Vite dev (background)"
+    },
+    {
+      "type": "chrome",
+      "request": "launch",
+      "name": "Web: Chrome (server already running)",
+      "url": "http://localhost:3000",
+      "webRoot": "${workspaceFolder}/apps/web",
+      "sourceMaps": true,
+      "resolveSourceMapLocations": [
+        "${workspaceFolder}/**",
+        "!**/node_modules/**"
+      ]
+    },
+    {
+      "type": "msedge",
+      "request": "launch",
+      "name": "Web: Edge (server already running)",
+      "url": "http://localhost:3000",
+      "webRoot": "${workspaceFolder}/apps/web",
+      "sourceMaps": true,
+      "resolveSourceMapLocations": [
+        "${workspaceFolder}/**",
+        "!**/node_modules/**"
+      ]
     }
   ]
 }

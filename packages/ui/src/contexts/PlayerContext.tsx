@@ -1,0 +1,246 @@
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from 'react';
+import { useHost } from '../host/HostContext';
+import { PlayerManager, type PlayerSleepTimerSnapshot, type SavedServerRef } from '../player/core/PlayerManager';
+import type { PlayerQueueItem, PlayerViewState } from '../player/core/types';
+import { useServerAndLibrary } from './ServerAndLibraryContext';
+import { useLibraryBrowseCache } from './LibraryBrowseCacheContext';
+
+export type PlayerActions = {
+  replaceQueueAndPlay: (items: PlayerQueueItem[], startIndex: number) => Promise<void>;
+  appendToQueue: (items: PlayerQueueItem[]) => Promise<void>;
+  insertAfterCurrent: (items: PlayerQueueItem[], options?: { playFirst?: boolean }) => Promise<void>;
+  playQueueIndex: (index: number) => Promise<void>;
+  removeQueueIndex: (index: number) => Promise<void>;
+  duplicateQueueIndexToEnd: (index: number) => void;
+  moveQueueIndexToPlayNext: (index: number) => void;
+  reorderQueue: (fromIndex: number, toIndex: number) => void;
+  clearQueueExceptCurrent: () => void;
+  reshuffleQueuePreservingCurrent: () => Promise<void>;
+  toggleLoopQueue: () => void;
+  toggleLoopOne: () => void;
+  togglePlayPause: () => Promise<void>;
+  play: () => Promise<void>;
+  pause: () => Promise<void>;
+  seek: (positionSeconds: number) => Promise<void>;
+  seekBy: (deltaSeconds: number) => Promise<void>;
+  skipNext: () => Promise<void>;
+  skipPrevious: () => Promise<void>;
+  openFullPlayer: () => void;
+  closeFullPlayer: () => void;
+  toggleFullPlayer: () => void;
+  setSleepTimerMinutes: (minutes: number) => Promise<void>;
+  cancelSleepTimer: () => Promise<void>;
+  patchCurrentQueueItemStarred: (starred: boolean) => void;
+};
+
+export type PlayerShell = {
+  fullPlayerOpen: boolean;
+};
+
+const PlayerManagerContext = createContext<PlayerManager | null>(null);
+const PlayerActionsContext = createContext<PlayerActions | null>(null);
+const PlayerTransportContext = createContext<PlayerViewState | null>(null);
+const PlayerShellContext = createContext<PlayerShell | null>(null);
+
+function usePlayerManager(): PlayerManager {
+  const m = useContext(PlayerManagerContext);
+  if (!m) {
+    throw new Error('usePlayerManager must be used within PlayerProvider');
+  }
+  return m;
+}
+
+export function PlayerProvider({ children }: { children: ReactNode }) {
+  const host = useHost();
+  const { setTrackStarred } = useLibraryBrowseCache();
+  const { getStreamUrl, getCoverArtUrl, ensureStreamReady, servers, isRestoring } =
+    useServerAndLibrary();
+  const [fullPlayerOpen, setFullPlayerOpen] = useState(false);
+
+  const depsRef = useRef({ getStreamUrl, getCoverArtUrl, ensureStreamReady });
+  depsRef.current = { getStreamUrl, getCoverArtUrl, ensureStreamReady };
+
+  const manager = useMemo(
+    () =>
+      new PlayerManager(host, {
+        getStreamUrl: (serverId, trackId) => depsRef.current.getStreamUrl(serverId, trackId),
+        getCoverArtUrl: (serverId, coverArtId) =>
+          depsRef.current.getCoverArtUrl(serverId, coverArtId),
+        ensureStreamReady: (serverId) => depsRef.current.ensureStreamReady(serverId),
+      }),
+    [host]
+  );
+
+  useEffect(() => {
+    return () => {
+      manager.dispose();
+    };
+  }, [manager]);
+
+  useEffect(() => {
+    const p = host.playback;
+    const unsubs: Array<() => void> = [];
+    if (p.onRemoteSkipNext) {
+      unsubs.push(
+        p.onRemoteSkipNext(() => {
+          void manager.skipNext();
+        })
+      );
+    }
+    if (p.onRemoteSkipPrevious) {
+      unsubs.push(
+        p.onRemoteSkipPrevious(() => {
+          void manager.skipPrevious();
+        })
+      );
+    }
+    if (p.onRemoteFavoriteStar) {
+      unsubs.push(
+        p.onRemoteFavoriteStar(() => {
+          const item = manager.getSnapshot().currentItem;
+          if (!item) return;
+          void setTrackStarred({
+            serverId: item.serverId,
+            libraryId: item.libraryId,
+            trackId: item.trackId,
+            starred: true,
+          })
+            .then(() => manager.patchCurrentQueueItemStarred(true))
+            .catch((e: unknown) => console.warn('[AsMusic] remote favorite star failed', e));
+        })
+      );
+    }
+    if (p.onRemoteFavoriteUnstar) {
+      unsubs.push(
+        p.onRemoteFavoriteUnstar(() => {
+          const item = manager.getSnapshot().currentItem;
+          if (!item) return;
+          void setTrackStarred({
+            serverId: item.serverId,
+            libraryId: item.libraryId,
+            trackId: item.trackId,
+            starred: false,
+          })
+            .then(() => manager.patchCurrentQueueItemStarred(false))
+            .catch((e: unknown) => console.warn('[AsMusic] remote favorite unstar failed', e));
+        })
+      );
+    }
+    return () => unsubs.forEach((u) => u());
+  }, [host, manager, setTrackStarred]);
+
+  const openFullPlayer = useCallback(() => setFullPlayerOpen(true), []);
+  const closeFullPlayer = useCallback(() => setFullPlayerOpen(false), []);
+  const toggleFullPlayer = useCallback(() => setFullPlayerOpen((o) => !o), []);
+
+  useEffect(() => {
+    if (isRestoring) return;
+    const refs: SavedServerRef[] = servers.map((s) => ({
+      id: s.id,
+      serverUrl: s.serverUrl,
+      username: s.username,
+    }));
+    void manager.hydrateFromPersistence(refs);
+  }, [manager, isRestoring, servers]);
+
+  const actions = useMemo<PlayerActions>(
+    () => ({
+      replaceQueueAndPlay: (items, startIndex) => manager.replaceQueueAndPlay(items, startIndex),
+      appendToQueue: (items) => manager.appendToQueue(items),
+      insertAfterCurrent: (items, options) => manager.insertAfterCurrent(items, options),
+      playQueueIndex: (index) => manager.playQueueIndex(index),
+      removeQueueIndex: (index) => manager.removeQueueIndex(index),
+      duplicateQueueIndexToEnd: (index) => manager.duplicateQueueIndexToEnd(index),
+      moveQueueIndexToPlayNext: (index) => manager.moveQueueIndexToPlayNext(index),
+      reorderQueue: (from, to) => manager.reorderQueue(from, to),
+      clearQueueExceptCurrent: () => manager.clearQueueExceptCurrent(),
+      reshuffleQueuePreservingCurrent: () => manager.reshuffleQueuePreservingCurrent(),
+      toggleLoopQueue: () => manager.toggleLoopQueue(),
+      toggleLoopOne: () => manager.toggleLoopOne(),
+      togglePlayPause: () => manager.togglePlayPause(),
+      play: () => manager.play(),
+      pause: () => manager.pause(),
+      seek: (positionSeconds) => manager.seek(positionSeconds),
+      seekBy: (deltaSeconds) => manager.seekBy(deltaSeconds),
+      skipNext: () => manager.skipNext(),
+      skipPrevious: () => manager.skipPrevious(),
+      openFullPlayer,
+      closeFullPlayer,
+      toggleFullPlayer,
+      setSleepTimerMinutes: (minutes) => manager.setSleepTimerMinutes(minutes),
+      cancelSleepTimer: () => manager.cancelSleepTimer(),
+      patchCurrentQueueItemStarred: (starred) => manager.patchCurrentQueueItemStarred(starred),
+    }),
+    [manager, openFullPlayer, closeFullPlayer, toggleFullPlayer]
+  );
+
+  const shell = useMemo<PlayerShell>(() => ({ fullPlayerOpen }), [fullPlayerOpen]);
+
+  return (
+    <PlayerManagerContext.Provider value={manager}>
+      <PlayerActionsContext.Provider value={actions}>
+        <PlayerShellContext.Provider value={shell}>{children}</PlayerShellContext.Provider>
+      </PlayerActionsContext.Provider>
+    </PlayerManagerContext.Provider>
+  );
+}
+
+/**
+ * Subscribes to playback transport state. Only components that call {@link usePlayerTransportState}
+ * re-render on transport ticks; wrapping the router is safe as long as routes do not use that hook.
+ * The router is included so portaled player UI (e.g. MUI `Dialog`) always sees this provider.
+ */
+export function PlayerTransportRoot({ children }: { children: ReactNode }) {
+  const manager = usePlayerManager();
+  const transportState = useSyncExternalStore(
+    (onStoreChange) => manager.subscribe(onStoreChange),
+    () => manager.getSnapshot(),
+    () => manager.getSnapshot()
+  );
+  return <PlayerTransportContext.Provider value={transportState}>{children}</PlayerTransportContext.Provider>;
+}
+
+export function usePlayerActions(): PlayerActions {
+  const ctx = useContext(PlayerActionsContext);
+  if (!ctx) {
+    throw new Error('usePlayerActions must be used within PlayerProvider');
+  }
+  return ctx;
+}
+
+export function usePlayerTransportState(): PlayerViewState {
+  const ctx = useContext(PlayerTransportContext);
+  if (!ctx) {
+    throw new Error(
+      'usePlayerTransportState must be used within PlayerTransportRoot (wrap player UI only, not the whole app)'
+    );
+  }
+  return ctx;
+}
+
+export function usePlayerShell(): PlayerShell {
+  const ctx = useContext(PlayerShellContext);
+  if (!ctx) {
+    throw new Error('usePlayerShell must be used within PlayerProvider');
+  }
+  return ctx;
+}
+
+export function usePlayerSleepTimer(): PlayerSleepTimerSnapshot {
+  const manager = usePlayerManager();
+  return useSyncExternalStore(
+    (onStoreChange) => manager.subscribeSleepTimer(onStoreChange),
+    () => manager.getSleepTimerSnapshot(),
+    () => manager.getSleepTimerSnapshot()
+  );
+}

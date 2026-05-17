@@ -4,12 +4,20 @@ on:
   push:
     branches: [main]
     paths:
-      - "web/**"
+      - "apps/web/**"
+      - "packages/**"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "package.json"
       - ".github/workflows/build-web.yml"
   pull_request:
     branches: [main]
     paths:
-      - "web/**"
+      - "apps/web/**"
+      - "packages/**"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "package.json"
       - ".github/workflows/build-web.yml"
 
 jobs:
@@ -28,12 +36,13 @@ jobs:
         with:
           node-version: "22"
           cache: pnpm
-          cache-dependency-path: web/pnpm-lock.yaml
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Install dependencies
-        working-directory: web
         run: pnpm install --frozen-lockfile
 
+      - name: Lint
+        run: pnpm run lint
+
       - name: Build
-        working-directory: web
         run: pnpm run build

@@ -1,0 +1,104 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "web: Vite dev (background)",
+      "type": "shell",
+      "command": "pnpm run dev",
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "BROWSER": "none"
+        }
+      },
+      "isBackground": true,
+      "presentation": {
+        "reveal": "silent",
+        "panel": "shared",
+        "showReuseMessage": false
+      },
+      "problemMatcher": {
+        "owner": "vite",
+        "pattern": { "regexp": "^$", "file": 1, "location": 2, "message": 3 },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".",
+          "endsPattern": "localhost:3000"
+        }
+      },
+      "group": "none"
+    },
+    {
+      "label": "web: lint",
+      "type": "shell",
+      "command": "pnpm run lint",
+      "options": { "cwd": "${workspaceFolder}" },
+      "group": "test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": ["$eslint-stylish"]
+    },
+    {
+      "label": "web: build",
+      "type": "shell",
+      "command": "pnpm run build",
+      "options": { "cwd": "${workspaceFolder}" },
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "web: Capacitor sync iOS",
+      "type": "shell",
+      "command": "pnpm run cap:sync",
+      "options": { "cwd": "${workspaceFolder}" },
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "ios: Open Xcode project",
+      "type": "shell",
+      "command": "open \"${workspaceFolder}/ios/App/App.xcodeproj\"",
+      "options": { "cwd": "${workspaceFolder}" },
+      "group": "none",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "ios: Sync web + open Xcode",
+      "type": "shell",
+      "command": "pnpm run cap:sync && pnpm run cap:open:ios",
+      "options": { "cwd": "${workspaceFolder}" },
+      "group": "none",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "ios: Run in Simulator (live reload, no sync)",
+      "type": "shell",
+      "command": "pnpm --filter asmusic-web exec cap run ios --no-sync --live-reload --target 35605CE0-06BE-484D-BE33-21A553C83AED",
+      "options": { "cwd": "${workspaceFolder}" },
+      "group": "none",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

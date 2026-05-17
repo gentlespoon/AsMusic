@@ -1,24 +1,13 @@
-# Xcode
-build/
-DerivedData/
-*.xcuserstate
-*.xcscmblueprint
-*.hmap
-xcuserdata/
+App/build
+App/Pods
+App/output
+App/App/public
+DerivedData
+xcuserdata
 
-# Swift Package Manager
-.build/
+# Cordova plugins for Capacitor
+capacitor-cordova-ios-plugins
 
-# CocoaPods
-Pods/
-
-# Carthage
-Carthage/Build/
-
-# Archives & symbols
-*.ipa
-*.dSYM
-*.dSYM.zip
-
-# macOS
-.DS_Store
+# Generated Config files
+App/App/capacitor.config.json
+App/App/config.xml

@@ -152,7 +152,7 @@ export const zhCNMessages = {
   "nav.sleepTimer": "睡眠定时器",
   "nav.sleepTimerHint": "在设定时间后停止播放",
   "nav.sleepTimerRemaining": "剩余 {remaining}",
-  "nav.title": "导航",
+  "nav.title": "AsMusic",
 
   "offline.downloaded.empty": "尚无已下载曲目。",
   "offline.downloaded.loadError": "无法加载离线资料库",
@@ -173,7 +173,8 @@ export const zhCNMessages = {
   "offline.storageUsed": "已用 {size}",
   "offline.clearAll": "清空全部下载",
   "offline.clearAll.busy": "正在清空…",
-  "offline.clearAll.confirmBody": "将删除本设备上的全部已下载曲目，并取消进行中的下载任务。",
+  "offline.clearAll.confirmBody":
+    "将删除本设备上的全部已下载曲目，并取消进行中的下载任务。",
   "offline.clearAll.confirmTitle": "清空全部下载？",
   "offline.title": "离线",
 
@@ -307,8 +308,10 @@ export const zhCNMessages = {
 
   "settings.description": "用户体验、服务器、资料库与下载。",
   "settings.serversLibraries": "服务器与资料库",
+  "settings.serversLibraries.caption": "配置服务器并选择启用的资料库",
   "settings.title": "设置",
   "settings.userExperience": "用户体验",
+  "settings.userExperience.caption": "外观、语言、播放手势与反馈偏好。",
   "settings.ux.appearance": "外观",
   "settings.ux.appearance.auto": "自动",
   "settings.ux.appearance.caption": "自动跟随系统的浅色或深色模式。",
@@ -318,7 +321,6 @@ export const zhCNMessages = {
   "settings.ux.language.caption": "系统会在有可用翻译时跟随设备语言。",
   "settings.ux.language.currentLanguageAutonym": "简体中文",
   "settings.ux.language.system": "系统",
-  "settings.ux.description": "外观、语言、播放手势与反馈偏好。",
   "settings.ux.haptics": "触觉反馈",
   "settings.ux.playerBarSwipe": "在播放条中使用滑动手势",
   "settings.ux.playerBarSwipe.caption":

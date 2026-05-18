@@ -31,6 +31,7 @@ import { LibraryVirtuosoFill, libraryFlexFillSx } from "../../../../shared/Libra
 import { useLibraryScrollRestoration } from "../../../../shared/useLibraryScrollRestoration";
 import { useLibraryVirtuosoScroller } from "../../../../shared/useLibraryVirtuosoScroller";
 import { VirtuosoMuiList } from "../../../../shared/virtuosoMuiList";
+import { useEdgeSwipeBack } from "../../../../shared/useEdgeSwipeBack";
 
 export function AlbumSongListView({
   albumId,
@@ -123,11 +124,14 @@ export function AlbumSongListView({
     });
   }, [enqueueAlbumDownload, serverId, libraryId, albumTitle, tracks]);
 
+  const edgeSwipeBack = useEdgeSwipeBack(onBack);
+
   return (
     <Box
       role="tabpanel"
       id="library-panel-2"
       aria-labelledby="library-tab-2"
+      {...edgeSwipeBack}
       sx={{
         ...libraryFlexFillSx,
         display: "flex",

@@ -14,6 +14,8 @@ export type AsmusicNativePluginEvents = {
   playbackRemoteSkipPrevious: void;
   playbackRemoteFavoriteStar: void;
   playbackRemoteFavoriteUnstar: void;
+  offlineMediaReady: { cacheKey: string };
+  waveformPeaksReady: { cacheKey: string };
 };
 
 export interface AsmusicNativePlugin {

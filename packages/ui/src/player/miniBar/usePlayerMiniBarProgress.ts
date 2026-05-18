@@ -1,8 +1,5 @@
-import { useMemo } from "react";
 import { useWaveformProgressBarEnabled } from "../../preferences/waveformProgressBarPreference";
-import {
-  WAVEFORM_PLACEHOLDER_PEAKS,
-} from "../WaveformProgressBar";
+import { useOfflineReadyForItem } from "../useOfflineReadyForItem";
 import { useWaveformPeaks } from "../fullScreen/useWaveformPeaks";
 import type { PlayerQueueItem, PlayerViewState } from "../core/types";
 
@@ -12,14 +9,16 @@ export function usePlayerMiniBarProgress(
 ) {
   const busy = Boolean(item);
   const waveformEnabled = useWaveformProgressBarEnabled();
-  const useWaveform = Boolean(
-    busy && state.playingFromLocalFile && waveformEnabled,
+  const offlineReady = useOfflineReadyForItem(item);
+  const wantWaveform = Boolean(
+    busy &&
+      waveformEnabled &&
+      item &&
+      (state.playingFromLocalFile || offlineReady),
   );
-  const waveform = useWaveformPeaks(item, useWaveform);
-  const waveformPeaks = useMemo(() => {
-    if (waveform.status === "ready") return waveform.peaks;
-    return WAVEFORM_PLACEHOLDER_PEAKS;
-  }, [waveform]);
+  const waveform = useWaveformPeaks(item, wantWaveform);
+  const useWaveform = wantWaveform && waveform.status === "ready";
+  const waveformPeaks = waveform.status === "ready" ? waveform.peaks : [];
 
   const duration =
     state.durationSeconds > 0
@@ -35,6 +34,7 @@ export function usePlayerMiniBarProgress(
     useWaveform,
     waveformPeaks,
     playedFraction,
+    durationSeconds: duration > 0 ? duration : undefined,
     isPlaying: state.isPlaying,
     progressPercent: playedFraction * 100,
   };

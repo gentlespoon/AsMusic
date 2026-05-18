@@ -1,4 +1,6 @@
+import Box from "@mui/material/Box";
 import IconButton from "@mui/material/IconButton";
+import ListItem from "@mui/material/ListItem";
 import ListItemButton from "@mui/material/ListItemButton";
 import ListItemText from "@mui/material/ListItemText";
 import MoreVert from "@mui/icons-material/MoreVert";
@@ -21,43 +23,41 @@ export function PlayingQueueViewRow({
   const t = useT();
 
   return (
-    <ListItemButton
-      divider
-      selected={selected}
-      onClick={onPlay}
-      sx={{
-        py: 1,
-        alignItems: "flex-start",
-        pr: 5,
-        position: "relative",
-      }}
-    >
-      <ListItemText
-        primary={item.title}
-        secondary={item.artist ?? "—"}
-        slotProps={{
-          primary: { variant: "body2", noWrap: true },
-          secondary: { variant: "caption", noWrap: true },
-        }}
-      />
-      <IconButton
-        aria-label={t("queue.action.rowActions")}
-        size="small"
-        edge="end"
+    <ListItem divider disablePadding sx={{ alignItems: "center" }}>
+      <ListItemButton
+        selected={selected}
+        onClick={onPlay}
         sx={{
-          position: "absolute",
-          right: 4,
-          top: "50%",
-          transform: "translateY(-50%)",
-        }}
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          onOpenMenu(e.currentTarget);
+          flex: 1,
+          minWidth: 0,
+          py: 1,
+          alignItems: "flex-start",
         }}
       >
-        <MoreVert fontSize="small" />
-      </IconButton>
-    </ListItemButton>
+        <ListItemText
+          primary={item.title}
+          secondary={item.artist ?? "—"}
+          sx={{ flex: 1, minWidth: 0, my: 0 }}
+          slotProps={{
+            primary: { variant: "body2", noWrap: true },
+            secondary: { variant: "caption", noWrap: true },
+          }}
+        />
+      </ListItemButton>
+      <Box sx={{ display: "flex", flexShrink: 0, alignSelf: "center", pr: 0.5 }}>
+        <IconButton
+          aria-label={t("queue.action.rowActions")}
+          size="small"
+          edge="end"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onOpenMenu(e.currentTarget);
+          }}
+        >
+          <MoreVert fontSize="small" />
+        </IconButton>
+      </Box>
+    </ListItem>
   );
 }

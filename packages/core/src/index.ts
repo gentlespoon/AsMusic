@@ -28,3 +28,6 @@ export * from './offline/OfflineMediaStore';
 export * from './offline/playbackResolver';
 export * from './offline/appPreferenceKeys';
 export * from './offline/OfflineBulkJobQueue';
+export * from './offline/waveformConstants';
+export * from './offline/decodeWaveformPeaks';
+export * from './offline/waveformPeaksEvents';

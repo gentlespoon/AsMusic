@@ -714,13 +714,15 @@ enum LibraryCacheSQLiteStore {
             guard let db else { throw StoreError.databaseUnavailable }
 
             let sql = """
-                INSERT INTO offline_tracks(server_key, library_id, track_id, variant, abs_path, mime_type, byte_length, updated_at)
-                VALUES(?,?,?,?,?,?,?,?)
+                INSERT INTO offline_tracks(server_key, library_id, track_id, variant, abs_path, mime_type, byte_length, updated_at, waveform_peaks_json, waveform_bar_count)
+                VALUES(?,?,?,?,?,?,?,?,NULL,NULL)
                 ON CONFLICT(server_key, library_id, track_id, variant) DO UPDATE SET
                   abs_path = excluded.abs_path,
                   mime_type = excluded.mime_type,
                   byte_length = excluded.byte_length,
-                  updated_at = excluded.updated_at;
+                  updated_at = excluded.updated_at,
+                  waveform_peaks_json = NULL,
+                  waveform_bar_count = NULL;
                 """
             var stmt: OpaquePointer?
             defer { sqlite3_finalize(stmt) }
@@ -739,6 +741,29 @@ enum LibraryCacheSQLiteStore {
                 throw StoreError.prepareFailed
             }
         }
+
+        let cacheKey = "\(serverKey)\t\(libraryId)\t\(trackId)\t\(variant)"
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(
+                name: .asmusicOfflineMediaReady,
+                object: nil,
+                userInfo: ["cacheKey": cacheKey]
+            )
+        }
+
+        let sk = serverKey
+        let lid = libraryId
+        let tid = trackId
+        let v = variant
+        DispatchQueue.global(qos: .utility).async {
+            try? precomputeOfflineWaveformPeaks(
+                serverKey: sk,
+                libraryId: lid,
+                trackId: tid,
+                variant: v,
+                barCount: 96
+            )
+        }
     }
 
     static func offlineWaveformPeaks(
@@ -748,6 +773,16 @@ enum LibraryCacheSQLiteStore {
         variant: String,
         barCount: Int
     ) throws -> [Double] {
+        let bars = max(8, min(barCount, 512))
+        if let cached = try readCachedOfflineWaveformPeaks(
+            serverKey: serverKey,
+            libraryId: libraryId,
+            trackId: trackId,
+            variant: variant,
+            barCount: bars
+        ) {
+            return cached
+        }
         guard let path = try offlinePlaybackFilePath(
             serverKey: serverKey,
             libraryId: libraryId,
@@ -756,7 +791,142 @@ enum LibraryCacheSQLiteStore {
         ) else {
             throw StoreError.databaseUnavailable
         }
-        return try computeWaveformPeaks(filePath: path, barCount: barCount)
+        let peaks = try computeWaveformPeaks(filePath: path, barCount: bars)
+        try persistOfflineWaveformPeaks(
+            serverKey: serverKey,
+            libraryId: libraryId,
+            trackId: trackId,
+            variant: variant,
+            barCount: bars,
+            peaks: peaks
+        )
+        return peaks
+    }
+
+    static func precomputeOfflineWaveformPeaks(
+        serverKey: String,
+        libraryId: String,
+        trackId: String,
+        variant: String,
+        barCount: Int
+    ) throws {
+        let bars = max(8, min(barCount, 512))
+        if try readCachedOfflineWaveformPeaks(
+            serverKey: serverKey,
+            libraryId: libraryId,
+            trackId: trackId,
+            variant: variant,
+            barCount: bars
+        ) != nil {
+            return
+        }
+        guard let path = try offlinePlaybackFilePath(
+            serverKey: serverKey,
+            libraryId: libraryId,
+            trackId: trackId,
+            variant: variant
+        ) else {
+            return
+        }
+        let peaks = try computeWaveformPeaks(filePath: path, barCount: bars)
+        try persistOfflineWaveformPeaks(
+            serverKey: serverKey,
+            libraryId: libraryId,
+            trackId: trackId,
+            variant: variant,
+            barCount: bars,
+            peaks: peaks
+        )
+    }
+
+    private static func readCachedOfflineWaveformPeaks(
+        serverKey: String,
+        libraryId: String,
+        trackId: String,
+        variant: String,
+        barCount: Int
+    ) throws -> [Double]? {
+        try queue.sync {
+            try openIfNeeded()
+            guard let db else { throw StoreError.databaseUnavailable }
+
+            let sql = """
+                SELECT waveform_peaks_json, waveform_bar_count FROM offline_tracks
+                WHERE server_key = ? AND library_id = ? AND track_id = ? AND variant = ? LIMIT 1;
+                """
+            var stmt: OpaquePointer?
+            defer { sqlite3_finalize(stmt) }
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+                throw StoreError.prepareFailed
+            }
+            sqlite3_bind_text(stmt, 1, serverKey, -1, transientDestructor)
+            sqlite3_bind_text(stmt, 2, libraryId, -1, transientDestructor)
+            sqlite3_bind_text(stmt, 3, trackId, -1, transientDestructor)
+            sqlite3_bind_text(stmt, 4, variant, -1, transientDestructor)
+
+            guard sqlite3_step(stmt) == SQLITE_ROW else { return nil }
+            if sqlite3_column_type(stmt, 0) == SQLITE_NULL { return nil }
+            guard let jsonC = sqlite3_column_text(stmt, 0) else { return nil }
+            let storedBars = Int(sqlite3_column_int(stmt, 1))
+            guard storedBars == barCount else { return nil }
+
+            let jsonStr = String(cString: jsonC)
+            guard let data = jsonStr.data(using: .utf8),
+                  let arr = try JSONSerialization.jsonObject(with: data) as? [NSNumber]
+            else {
+                return nil
+            }
+            let peaks = arr.map { $0.doubleValue }
+            guard !peaks.isEmpty else { return nil }
+            return peaks
+        }
+    }
+
+    private static func persistOfflineWaveformPeaks(
+        serverKey: String,
+        libraryId: String,
+        trackId: String,
+        variant: String,
+        barCount: Int,
+        peaks: [Double]
+    ) throws {
+        let jsonData = try JSONSerialization.data(withJSONObject: peaks)
+        guard let jsonStr = String(data: jsonData, encoding: .utf8) else {
+            throw StoreError.invalidJson
+        }
+
+        try queue.sync {
+            try openIfNeeded()
+            guard let db else { throw StoreError.databaseUnavailable }
+
+            let sql = """
+                UPDATE offline_tracks SET waveform_peaks_json = ?, waveform_bar_count = ?
+                WHERE server_key = ? AND library_id = ? AND track_id = ? AND variant = ?;
+                """
+            var stmt: OpaquePointer?
+            defer { sqlite3_finalize(stmt) }
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+                throw StoreError.prepareFailed
+            }
+            sqlite3_bind_text(stmt, 1, jsonStr, -1, transientDestructor)
+            sqlite3_bind_int(stmt, 2, Int32(barCount))
+            sqlite3_bind_text(stmt, 3, serverKey, -1, transientDestructor)
+            sqlite3_bind_text(stmt, 4, libraryId, -1, transientDestructor)
+            sqlite3_bind_text(stmt, 5, trackId, -1, transientDestructor)
+            sqlite3_bind_text(stmt, 6, variant, -1, transientDestructor)
+            guard sqlite3_step(stmt) == SQLITE_DONE else {
+                throw StoreError.prepareFailed
+            }
+        }
+
+        let cacheKey = "\(serverKey)\t\(libraryId)\t\(trackId)\t\(variant)"
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(
+                name: .asmusicWaveformPeaksReady,
+                object: nil,
+                userInfo: ["cacheKey": cacheKey]
+            )
+        }
     }
 
     private static func computeWaveformPeaks(filePath: String, barCount: Int) throws -> [Double] {
@@ -1367,6 +1537,8 @@ enum LibraryCacheSQLiteStore {
               mime_type TEXT NOT NULL,
               byte_length INTEGER NOT NULL,
               updated_at REAL NOT NULL,
+              waveform_peaks_json TEXT,
+              waveform_bar_count INTEGER,
               PRIMARY KEY (server_key, library_id, track_id, variant)
             );
             CREATE INDEX IF NOT EXISTS idx_offline_tracks_scope ON offline_tracks(server_key, library_id);
@@ -1378,6 +1550,7 @@ enum LibraryCacheSQLiteStore {
         }
         migrateLegacyArtworkTableIfNeeded(h)
         migrateCacheLayoutForAccountServerKeyIfNeeded(h)
+        migrateOfflineTracksWaveformColumnsIfNeeded(h)
     }
 
     /// Clears all rows once when upgrading to account-level `server_key` (matches JS `serverAccountKey`).
@@ -1402,6 +1575,24 @@ enum LibraryCacheSQLiteStore {
             _ = execute(h, "DELETE FROM \(name);")
         }
         _ = execute(h, "PRAGMA user_version = 2;")
+    }
+
+    private static func migrateOfflineTracksWaveformColumnsIfNeeded(_ h: OpaquePointer) {
+        var current: Int32 = 0
+        var verStmt: OpaquePointer?
+        if sqlite3_prepare_v2(h, "PRAGMA user_version;", -1, &verStmt, nil) == SQLITE_OK,
+           sqlite3_step(verStmt) == SQLITE_ROW {
+            current = sqlite3_column_int(verStmt, 0)
+        }
+        if verStmt != nil {
+            sqlite3_finalize(verStmt)
+        }
+
+        guard current < 3 else { return }
+
+        _ = execute(h, "ALTER TABLE offline_tracks ADD COLUMN waveform_peaks_json TEXT;")
+        _ = execute(h, "ALTER TABLE offline_tracks ADD COLUMN waveform_bar_count INTEGER;")
+        _ = execute(h, "PRAGMA user_version = 3;")
     }
 
     private static func execute(_ db: OpaquePointer, _ sql: String) -> Bool {
@@ -1442,4 +1633,9 @@ enum LibraryCacheSQLiteStore {
         }
         return quoted
     }
+}
+
+extension Notification.Name {
+    static let asmusicWaveformPeaksReady = Notification.Name("AsmusicWaveformPeaksReady")
+    static let asmusicOfflineMediaReady = Notification.Name("AsmusicOfflineMediaReady")
 }

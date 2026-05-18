@@ -36,7 +36,6 @@ export function HomePage() {
           flexGrow: 1,
           flexDirection: "column",
           overflow: "hidden",
-          // py: 2.5,
           px: { xs: 2, sm: 3 },
         }}
       >

@@ -1,4 +1,5 @@
 import {
+  Box,
   IconButton,
   ListItem,
   ListItemButton,
@@ -37,10 +38,22 @@ export function PlaylistListViewRow({
     : songCountLabel;
 
   return (
-    <ListItem
-      disablePadding
-      divider
-      secondaryAction={
+    <ListItem divider disablePadding sx={{ alignItems: 'center' }}>
+      <ListItemButton
+        onClick={() => onOpen(row)}
+        sx={{ flex: 1, minWidth: 0, py: 0.75, px: 0, alignItems: 'flex-start' }}
+      >
+        <ListItemText
+          primary={row.playlist.name}
+          secondary={secondary}
+          sx={{ flex: 1, minWidth: 0, my: 0 }}
+          slotProps={{
+            primary: { variant: 'body2', noWrap: true },
+            secondary: { variant: 'caption', noWrap: true },
+          }}
+        />
+      </ListItemButton>
+      <Box sx={{ display: 'flex', flexShrink: 0, alignSelf: 'center', pr: 0.5 }}>
         <Tooltip title={t('library.playlist.delete')}>
           <IconButton
             size="small"
@@ -51,18 +64,7 @@ export function PlaylistListViewRow({
             <Delete fontSize="small" />
           </IconButton>
         </Tooltip>
-      }
-    >
-      <ListItemButton onClick={() => onOpen(row)} sx={{ py: 0.75, px: 0 }}>
-        <ListItemText
-          primary={row.playlist.name}
-          secondary={secondary}
-          slotProps={{
-            primary: { variant: 'body2', noWrap: true },
-            secondary: { variant: 'caption', noWrap: true },
-          }}
-        />
-      </ListItemButton>
+      </Box>
     </ListItem>
   );
 }

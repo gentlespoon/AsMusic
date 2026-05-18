@@ -1,6 +1,9 @@
 import { localeAutonym, SUPPORTED_LOCALES, useT } from "@asmusic/i18n";
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import Contrast from "@mui/icons-material/Contrast";
+import DarkMode from "@mui/icons-material/DarkMode";
+import LightMode from "@mui/icons-material/LightMode";
 import {
   AppBar,
   Box,
@@ -13,8 +16,10 @@ import {
   ToggleButton,
   ToggleButtonGroup,
   Toolbar,
+  Tooltip,
 } from "@mui/material";
 import { PageCloseButton } from "../../shared/PageCloseButton";
+import { useEdgeSwipeBack } from "../../shared/useEdgeSwipeBack";
 import {
   SettingsPreferenceListItem,
   SettingsPreferenceRow,
@@ -25,7 +30,6 @@ import {
   SettingsAppBarTitle,
   SettingsListItemCaption,
   SettingsListItemTitle,
-  SettingsPageDescription,
 } from "./SettingsTypography";
 import {
   setAppAppearanceMode,
@@ -62,7 +66,7 @@ function useLanguageOptions(t: ReturnType<typeof useT>): LanguageOption[] {
         label: localeAutonym(locale),
       })),
     ],
-    [t]
+    [t],
   );
 }
 
@@ -75,9 +79,11 @@ export function UserExperienceView() {
   const appearanceMode = useAppAppearanceMode();
   const hapticEnabled = useHapticFeedbackEnabled();
   const waveformProgressBar = useWaveformProgressBarEnabled();
+  const edgeSwipeBack = useEdgeSwipeBack(() => navigate("/settings"));
 
   return (
     <Box
+      {...edgeSwipeBack}
       sx={{
         minHeight:
           "calc(100dvh - var(--safe-area-top) - var(--safe-area-bottom))",
@@ -93,19 +99,27 @@ export function UserExperienceView() {
             aria-label={t("common.backToSettings")}
             onClick={() => navigate("/settings")}
           />
-          <SettingsAppBarTitle>{t("settings.userExperience")}</SettingsAppBarTitle>
+          <SettingsAppBarTitle>
+            {t("settings.userExperience")}
+          </SettingsAppBarTitle>
         </Toolbar>
       </AppBar>
       <Container maxWidth="sm" sx={{ py: 3 }}>
-        <SettingsPageDescription>{t("settings.ux.description")}</SettingsPageDescription>
+        {/* <SettingsPageDescription> Keep this here so we can use it in the future. </SettingsPageDescription> */}
 
         <Stack spacing={3}>
-          <SettingsPreferenceSection title={t("settings.ux.section.appearance")}>
+          <SettingsPreferenceSection
+            title={t("settings.ux.section.appearance")}
+          >
             <SettingsPreferenceListItem>
               <SettingsPreferenceRow>
                 <SettingsPreferenceRowLabel>
-                  <SettingsListItemTitle>{t("settings.ux.appearance")}</SettingsListItemTitle>
-                  <SettingsListItemCaption>{t("settings.ux.appearance.caption")}</SettingsListItemCaption>
+                  <SettingsListItemTitle>
+                    {t("settings.ux.appearance")}
+                  </SettingsListItemTitle>
+                  <SettingsListItemCaption>
+                    {t("settings.ux.appearance.caption")}
+                  </SettingsListItemCaption>
                 </SettingsPreferenceRowLabel>
                 <ToggleButtonGroup
                   exclusive
@@ -118,16 +132,35 @@ export function UserExperienceView() {
                   sx={{
                     flexShrink: 0,
                     "& .MuiToggleButton-root": {
-                      px: { xs: 0.65, sm: 1 },
-                      py: 0.25,
-                      fontSize: { xs: "0.75rem", sm: "0.8125rem" },
-                      textTransform: "none",
+                      px: 1,
+                      py: 0.5,
                     },
                   }}
                 >
-                  <ToggleButton value="light">{t("settings.ux.appearance.light")}</ToggleButton>
-                  <ToggleButton value="auto">{t("settings.ux.appearance.auto")}</ToggleButton>
-                  <ToggleButton value="dark">{t("settings.ux.appearance.dark")}</ToggleButton>
+                  <Tooltip title={t("settings.ux.appearance.light")}>
+                    <ToggleButton
+                      value="light"
+                      aria-label={t("settings.ux.appearance.light")}
+                    >
+                      <LightMode fontSize="small" />
+                    </ToggleButton>
+                  </Tooltip>
+                  <Tooltip title={t("settings.ux.appearance.auto")}>
+                    <ToggleButton
+                      value="auto"
+                      aria-label={t("settings.ux.appearance.auto")}
+                    >
+                      <Contrast fontSize="small" />
+                    </ToggleButton>
+                  </Tooltip>
+                  <Tooltip title={t("settings.ux.appearance.dark")}>
+                    <ToggleButton
+                      value="dark"
+                      aria-label={t("settings.ux.appearance.dark")}
+                    >
+                      <DarkMode fontSize="small" />
+                    </ToggleButton>
+                  </Tooltip>
                 </ToggleButtonGroup>
               </SettingsPreferenceRow>
             </SettingsPreferenceListItem>
@@ -135,14 +168,20 @@ export function UserExperienceView() {
             <SettingsPreferenceListItem>
               <SettingsPreferenceRow align="center">
                 <SettingsPreferenceRowLabel>
-                  <SettingsListItemTitle>{t("settings.ux.language")}</SettingsListItemTitle>
-                  <SettingsListItemCaption>{t("settings.ux.language.caption")}</SettingsListItemCaption>
+                  <SettingsListItemTitle>
+                    {t("settings.ux.language")}
+                  </SettingsListItemTitle>
+                  <SettingsListItemCaption>
+                    {t("settings.ux.language.caption")}
+                  </SettingsListItemCaption>
                 </SettingsPreferenceRowLabel>
                 <Select
                   size="small"
                   value={displayLanguage}
                   onChange={(e) =>
-                    setDisplayLanguagePreference(e.target.value as DisplayLanguagePreference)
+                    setDisplayLanguagePreference(
+                      e.target.value as DisplayLanguagePreference,
+                    )
                   }
                   inputProps={{ "aria-label": t("settings.ux.language") }}
                   sx={{
@@ -169,8 +208,12 @@ export function UserExperienceView() {
             <SettingsPreferenceListItem>
               <SettingsPreferenceRow>
                 <SettingsPreferenceRowLabel>
-                  <SettingsListItemTitle>{t("settings.ux.playerBarSwipe")}</SettingsListItemTitle>
-                  <SettingsListItemCaption>{t("settings.ux.playerBarSwipe.caption")}</SettingsListItemCaption>
+                  <SettingsListItemTitle>
+                    {t("settings.ux.playerBarSwipe")}
+                  </SettingsListItemTitle>
+                  <SettingsListItemCaption>
+                    {t("settings.ux.playerBarSwipe.caption")}
+                  </SettingsListItemCaption>
                 </SettingsPreferenceRowLabel>
                 <Switch
                   checked={miniBarSwipeGestures}
@@ -184,8 +227,12 @@ export function UserExperienceView() {
             <SettingsPreferenceListItem>
               <SettingsPreferenceRow>
                 <SettingsPreferenceRowLabel>
-                  <SettingsListItemTitle>{t("settings.ux.waveform")}</SettingsListItemTitle>
-                  <SettingsListItemCaption>{t("settings.ux.waveform.caption")}</SettingsListItemCaption>
+                  <SettingsListItemTitle>
+                    {t("settings.ux.waveform")}
+                  </SettingsListItemTitle>
+                  <SettingsListItemCaption>
+                    {t("settings.ux.waveform.caption")}
+                  </SettingsListItemCaption>
                 </SettingsPreferenceRowLabel>
                 <Switch
                   checked={waveformProgressBar}
@@ -198,7 +245,9 @@ export function UserExperienceView() {
             <Divider component="li" />
             <SettingsPreferenceListItem>
               <SettingsPreferenceRow align="center">
-                <SettingsListItemTitle sx={{ flex: 1 }}>{t("settings.ux.haptics")}</SettingsListItemTitle>
+                <SettingsListItemTitle sx={{ flex: 1 }}>
+                  {t("settings.ux.haptics")}
+                </SettingsListItemTitle>
                 <Switch
                   checked={hapticEnabled}
                   onChange={(_, c) => setHapticFeedbackEnabled(c)}

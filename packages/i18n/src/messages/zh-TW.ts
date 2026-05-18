@@ -152,7 +152,7 @@ export const zhTWMessages = {
   "nav.sleepTimer": "睡眠計時器",
   "nav.sleepTimerHint": "在設定時間後停止播放",
   "nav.sleepTimerRemaining": "剩餘 {remaining}",
-  "nav.title": "導覽",
+  "nav.title": "AsMusic",
 
   "offline.downloaded.empty": "尚無已下載曲目。",
   "offline.downloaded.loadError": "無法載入離線資料庫",
@@ -173,7 +173,8 @@ export const zhTWMessages = {
   "offline.storageUsed": "已用 {size}",
   "offline.clearAll": "清空全部下載",
   "offline.clearAll.busy": "正在清空…",
-  "offline.clearAll.confirmBody": "將刪除本裝置上的全部已下載曲目，並取消進行中的下載工作。",
+  "offline.clearAll.confirmBody":
+    "將刪除本裝置上的全部已下載曲目，並取消進行中的下載工作。",
   "offline.clearAll.confirmTitle": "清空全部下載？",
   "offline.title": "離線",
 
@@ -307,8 +308,10 @@ export const zhTWMessages = {
 
   "settings.description": "使用者體驗、伺服器、資料庫與下載。",
   "settings.serversLibraries": "伺服器與資料庫",
+  "settings.serversLibraries.caption": "設定伺服器並選擇使用中的資料庫",
   "settings.title": "設定",
   "settings.userExperience": "使用者體驗",
+  "settings.userExperience.caption": "外觀、語言、播放手勢與回饋偏好。",
   "settings.ux.appearance": "外觀",
   "settings.ux.appearance.auto": "自動",
   "settings.ux.appearance.caption": "自動跟隨系統的淺色或深色模式。",
@@ -318,7 +321,6 @@ export const zhTWMessages = {
   "settings.ux.language.caption": "系統會在有可用翻譯時跟隨裝置語言。",
   "settings.ux.language.currentLanguageAutonym": "繁體中文",
   "settings.ux.language.system": "系統",
-  "settings.ux.description": "外觀、語言、播放手勢與回饋偏好。",
   "settings.ux.haptics": "觸覺回饋",
   "settings.ux.playerBarSwipe": "在播放列中使用滑動手勢",
   "settings.ux.playerBarSwipe.caption":

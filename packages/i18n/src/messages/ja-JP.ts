@@ -97,11 +97,13 @@ export const jaJPMessages = {
     "このプレイリストのリンクは、有効なライブラリキャッシュと一致しません。",
   "library.playlist.actions": "プレイリストの操作",
   "library.playlist.create": "プレイリストを作成",
-  "library.playlist.createDialogHint": "新しいプレイリストの名前を入力してください。",
+  "library.playlist.createDialogHint":
+    "新しいプレイリストの名前を入力してください。",
   "library.playlist.createDialogTitle": "プレイリストを作成",
   "library.playlist.createDisabledMulti":
     "プレイリストを作成するには、設定で 1 つのライブラリを選択してください",
-  "library.playlist.createDisabledNoServer": "プレイリストを作成するにはサーバーを追加してください",
+  "library.playlist.createDisabledNoServer":
+    "プレイリストを作成するにはサーバーを追加してください",
   "library.playlist.createSingleLibraryTitle": "ライブラリは1つだけ",
   "library.playlist.createSingleLibraryBodyMulti":
     "サーバープレイリストの作成には、有効なライブラリを1つだけにする必要があります。「設定 → サーバーとライブラリ」で、新しいプレイリストを作りたいライブラリだけを有効にしてから、もう一度お試しください。作成後は、他のライブラリを再度有効にできます。",
@@ -114,8 +116,7 @@ export const jaJPMessages = {
   "library.playlist.editDisabledMulti":
     "サーバープレイリストに曲を追加するには、設定でライブラリを1つだけ有効にしてください",
   "library.playlist.deleteAria": "プレイリスト {name} を削除",
-  "library.playlist.deleteConfirmBody":
-    "「{name}」を完全に削除します。",
+  "library.playlist.deleteConfirmBody": "「{name}」を完全に削除します。",
   "library.playlist.deleteConfirmTitle": "プレイリストを削除しますか？",
   "library.playlist.deleteFallbackName": "このプレイリスト",
   "library.playlist.editor.done": "完了",
@@ -124,7 +125,8 @@ export const jaJPMessages = {
     "ローカルライブラリキャッシュに曲がありません。ライブラリを同期してからプレイリストのメンバーを編集してください。",
   "library.playlist.editor.filter": "曲を絞り込む",
   "library.playlist.editor.filterAria": "プレイリストエディターで曲を絞り込む",
-  "library.playlist.editor.loadError": "プレイリストエディターを読み込めませんでした",
+  "library.playlist.editor.loadError":
+    "プレイリストエディターを読み込めませんでした",
   "library.playlist.editor.loadingSongs": "曲を読み込み中…",
   "library.playlist.editor.save": "保存",
   "library.playlist.editor.saveError": "プレイリストを保存できませんでした",
@@ -158,7 +160,7 @@ export const jaJPMessages = {
   "nav.sleepTimer": "スリープタイマー",
   "nav.sleepTimerHint": "指定時間後に再生を停止",
   "nav.sleepTimerRemaining": "残り {remaining}",
-  "nav.title": "ナビゲーション",
+  "nav.title": "AsMusic",
 
   "offline.downloaded.empty": "ダウンロード済みの曲はまだありません。",
   "offline.downloaded.loadError": "オフラインライブラリを読み込めませんでした",
@@ -188,7 +190,8 @@ export const jaJPMessages = {
     "音楽を閲覧・キャッシュするには、少なくとも 1 つのライブラリを有効にしてください。各行の更新ボタンからカタログを同期できます。",
   "onboarding.addServer.body":
     "サーバーの URL とアカウントを入力してください。ライブラリを選ぶには、少なくとも 1 台のサーバーを保存する必要があります。",
-  "onboarding.finishDisabled": "セットアップを完了（少なくとも 1 つのライブラリを選択）",
+  "onboarding.finishDisabled":
+    "セットアップを完了（少なくとも 1 つのライブラリを選択）",
   "onboarding.finishSetup": "セットアップを完了",
   "onboarding.step.activateLibrary": "ライブラリを有効にする",
   "onboarding.step.addServer": "サーバーを追加",
@@ -269,8 +272,7 @@ export const jaJPMessages = {
   "servers.libraries.activeCountOne": "有効なライブラリ 1 件",
   "servers.libraries.addServerFirst":
     "先にサーバーを追加し、ここに戻ってライブラリを選んでください。",
-  "servers.libraries.activateToRefresh":
-    "ライブラリを有効にすると更新できます",
+  "servers.libraries.activateToRefresh": "ライブラリを有効にすると更新できます",
   "servers.libraries.description":
     "サーバーごとに 0 個以上のライブラリを選べます。ホームのライブラリ画面は、有効にしたライブラリのキャッシュ済み曲を統合して表示します。有効なライブラリの更新ボタンで、サーバーから最新のカタログを取得できます。",
   "servers.libraries.loadingFolders": "フォルダを読み込み中…",
@@ -280,7 +282,8 @@ export const jaJPMessages = {
   "servers.libraries.lastSync": "最終同期：{when}",
   "servers.libraries.lastSyncNever": "最終同期：なし",
   "servers.libraries.manageServers": "サーバーを管理",
-  "servers.libraries.noCacheYet": "このライブラリのローカルキャッシュはまだありません。",
+  "servers.libraries.noCacheYet":
+    "このライブラリのローカルキャッシュはまだありません。",
   "servers.libraries.refresh": "サーバーからこのライブラリを更新",
   "servers.libraries.refreshAria": "ライブラリ {name} を更新",
   "servers.libraries.reloadList": "リストを再読み込み",
@@ -294,7 +297,8 @@ export const jaJPMessages = {
   "servers.manager.newPassword": "新しいパスワード（任意）",
   "servers.manager.newServer": "新しいサーバー",
   "servers.manager.password": "パスワード",
-  "servers.manager.passwordKeep": "空欄のままにすると現在のパスワードを保持します。",
+  "servers.manager.passwordKeep":
+    "空欄のままにすると現在のパスワードを保持します。",
   "servers.manager.removeServer": "サーバーを削除",
   "servers.manager.savedCount": "保存済みサーバー（{count}）",
   "servers.manager.serverUrl": "サーバー URL",
@@ -303,7 +307,8 @@ export const jaJPMessages = {
   "servers.manager.username": "ユーザー名",
   "servers.serversLibraries.loadingSaved": "保存済みサーバーを読み込み中…",
   "servers.serversLibraries.summary": "{servers} · {libraries}",
-  "servers.serversLibraries.persistWhileStreaming": "ストリーミング中にデバイスへ保存",
+  "servers.serversLibraries.persistWhileStreaming":
+    "ストリーミング中にデバイスへ保存",
   "servers.serversLibraries.persistWhileStreaming.caption":
     "対応している場合、再生をオフラインストレージにミラーします。一部のプラットフォームでは追加の通信量を使うことがあります。",
   "servers.serversLibraries.title": "サーバーとライブラリ",
@@ -315,11 +320,16 @@ export const jaJPMessages = {
 
   "settings.description": "ユーザー体験、サーバー、ライブラリ、ダウンロード。",
   "settings.serversLibraries": "サーバーとライブラリ",
+  "settings.serversLibraries.caption":
+    "サーバーを設定し、アクティブなライブラリを選択",
   "settings.title": "設定",
   "settings.userExperience": "ユーザー体験",
+  "settings.userExperience.caption":
+    "外観、言語、再生ジェスチャー、フィードバックの設定。",
   "settings.ux.appearance": "外観",
   "settings.ux.appearance.auto": "自動",
-  "settings.ux.appearance.caption": "自動はシステムのライト／ダークモードに従います。",
+  "settings.ux.appearance.caption":
+    "自動はシステムのライト／ダークモードに従います。",
   "settings.ux.appearance.dark": "ダーク",
   "settings.ux.appearance.light": "ライト",
   "settings.ux.language": "表示言語",
@@ -327,8 +337,6 @@ export const jaJPMessages = {
     "システムは、翻訳がある場合にデバイスの言語に従います。",
   "settings.ux.language.currentLanguageAutonym": "日本語",
   "settings.ux.language.system": "システム",
-  "settings.ux.description":
-    "外観、言語、再生ジェスチャー、フィードバックの設定。",
   "settings.ux.haptics": "触覚フィードバック",
   "settings.ux.playerBarSwipe": "プレイヤーバーでスワイプジェスチャーを使う",
   "settings.ux.playerBarSwipe.caption":

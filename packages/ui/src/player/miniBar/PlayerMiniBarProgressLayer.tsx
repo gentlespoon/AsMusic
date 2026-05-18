@@ -7,6 +7,7 @@ export type PlayerMiniBarProgressLayerProps = {
   useWaveform: boolean;
   waveformPeaks: number[];
   playedFraction: number;
+  durationSeconds?: number;
   isPlaying: boolean;
   progressPercent: number;
 };
@@ -16,6 +17,7 @@ export function PlayerMiniBarProgressLayer({
   useWaveform,
   waveformPeaks,
   playedFraction,
+  durationSeconds,
   isPlaying,
   progressPercent,
 }: PlayerMiniBarProgressLayerProps) {
@@ -35,8 +37,13 @@ export function PlayerMiniBarProgressLayer({
             variant="miniBar"
             peaks={waveformPeaks}
             playedFraction={playedFraction}
+            durationSeconds={durationSeconds}
             isPlaying={isPlaying}
-            sx={{ position: "absolute", inset: 0, px: 0 }}
+            sx={{
+              position: "absolute",
+              inset: 0,
+              px: 0,
+            }}
           />
         ) : (
           <Box

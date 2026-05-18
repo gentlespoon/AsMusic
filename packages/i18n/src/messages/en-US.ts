@@ -159,7 +159,7 @@ export const enUSMessages = {
   "nav.sleepTimer": "Sleep timer",
   "nav.sleepTimerHint": "Stop playback after a set time",
   "nav.sleepTimerRemaining": "{remaining} remaining",
-  "nav.title": "Navigation",
+  "nav.title": "AsMusic",
 
   "offline.downloaded.empty": "No downloaded tracks yet.",
   "offline.downloaded.loadError": "Could not load offline library",
@@ -304,7 +304,8 @@ export const enUSMessages = {
   "servers.manager.username": "Username",
   "servers.serversLibraries.loadingSaved": "Loading saved servers…",
   "servers.serversLibraries.summary": "{servers} · {libraries}",
-  "servers.serversLibraries.persistWhileStreaming": "Save to device while streaming",
+  "servers.serversLibraries.persistWhileStreaming":
+    "Save to device while streaming",
   "servers.serversLibraries.persistWhileStreaming.caption":
     "When supported, mirror playback into offline storage. May use extra bandwidth on some platforms.",
   "servers.serversLibraries.title": "Servers & Libraries",
@@ -316,8 +317,12 @@ export const enUSMessages = {
 
   "settings.description": "User experience, servers, libraries, and downloads.",
   "settings.serversLibraries": "Servers & Libraries",
+  "settings.serversLibraries.caption":
+    "Configure server and select active libraries",
   "settings.title": "Settings",
   "settings.userExperience": "User Experience",
+  "settings.userExperience.caption":
+    "Appearance, language, playback gestures, and feedback preferences.",
   "settings.ux.appearance": "Appearance",
   "settings.ux.appearance.auto": "Auto",
   "settings.ux.appearance.caption": "Auto follows system light or dark mode.",
@@ -328,8 +333,6 @@ export const enUSMessages = {
     "System follows your device language when a translation is available.",
   "settings.ux.language.currentLanguageAutonym": "English",
   "settings.ux.language.system": "System",
-  "settings.ux.description":
-    "Appearance, language, playback gestures, and feedback preferences.",
   "settings.ux.haptics": "Haptic feedback",
   "settings.ux.playerBarSwipe": "Use swipe gesture in player bar",
   "settings.ux.playerBarSwipe.caption":

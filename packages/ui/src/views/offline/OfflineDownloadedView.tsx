@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
-import { useT } from '@asmusic/i18n';
-import { useNavigate } from 'react-router-dom';
-import Delete from '@mui/icons-material/Delete';
+import { useCallback, useEffect, useState } from "react";
+import { useT } from "@asmusic/i18n";
+import { useNavigate } from "react-router-dom";
+import Delete from "@mui/icons-material/Delete";
 import {
   AppBar,
   Box,
@@ -17,15 +17,15 @@ import {
   Toolbar,
   Tooltip,
   Typography,
-} from '@mui/material';
-import { PageCloseButton } from '../../shared/PageCloseButton';
-import { DownloadedSongListView } from './DownloadedSongListView';
-import { DownloadingSongListView } from './DownloadingSongListView';
-import { useHost } from '../../host/HostContext';
-import { useOfflineDownload } from '../../contexts/OfflineDownloadContext';
-import { libraryFlexFillSx } from '../../shared/LibraryVirtuosoFill';
-import { playerDockPaddingBottomSx } from '../../player/core/constants';
-import { formatBytes } from '../../utils/formatBytes';
+} from "@mui/material";
+import { PageCloseButton } from "../../shared/PageCloseButton";
+import { DownloadedSongListView } from "./DownloadedSongListView";
+import { DownloadingSongListView } from "./DownloadingSongListView";
+import { useHost } from "../../host/HostContext";
+import { useOfflineDownload } from "../../contexts/OfflineDownloadContext";
+import { libraryFlexFillSx } from "../../shared/LibraryVirtuosoFill";
+import { playerDockPaddingBottomSx } from "../../player/core/constants";
+import { formatBytes } from "../../utils/formatBytes";
 
 export function OfflineDownloadedView() {
   const t = useT();
@@ -53,7 +53,9 @@ export function OfflineDownloadedView() {
   }, [host, tab, listReloadNonce]);
 
   const storageLabel =
-    totalBytes == null ? '…' : t('offline.storageUsed', { size: formatBytes(totalBytes) });
+    totalBytes == null
+      ? "…"
+      : t("offline.storageUsed", { size: formatBytes(totalBytes) });
 
   const handleClearAll = useCallback(async () => {
     setClearBusy(true);
@@ -72,35 +74,39 @@ export function OfflineDownloadedView() {
   return (
     <Box
       sx={{
-        height: 'calc(100dvh - var(--safe-area-top) - var(--safe-area-bottom))',
+        height: "calc(100dvh - var(--safe-area-top) - var(--safe-area-bottom))",
         minHeight: 0,
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
-        bgcolor: 'background.default',
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+        bgcolor: "background.default",
         ...playerDockPaddingBottomSx,
       }}
     >
       <AppBar position="sticky" sx={{ flexShrink: 0 }}>
         <Toolbar variant="dense" sx={{ gap: 1, px: { xs: 1, sm: 2 } }}>
-          <PageCloseButton edge="start" onClick={() => navigate('/')} />
-          <Typography variant="subtitle1" component="h1" sx={{ flex: 1, fontWeight: 600, minWidth: 0 }}>
-            {t('offline.title')}
+          <PageCloseButton edge="start" onClick={() => navigate("/")} />
+          <Typography
+            variant="subtitle1"
+            component="h1"
+            sx={{ flex: 1, fontWeight: 600, minWidth: 0 }}
+          >
+            {t("offline.title")}
           </Typography>
           <Typography
             variant="caption"
             color="text.secondary"
-            sx={{ flexShrink: 0, whiteSpace: 'nowrap' }}
+            sx={{ flexShrink: 0, whiteSpace: "nowrap" }}
           >
             {storageLabel}
           </Typography>
-          <Tooltip title={t('offline.clearAll')}>
+          <Tooltip title={t("offline.clearAll")}>
             <span>
               <IconButton
                 edge="end"
                 size="small"
                 color="error"
-                aria-label={t('offline.clearAll')}
+                aria-label={t("offline.clearAll")}
                 disabled={clearBusy || totalBytes == null || totalBytes === 0}
                 onClick={() => setClearOpen(true)}
               >
@@ -114,15 +120,26 @@ export function OfflineDownloadedView() {
         maxWidth="md"
         sx={{
           ...libraryFlexFillSx,
-          display: 'flex',
-          flexDirection: 'column',
-          py: 2.5,
+          display: "flex",
+          flexDirection: "column",
           px: { xs: 2, sm: 3 },
         }}
       >
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2, flexShrink: 0 }}>
-          <Tab label={t('offline.downloaded.tab')} id="dl-tab-0" aria-controls="dl-panel-0" />
-          <Tab label={t('offline.downloading.tab')} id="dl-tab-1" aria-controls="dl-panel-1" />
+        <Tabs
+          value={tab}
+          onChange={(_, v) => setTab(v)}
+          sx={{ mb: 2, flexShrink: 0 }}
+        >
+          <Tab
+            label={t("offline.downloaded.tab")}
+            id="dl-tab-0"
+            aria-controls="dl-panel-0"
+          />
+          <Tab
+            label={t("offline.downloading.tab")}
+            id="dl-tab-1"
+            aria-controls="dl-panel-1"
+          />
         </Tabs>
 
         <Box
@@ -132,12 +149,14 @@ export function OfflineDownloadedView() {
           aria-labelledby="dl-tab-0"
           sx={{
             ...libraryFlexFillSx,
-            display: tab === 0 ? 'flex' : 'none',
-            flexDirection: 'column',
-            overflow: 'hidden',
+            display: tab === 0 ? "flex" : "none",
+            flexDirection: "column",
+            overflow: "hidden",
           }}
         >
-          {tab === 0 && <DownloadedSongListView reloadNonce={listReloadNonce} />}
+          {tab === 0 && (
+            <DownloadedSongListView reloadNonce={listReloadNonce} />
+          )}
         </Box>
         <Box
           role="tabpanel"
@@ -146,26 +165,36 @@ export function OfflineDownloadedView() {
           aria-labelledby="dl-tab-1"
           sx={{
             ...libraryFlexFillSx,
-            display: tab === 1 ? 'flex' : 'none',
-            flexDirection: 'column',
-            overflow: 'auto',
+            display: tab === 1 ? "flex" : "none",
+            flexDirection: "column",
+            overflow: "auto",
           }}
         >
           {tab === 1 && <DownloadingSongListView />}
         </Box>
       </Container>
 
-      <Dialog open={clearOpen} onClose={() => !clearBusy && setClearOpen(false)}>
-        <DialogTitle>{t('offline.clearAll.confirmTitle')}</DialogTitle>
+      <Dialog
+        open={clearOpen}
+        onClose={() => !clearBusy && setClearOpen(false)}
+      >
+        <DialogTitle>{t("offline.clearAll.confirmTitle")}</DialogTitle>
         <DialogContent>
-          <Typography variant="body2">{t('offline.clearAll.confirmBody')}</Typography>
+          <Typography variant="body2">
+            {t("offline.clearAll.confirmBody")}
+          </Typography>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setClearOpen(false)} disabled={clearBusy}>
-            {t('common.cancel')}
+            {t("common.cancel")}
           </Button>
-          <Button color="error" variant="contained" disabled={clearBusy} onClick={() => void handleClearAll()}>
-            {clearBusy ? t('offline.clearAll.busy') : t('common.clear')}
+          <Button
+            color="error"
+            variant="contained"
+            disabled={clearBusy}
+            onClick={() => void handleClearAll()}
+          >
+            {clearBusy ? t("offline.clearAll.busy") : t("common.clear")}
           </Button>
         </DialogActions>
       </Dialog>

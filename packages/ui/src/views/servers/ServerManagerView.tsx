@@ -95,12 +95,17 @@ export function ServerManagerView({ embedded = false }: ServerManagerViewProps) 
 
   return (
     <Box
-      sx={{
-        minHeight: 'calc(100dvh - var(--safe-area-top) - var(--safe-area-bottom))',
-        display: 'flex',
-        flexDirection: 'column',
-        bgcolor: 'background.default',
-      }}
+      sx={
+        embedded
+          ? undefined
+          : {
+              minHeight:
+                'calc(100dvh - var(--safe-area-top) - var(--safe-area-bottom))',
+              display: 'flex',
+              flexDirection: 'column',
+              bgcolor: 'background.default',
+            }
+      }
     >
       <Container maxWidth={embedded ? false : 'sm'} sx={{ py: embedded ? 0 : 3, flex: 1, px: embedded ? 0 : undefined }}>
         {!embedded && (

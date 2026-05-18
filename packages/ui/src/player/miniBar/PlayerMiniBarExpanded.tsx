@@ -30,6 +30,7 @@ export function PlayerMiniBarExpanded() {
         useWaveform={progress.useWaveform}
         waveformPeaks={progress.waveformPeaks}
         playedFraction={progress.playedFraction}
+        durationSeconds={progress.durationSeconds}
         isPlaying={progress.isPlaying}
         progressPercent={progress.progressPercent}
       />

@@ -1,4 +1,6 @@
 import {
+  emitWaveformPeaksReady,
+  offlineMediaKeyId,
   OFFLINE_MEDIA_DEFAULT_VARIANT,
   type LibraryCacheScope,
   type OfflineMediaKey,
@@ -77,7 +79,11 @@ export function createCapacitorIosOfflineMediaStorage(): OfflineMediaStore {
           ...keyToNativeParams(key),
           barCount,
         });
-        return peaks.length > 0 ? peaks : null;
+        if (peaks.length > 0) {
+          emitWaveformPeaksReady(offlineMediaKeyId(key));
+          return peaks;
+        }
+        return null;
       } catch {
         return null;
       }

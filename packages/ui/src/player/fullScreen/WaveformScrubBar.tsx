@@ -1,5 +1,5 @@
 import { useT } from "@asmusic/i18n";
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 import Box from "@mui/material/Box";
 import { WaveformProgressBar } from "../WaveformProgressBar";
 
@@ -37,6 +37,7 @@ export function WaveformScrubBar({
   const t = useT();
   const rootRef = useRef<HTMLDivElement | null>(null);
   const scrubbingRef = useRef(false);
+  const [scrubbing, setScrubbing] = useState(false);
 
   const playedFraction =
     duration > 0 ? Math.min(1, Math.max(0, position / duration)) : 0;
@@ -62,6 +63,7 @@ export function WaveformScrubBar({
             /* ignore */
           }
           scrubbingRef.current = true;
+          setScrubbing(true);
           onScrubChange(seekFromEvent(e.clientX));
         },
         onPointerMove: (e: React.PointerEvent) => {
@@ -71,12 +73,14 @@ export function WaveformScrubBar({
         onPointerUp: (e: React.PointerEvent) => {
           if (!scrubbingRef.current) return;
           scrubbingRef.current = false;
+          setScrubbing(false);
           const next = seekFromEvent(e.clientX);
           onScrubCommit(next);
         },
         onPointerCancel: () => {
           if (!scrubbingRef.current) return;
           scrubbingRef.current = false;
+          setScrubbing(false);
           onScrubCancel?.();
         },
       };
@@ -103,6 +107,8 @@ export function WaveformScrubBar({
         peaks={peaks}
         playedFraction={playedFraction}
         isPlaying={isPlaying}
+        durationSeconds={duration > 0 ? duration : undefined}
+        smoothProgress={!scrubbing}
       />
     </Box>
   );

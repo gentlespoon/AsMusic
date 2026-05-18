@@ -77,15 +77,6 @@ export function AppDrawer({ open, onClose }: AppDrawerProps) {
         </Box>
         <Divider />
         <List dense sx={{ py: 0.5 }}>
-          <ListItemButton onClick={() => go("/about")}>
-            <ListItemText primary={t("nav.about")} secondary={t("nav.aboutHint")} />
-          </ListItemButton>
-          <ListItemButton onClick={() => go("/settings")}>
-            <ListItemText
-              primary={t("nav.settings")}
-              secondary={t("nav.settingsHint")}
-            />
-          </ListItemButton>
           <ListItemButton onClick={() => go(PLAYING_QUEUE_PATH)}>
             <ListItemText
               primary={t("nav.playbackQueue")}
@@ -117,10 +108,25 @@ export function AppDrawer({ open, onClose }: AppDrawerProps) {
               secondary={
                 sleepTimerActive
                   ? t("nav.sleepTimerRemaining", {
-                      remaining: formatSleepTimerRemaining(sleepRemainingSeconds),
+                      remaining: formatSleepTimerRemaining(
+                        sleepRemainingSeconds,
+                      ),
                     })
                   : t("nav.sleepTimerHint")
               }
+            />
+          </ListItemButton>
+          <Divider component="li" />
+          <ListItemButton onClick={() => go("/settings")}>
+            <ListItemText
+              primary={t("nav.settings")}
+              secondary={t("nav.settingsHint")}
+            />
+          </ListItemButton>
+          <Divider component="li" />
+          <ListItemButton onClick={() => go("/about")}>
+            <ListItemText
+              primary={t("nav.about")} /* secondary={t("nav.aboutHint")} */
             />
           </ListItemButton>
         </List>

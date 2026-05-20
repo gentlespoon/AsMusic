@@ -10,6 +10,7 @@ export * from './library/libraryIndexFromSongs';
 export * from './library/playlistEntries';
 export * from './library/playlistMutations';
 export * from './library/refreshLibraryCache';
+export * from './library/purgeRemovedLibraryCacheEntries';
 export * from './library/runLibraryArtworkBackgroundCache';
 export * from './library/storage/LibraryCacheStorage';
 export type {

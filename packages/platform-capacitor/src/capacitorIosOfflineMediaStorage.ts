@@ -119,6 +119,19 @@ export function createCapacitorIosOfflineMediaStorage(): OfflineMediaStore {
       await AsmusicNative.offlineMediaPurgeServerKey({ serverKey });
     },
 
+    async purgeAll(): Promise<void> {
+      const keys = await this.listReadyKeys(null);
+      const seen = new Set<string>();
+      const scopes: LibraryCacheScope[] = [];
+      for (const key of keys) {
+        const id = `${key.scope.serverKey}\t${key.scope.libraryId}`;
+        if (seen.has(id)) continue;
+        seen.add(id);
+        scopes.push(key.scope);
+      }
+      await Promise.all(scopes.map((scope) => this.deleteScope(scope)));
+    },
+
     async totalReadyBytes(scopeFilter: LibraryCacheScope | null): Promise<number> {
       const { totalBytes } = await AsmusicNative.offlineMediaTotalBytes(
         scopeFilter ? { serverKey: scopeFilter.serverKey, libraryId: scopeFilter.libraryId } : {}

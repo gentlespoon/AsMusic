@@ -1,4 +1,5 @@
 export { App } from './App';
+export { getAppRouterBasename, appAssetUrl } from './app/appBasePath';
 export { I18nProvider, useI18n, useT, resolveAppLocale, type AppLocale, type MessageKey } from '@asmusic/i18n';
 export { PlayingQueueView, PLAYING_QUEUE_PATH } from './views/queue/PlayingQueueView';
 export {

@@ -36,3 +36,9 @@ pnpm run cap:open:ios
 ## Env
 
 - **`VITE_NAVIDROME_URL`** — optional default server URL for the login form (handy in dev).
+
+### Subdirectory deployment
+
+The web build uses **relative asset URLs** (`base: './'`). Copy `apps/web/dist` to any path (e.g. `https://example.com/music/`). React Router picks up the deploy directory at runtime from the bundle URL.
+
+Configure the host to fall back to `index.html` for client routes under that path (e.g. nginx `try_files $uri $uri/ /music/index.html` when served from `/music/`). In-app routes stay `/settings`, `/about`, etc.

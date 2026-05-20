@@ -60,6 +60,8 @@ export interface OfflineMediaStore {
   delete(key: OfflineMediaKey): Promise<void>;
   deleteScope(scope: LibraryCacheScope): Promise<void>;
   deleteServerAccount(serverKey: string): Promise<void>;
+  /** Remove every ready offline track in one bulk purge. */
+  purgeAll(): Promise<void>;
   /** Total bytes for `ready` rows, optionally limited to one library scope. */
   totalReadyBytes(scopeFilter: LibraryCacheScope | null): Promise<number>;
 }
@@ -84,6 +86,7 @@ export function createNoopOfflineMediaStore(): OfflineMediaStore {
     async delete() {},
     async deleteScope() {},
     async deleteServerAccount() {},
+    async purgeAll() {},
     async totalReadyBytes() {
       return 0;
     },

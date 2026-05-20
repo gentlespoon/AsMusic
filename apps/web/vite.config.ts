@@ -48,8 +48,9 @@ function appInfoAssetPlugin(info: AppVersionFile): Plugin {
 export default defineConfig(() => {
   const repoRoot = path.resolve(__dirname, '../..');
   const appVersion = loadAppVersion(repoRoot);
-
   return {
+    // Relative asset URLs — works at site root or any subdirectory without a build-time path.
+    base: './',
     plugins: [react(), appInfoAssetPlugin(appVersion)],
     define: {
       'import.meta.env.VITE_APP_VERSION': JSON.stringify(appVersion.version),

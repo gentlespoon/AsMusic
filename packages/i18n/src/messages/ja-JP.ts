@@ -163,8 +163,11 @@ export const jaJPMessages = {
   "nav.title": "AsMusic",
 
   "offline.downloaded.empty": "ダウンロード済みの曲はまだありません。",
+  "offline.downloaded.filter": "ダウンロード済みの曲を絞り込む",
   "offline.downloaded.loadError": "オフラインライブラリを読み込めませんでした",
   "offline.downloaded.loading": "読み込み中…",
+  "offline.downloaded.noMatch": "検索に一致するダウンロード済みの曲がありません。",
+  "offline.downloaded.search": "ダウンロード済みの曲を検索",
   "offline.downloaded.tab": "ダウンロード済み",
   "offline.downloaded.trackCount": "曲 {count} 曲",
   "offline.downloading.cancelAll": "すべてのジョブをキャンセル",
@@ -179,6 +182,14 @@ export const jaJPMessages = {
     "一括ダウンロードのジョブはありません。アルバム画面の「アルバムをオフライン用にダウンロード」を使用してください。",
   "offline.downloading.tab": "ダウンロード中",
   "offline.storageUsed": "{size} 使用中",
+  "offline.storageUsed.activeLibraries": "{size} · 有効なライブラリ",
+  "offline.storageUsed.allLibraries": "{size} · すべてのライブラリ",
+  "offline.storageMenu": "オフラインのストレージ",
+  "offline.clearActive": "有効なライブラリのダウンロードを削除",
+  "offline.clearActive.busy": "削除中…",
+  "offline.clearActive.confirmBody":
+    "有効にしたライブラリのダウンロード済みトラックを削除します。他のライブラリのダウンロードは残ります。",
+  "offline.clearActive.confirmTitle": "有効なライブラリのダウンロードを削除しますか？",
   "offline.clearAll": "ダウンロードをすべて削除",
   "offline.clearAll.busy": "削除中…",
   "offline.clearAll.confirmBody":

@@ -61,7 +61,7 @@ export function useRefreshLibraryRow() {
         setRefreshingKey(null);
       }
     },
-    [getApiForServer, host.libraryCache, isLibraryActive, reloadCachedSongsFromDisk, servers, t]
+    [getApiForServer, host.libraryCache, host.offlineMedia, isLibraryActive, reloadCachedSongsFromDisk, servers, t]
   );
 
   return {

@@ -8,6 +8,7 @@ import {
   CardContent,
   IconButton,
   List,
+  ListItem,
   ListItemAvatar,
   ListItemButton,
   ListItemText,
@@ -38,6 +39,7 @@ import {
   libraryDetailHeaderStackSx,
 } from '../shared/libraryTypography';
 import { setAlbumDisplayMode, useAlbumDisplayMode, type AlbumDisplayMode } from '../../../../preferences/albumDisplayMode';
+import { useEdgeSwipeBack } from '../../../../shared/useEdgeSwipeBack';
 
 function albumMatchesQuery(album: AlbumID3, query: string): boolean {
   const q = query.trim().toLowerCase();
@@ -149,6 +151,8 @@ export function ArtistAlbumListView({
     gridVirtuosoRef.current?.scrollToIndex({ index: 0, align: 'start' });
   }, [displayMode]);
 
+  const edgeSwipeBack = useEdgeSwipeBack(onBack);
+
   const gridComponents = useMemo(
     () => ({
       ...virtuosoScroller,
@@ -196,6 +200,7 @@ export function ArtistAlbumListView({
       role="tabpanel"
       id="library-panel-1"
       aria-labelledby="library-tab-1"
+      {...edgeSwipeBack}
       sx={{
         ...libraryFlexFillSx,
         display: 'flex',
@@ -344,11 +349,10 @@ export function ArtistAlbumListView({
                 components={{ ...virtuosoScroller, List: VirtuosoMuiList }}
                 computeItemKey={(_, album) => String(album.id)}
                 itemContent={(_, album) => (
-                  <Box sx={{ display: 'flex', alignItems: 'stretch', pr: showAlbumQueueMenu ? 0.5 : 0 }}>
+                  <ListItem divider disablePadding sx={{ alignItems: 'center' }}>
                     <ListItemButton
-                      divider
                       onClick={() => onAlbumOpen(album)}
-                      sx={{ py: 0.75, px: 0, flex: 1, minWidth: 0 }}
+                      sx={{ flex: 1, minWidth: 0, py: 0.75, px: 0, alignItems: 'flex-start' }}
                     >
                       <ListItemAvatar sx={{ minWidth: 48 }}>
                         <Box sx={{ width: 40, height: 40, borderRadius: 1, overflow: 'hidden' }}>
@@ -371,6 +375,7 @@ export function ArtistAlbumListView({
                             {album.songCount > 0 ? ` · ${album.songCount} tracks` : ''}
                           </>
                         }
+                        sx={{ flex: 1, minWidth: 0, my: 0 }}
                         slotProps={{
                           primary: { variant: 'body2', noWrap: true },
                           secondary: { variant: 'caption', noWrap: true },
@@ -378,20 +383,22 @@ export function ArtistAlbumListView({
                       />
                     </ListItemButton>
                     {showAlbumQueueMenu ? (
-                      <IconButton
-                        aria-label={t('library.album.ariaActions')}
-                        size="small"
-                        sx={{ alignSelf: 'center', flexShrink: 0 }}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          setAlbumMenu({ anchor: e.currentTarget, album });
-                        }}
-                      >
-                        <MoreVert fontSize="small" />
-                      </IconButton>
+                      <Box sx={{ display: 'flex', flexShrink: 0, alignSelf: 'center', pr: 0.5 }}>
+                        <IconButton
+                          aria-label={t('library.album.ariaActions')}
+                          size="small"
+                          edge="end"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setAlbumMenu({ anchor: e.currentTarget, album });
+                          }}
+                        >
+                          <MoreVert fontSize="small" />
+                        </IconButton>
+                      </Box>
                     ) : null}
-                  </Box>
+                  </ListItem>
                 )}
               />
               </LibraryVirtuosoFill>

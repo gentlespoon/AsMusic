@@ -253,12 +253,26 @@ export function LibrarySelectorView({ embedded = false }: LibrarySelectorViewPro
 
   return (
     <Box
-      sx={{
-        minHeight: 'calc(100dvh - var(--safe-area-top) - var(--safe-area-bottom))',
-        bgcolor: 'background.default',
-      }}
+      sx={
+        embedded
+          ? { minWidth: 0, maxWidth: '100%', overflowX: 'hidden' }
+          : {
+              minHeight:
+                'calc(100dvh - var(--safe-area-top) - var(--safe-area-bottom))',
+              bgcolor: 'background.default',
+            }
+      }
     >
-      <Container maxWidth={embedded ? false : 'sm'} sx={{ py: embedded ? 0 : 3, px: embedded ? 0 : undefined }}>
+      <Container
+        maxWidth={embedded ? false : 'sm'}
+        disableGutters={embedded}
+        sx={{
+          py: embedded ? 0 : 3,
+          px: embedded ? 0 : undefined,
+          minWidth: 0,
+          maxWidth: '100%',
+        }}
+      >
         {!embedded && (
           <Stack direction="row" sx={{ mb: 2, justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h5" component="h1" sx={{ fontWeight: 600 }}>
@@ -326,7 +340,7 @@ export function LibrarySelectorView({ embedded = false }: LibrarySelectorViewPro
         )}
 
         {!loading && servers.length > 0 && rows.length > 0 && (
-          <List disablePadding>
+          <List disablePadding sx={{ width: '100%', overflow: 'hidden' }}>
             {rows.map((row) => {
               const disabled = row.libraryId === 'unreachable';
               const ref = { serverId: row.serverId, libraryId: row.libraryId };
@@ -340,6 +354,7 @@ export function LibrarySelectorView({ embedded = false }: LibrarySelectorViewPro
                   key={rk}
                   disablePadding
                   divider
+                  sx={{ alignItems: 'center', maxWidth: '100%' }}
                   secondaryAction={
                     <Tooltip
                       title={
@@ -357,9 +372,12 @@ export function LibrarySelectorView({ embedded = false }: LibrarySelectorViewPro
                             e.stopPropagation();
                             void refreshLibraryRow(row);
                           }}
-                          sx={{ mt: 0.5 }}
                         >
-                          {rowRefreshing ? <CircularProgress size={20} color="inherit" /> : <Refresh sx={{ fontSize: 20 }} />}
+                          {rowRefreshing ? (
+                            <CircularProgress size={20} color="inherit" />
+                          ) : (
+                            <Refresh sx={{ fontSize: 20 }} />
+                          )}
                         </IconButton>
                       </span>
                     </Tooltip>
@@ -368,16 +386,21 @@ export function LibrarySelectorView({ embedded = false }: LibrarySelectorViewPro
                   <ListItemButton
                     disabled={disabled}
                     onClick={() => !disabled && toggleActiveLibrary(ref)}
-                    sx={{ alignItems: 'flex-start', pr: 7 }}
+                    sx={{ alignItems: 'flex-start' }}
                   >
                     <ListItemIcon sx={{ minWidth: 42, mt: 0.5 }}>
                       <Checkbox edge="start" checked={checked} tabIndex={-1} disableRipple disabled={disabled} />
                     </ListItemIcon>
                     <ListItemText
+                      sx={{ minWidth: 0 }}
+                      slotProps={{
+                        primary: { sx: { wordBreak: 'break-word' } },
+                        secondary: { sx: { minWidth: 0 } },
+                      }}
                       primary={row.libraryName}
                       secondary={
                         <>
-                          <Box component="span" sx={{ display: 'block' }}>
+                          <Box component="span" sx={{ display: 'block', overflowWrap: 'anywhere' }}>
                             {row.username} ·{' '}
                             <Box component="span" sx={{ wordBreak: 'break-all' }}>
                               {row.serverUrl}

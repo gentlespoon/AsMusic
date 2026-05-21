@@ -97,11 +97,13 @@ export const esESMessages = {
     "Este enlace de lista no coincide con ninguna caché de biblioteca activa.",
   "library.playlist.actions": "Acciones de la lista",
   "library.playlist.create": "Crear lista",
-  "library.playlist.createDialogHint": "Introduce un nombre para la nueva lista.",
+  "library.playlist.createDialogHint":
+    "Introduce un nombre para la nueva lista.",
   "library.playlist.createDialogTitle": "Crear lista",
   "library.playlist.createDisabledMulti":
     "Selecciona una sola biblioteca en Ajustes para crear listas",
-  "library.playlist.createDisabledNoServer": "Añade un servidor para crear listas",
+  "library.playlist.createDisabledNoServer":
+    "Añade un servidor para crear listas",
   "library.playlist.createSingleLibraryTitle": "Una biblioteca a la vez",
   "library.playlist.createSingleLibraryBodyMulti":
     "Para crear una lista del servidor necesitas tener activa exactamente una biblioteca. Abre Ajustes → Servidores y bibliotecas, deja activa solo la biblioteca donde quieras la lista nueva e inténtalo de nuevo. Cuando esté creada, puedes volver a activar las demás bibliotecas.",
@@ -123,7 +125,8 @@ export const esESMessages = {
   "library.playlist.editor.emptyCache":
     "No hay canciones en la caché local de la biblioteca. Sincroniza tu biblioteca para editar los miembros de la lista.",
   "library.playlist.editor.filter": "Filtrar canciones",
-  "library.playlist.editor.filterAria": "Filtrar canciones en el editor de listas",
+  "library.playlist.editor.filterAria":
+    "Filtrar canciones en el editor de listas",
   "library.playlist.editor.loadError": "No se pudo cargar el editor de listas",
   "library.playlist.editor.loadingSongs": "Cargando canciones…",
   "library.playlist.editor.save": "Guardar",
@@ -158,10 +161,11 @@ export const esESMessages = {
   "nav.sleepTimer": "Temporizador de sueño",
   "nav.sleepTimerHint": "Detener la reproducción tras un tiempo",
   "nav.sleepTimerRemaining": "Quedan {remaining}",
-  "nav.title": "Navegación",
+  "nav.title": "AsMusic",
 
   "offline.downloaded.empty": "Aún no hay pistas descargadas.",
-  "offline.downloaded.loadError": "No se pudo cargar la biblioteca sin conexión",
+  "offline.downloaded.loadError":
+    "No se pudo cargar la biblioteca sin conexión",
   "offline.downloaded.loading": "Cargando…",
   "offline.downloaded.tab": "Descargadas",
   "offline.downloaded.trackCount": "{count} pistas",
@@ -188,7 +192,8 @@ export const esESMessages = {
     "Activa al menos una biblioteca para explorar y guardar en caché tu música. Después puedes sincronizar el catálogo con el control de actualización de cada fila.",
   "onboarding.addServer.body":
     "Introduce la URL del servidor y tu cuenta. Necesitas al menos un servidor guardado antes de elegir bibliotecas.",
-  "onboarding.finishDisabled": "Finalizar configuración (selecciona al menos una biblioteca)",
+  "onboarding.finishDisabled":
+    "Finalizar configuración (selecciona al menos una biblioteca)",
   "onboarding.finishSetup": "Finalizar configuración",
   "onboarding.step.activateLibrary": "Activar una biblioteca",
   "onboarding.step.addServer": "Añadir un servidor",
@@ -254,7 +259,8 @@ export const esESMessages = {
   "queue.action.loopQueue": "Repetir cola",
   "queue.action.rowActions": "Acciones de fila de la cola",
   "queue.action.shuffle": "Mezclar cola",
-  "queue.clear.body": "Se eliminarán todas las pistas excepto la que se está reproduciendo.",
+  "queue.clear.body":
+    "Se eliminarán todas las pistas excepto la que se está reproduciendo.",
   "queue.clear.title": "¿Vaciar cola?",
   "queue.empty": "Reproduce una canción para crear la cola.",
   "queue.title": "Cola",
@@ -275,16 +281,19 @@ export const esESMessages = {
     "Elige cero o más bibliotecas en tus servidores. La vista de biblioteca de inicio combina las canciones en caché de las selecciones que actives. Usa el control de actualización en una biblioteca activa para descargar el catálogo más reciente del servidor.",
   "servers.libraries.loadingFolders": "Cargando carpetas…",
   "servers.libraries.title": "Bibliotecas",
-  "servers.libraries.unreachable": "(no se pudo cargar — comprueba la contraseña)",
+  "servers.libraries.unreachable":
+    "(no se pudo cargar — comprueba la contraseña)",
   "servers.libraries.counts": "{albums} álbumes · {songs} canciones",
   "servers.libraries.lastSync": "Última sincronización: {when}",
   "servers.libraries.lastSyncNever": "Última sincronización: nunca",
   "servers.libraries.manageServers": "Gestionar servidores",
-  "servers.libraries.noCacheYet": "Aún no hay caché local para esta biblioteca.",
+  "servers.libraries.noCacheYet":
+    "Aún no hay caché local para esta biblioteca.",
   "servers.libraries.refresh": "Actualizar esta biblioteca desde el servidor",
   "servers.libraries.refreshAria": "Actualizar biblioteca {name}",
   "servers.libraries.reloadList": "Recargar lista",
-  "servers.libraries.statsError": "No se pudieron leer las estadísticas de caché.",
+  "servers.libraries.statsError":
+    "No se pudieron leer las estadísticas de caché.",
   "servers.libraries.statsLoading": "Cargando estadísticas de caché…",
   "servers.libraries.tab": "Bibliotecas",
   "servers.manager.addServer": "Añadir servidor",
@@ -294,7 +303,8 @@ export const esESMessages = {
   "servers.manager.newPassword": "Nueva contraseña (opcional)",
   "servers.manager.newServer": "Servidor nuevo",
   "servers.manager.password": "Contraseña",
-  "servers.manager.passwordKeep": "Déjalo en blanco para conservar la contraseña actual.",
+  "servers.manager.passwordKeep":
+    "Déjalo en blanco para conservar la contraseña actual.",
   "servers.manager.removeServer": "Quitar servidor",
   "servers.manager.savedCount": "Servidores guardados ({count})",
   "servers.manager.serverUrl": "URL del servidor",
@@ -303,7 +313,8 @@ export const esESMessages = {
   "servers.manager.username": "Nombre de usuario",
   "servers.serversLibraries.loadingSaved": "Cargando servidores guardados…",
   "servers.serversLibraries.summary": "{servers} · {libraries}",
-  "servers.serversLibraries.persistWhileStreaming": "Guardar en el dispositivo al reproducir en streaming",
+  "servers.serversLibraries.persistWhileStreaming":
+    "Guardar en el dispositivo al reproducir en streaming",
   "servers.serversLibraries.persistWhileStreaming.caption":
     "Cuando sea compatible, refleja la reproducción en el almacenamiento sin conexión. En algunas plataformas puede usar ancho de banda adicional.",
   "servers.serversLibraries.title": "Servidores y bibliotecas",
@@ -313,13 +324,19 @@ export const esESMessages = {
   "servers.summary.oneServer": "1 servidor guardado",
   "servers.tab.servers": "Servidores",
 
-  "settings.description": "Experiencia de usuario, servidores, bibliotecas y descargas.",
+  "settings.description":
+    "Experiencia de usuario, servidores, bibliotecas y descargas.",
   "settings.serversLibraries": "Servidores y bibliotecas",
+  "settings.serversLibraries.caption":
+    "Configura el servidor y selecciona las bibliotecas activas",
   "settings.title": "Ajustes",
   "settings.userExperience": "Experiencia de usuario",
+  "settings.userExperience.caption":
+    "Apariencia, idioma, gestos de reproducción y preferencias de comentarios.",
   "settings.ux.appearance": "Apariencia",
   "settings.ux.appearance.auto": "Automático",
-  "settings.ux.appearance.caption": "Automático sigue el modo claro u oscuro del sistema.",
+  "settings.ux.appearance.caption":
+    "Automático sigue el modo claro u oscuro del sistema.",
   "settings.ux.appearance.dark": "Oscuro",
   "settings.ux.appearance.light": "Claro",
   "settings.ux.language": "Idioma de la interfaz",
@@ -327,10 +344,9 @@ export const esESMessages = {
     "Sistema sigue el idioma del dispositivo cuando hay traducción disponible.",
   "settings.ux.language.currentLanguageAutonym": "Español",
   "settings.ux.language.system": "Sistema",
-  "settings.ux.description":
-    "Apariencia, idioma, gestos de reproducción y preferencias de comentarios.",
   "settings.ux.haptics": "Respuesta háptica",
-  "settings.ux.playerBarSwipe": "Usar gesto de deslizamiento en la barra del reproductor",
+  "settings.ux.playerBarSwipe":
+    "Usar gesto de deslizamiento en la barra del reproductor",
   "settings.ux.playerBarSwipe.caption":
     "Con esta opción activada, el minirreproductor usa deslizamientos como la barra iOS antigua; los botones de saltar y reproducir se ocultan.",
   "settings.ux.waveform": "Barra de progreso con forma de onda",

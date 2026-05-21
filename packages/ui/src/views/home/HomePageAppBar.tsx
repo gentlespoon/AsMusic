@@ -129,14 +129,14 @@ export function HomePageAppBar({ onOpenNav }: HomePageAppBarProps) {
                 sx={libraryToggleGroupSx}
               >
                 <LibraryTabToggle
-                  value="albums"
-                  label={t("home.appBar.albums")}
-                  icon={<Album sx={{ fontSize: 22 }} />}
-                />
-                <LibraryTabToggle
                   value="artists"
                   label={t("home.appBar.artists")}
                   icon={<Person sx={{ fontSize: 22 }} />}
+                />
+                <LibraryTabToggle
+                  value="albums"
+                  label={t("home.appBar.albums")}
+                  icon={<Album sx={{ fontSize: 22 }} />}
                 />
                 <LibraryTabToggle
                   value="songs"

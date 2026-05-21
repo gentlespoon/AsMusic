@@ -78,10 +78,29 @@ public class AsmusicNativePlugin: CAPPlugin, CAPBridgedPlugin {
         tearDownPlayerObservers()
     }
 
+    private var offlineMediaObserverTokens: [NSObjectProtocol] = []
+
     public override func load() {
         super.load()
         Self.installRemoteCommandsIfNeeded()
         Self.installAudioSessionObserversIfNeeded()
+        installOfflineMediaNotificationObservers()
+    }
+
+    private func installOfflineMediaNotificationObservers() {
+        let center = NotificationCenter.default
+        offlineMediaObserverTokens.append(
+            center.addObserver(forName: .asmusicOfflineMediaReady, object: nil, queue: .main) { [weak self] note in
+                guard let cacheKey = note.userInfo?["cacheKey"] as? String else { return }
+                self?.notifyListeners("offlineMediaReady", data: ["cacheKey": cacheKey])
+            }
+        )
+        offlineMediaObserverTokens.append(
+            center.addObserver(forName: .asmusicWaveformPeaksReady, object: nil, queue: .main) { [weak self] note in
+                guard let cacheKey = note.userInfo?["cacheKey"] as? String else { return }
+                self?.notifyListeners("waveformPeaksReady", data: ["cacheKey": cacheKey])
+            }
+        )
     }
 
     // MARK: - Secure storage (Keychain)

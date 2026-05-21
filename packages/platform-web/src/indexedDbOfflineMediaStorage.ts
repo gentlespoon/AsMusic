@@ -1,6 +1,10 @@
 import {
+  decodeWaveformPeaks,
+  emitOfflineMediaReady,
+  emitWaveformPeaksReady,
   offlineMediaKeyId,
   OFFLINE_MEDIA_DEFAULT_VARIANT,
+  WAVEFORM_BAR_COUNT,
   type LibraryCacheScope,
   type OfflineMediaKey,
   type OfflineMediaStatusDetail,
@@ -9,7 +13,7 @@ import {
 } from '@asmusic/core';
 
 const DB_NAME = 'asmusic-offline-media';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 /** Matches library-cache artwork pattern; fourth segment is track identity + format variant. */
 const TRACK_KEY_PATH = ['serverKey', 'libraryId', 'trackId', 'variant'] as const;
@@ -23,6 +27,8 @@ type OfflineTrackRow = {
   byteLength: number;
   updatedAt: number;
   body: Blob;
+  waveformPeaks?: number[];
+  waveformBarCount?: number;
 };
 
 type LegacyOfflineTrackRow = OfflineTrackRow & { id: string };
@@ -81,6 +87,7 @@ function openDb(): Promise<IDBDatabase> {
           createTracksStore(db);
         }
       }
+      // v3: optional waveformPeaks / waveformBarCount on each track row (no store shape change).
     };
   });
 }
@@ -88,6 +95,61 @@ function openDb(): Promise<IDBDatabase> {
 function inScope(row: OfflineTrackRow, filter: LibraryCacheScope | null): boolean {
   if (!filter) return true;
   return row.serverKey === filter.serverKey && row.libraryId === filter.libraryId;
+}
+
+async function readTrackRow(
+  db: IDBDatabase,
+  k: [string, string, string, string],
+): Promise<OfflineTrackRow | undefined> {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('tracks', 'readonly');
+    const req = tx.objectStore('tracks').get(k);
+    req.onerror = () => reject(req.error ?? new Error('read track failed'));
+    req.onsuccess = () => resolve(req.result as OfflineTrackRow | undefined);
+  });
+}
+
+async function putTrackRow(db: IDBDatabase, row: OfflineTrackRow): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction('tracks', 'readwrite');
+    tx.onerror = () => reject(tx.error ?? new Error('IDB write tx failed'));
+    tx.oncomplete = () => resolve();
+    tx.objectStore('tracks').put(row);
+  });
+}
+
+function scheduleWaveformPrecompute(key: OfflineMediaKey, row: OfflineTrackRow): void {
+  const cacheKey = offlineMediaKeyId(key);
+  void (async () => {
+    try {
+      if (
+        row.waveformPeaks &&
+        row.waveformPeaks.length > 0 &&
+        row.waveformBarCount === WAVEFORM_BAR_COUNT
+      ) {
+        emitWaveformPeaksReady(cacheKey);
+        return;
+      }
+      const url = URL.createObjectURL(row.body);
+      try {
+        const peaks = await decodeWaveformPeaks(url, WAVEFORM_BAR_COUNT);
+        const db = await openDb();
+        const k = idbTrackKey(key);
+        const latest = await readTrackRow(db, k);
+        if (!latest?.body) return;
+        await putTrackRow(db, {
+          ...latest,
+          waveformPeaks: peaks,
+          waveformBarCount: WAVEFORM_BAR_COUNT,
+        });
+        emitWaveformPeaksReady(cacheKey);
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    } catch {
+      /* ignore background waveform errors */
+    }
+  })();
 }
 
 export function createIndexedDbOfflineMediaStorage(): OfflineMediaStore {
@@ -160,18 +222,44 @@ export function createIndexedDbOfflineMediaStorage(): OfflineMediaStore {
     async getReadyPlaybackSource(key: OfflineMediaKey): Promise<OfflinePlaybackSource | null> {
       const db = await openDb();
       const k = idbTrackKey(key);
-      const row = await new Promise<OfflineTrackRow | undefined>((resolve, reject) => {
-        const tx = db.transaction('tracks', 'readonly');
-        const req = tx.objectStore('tracks').get(k);
-        req.onerror = () => reject(req.error ?? new Error('get blob failed'));
-        req.onsuccess = () => resolve(req.result as OfflineTrackRow | undefined);
-      });
+      const row = await readTrackRow(db, k);
       if (!row?.body) return null;
       const url = URL.createObjectURL(row.body);
       return {
         url,
         revoke: () => URL.revokeObjectURL(url),
       };
+    },
+
+    async getWaveformPeaks(key: OfflineMediaKey, barCount: number): Promise<number[] | null> {
+      const db = await openDb();
+      const k = idbTrackKey(key);
+      const row = await readTrackRow(db, k);
+      if (!row?.body) return null;
+      if (
+        row.waveformPeaks &&
+        row.waveformPeaks.length > 0 &&
+        row.waveformBarCount === barCount
+      ) {
+        return row.waveformPeaks;
+      }
+      try {
+        const url = URL.createObjectURL(row.body);
+        try {
+          const peaks = await decodeWaveformPeaks(url, barCount);
+          await putTrackRow(db, {
+            ...row,
+            waveformPeaks: peaks,
+            waveformBarCount: barCount,
+          });
+          emitWaveformPeaksReady(offlineMediaKeyId(key));
+          return peaks;
+        } finally {
+          URL.revokeObjectURL(url);
+        }
+      } catch {
+        return null;
+      }
     },
 
     async importFromAuthenticatedUrl(
@@ -215,12 +303,10 @@ export function createIndexedDbOfflineMediaStorage(): OfflineMediaStore {
           body: blob,
         };
         const db = await openDb();
-        await new Promise<void>((resolve, reject) => {
-          const tx = db.transaction('tracks', 'readwrite');
-          tx.onerror = () => reject(tx.error ?? new Error('IDB write tx failed'));
-          tx.oncomplete = () => resolve();
-          tx.objectStore('tracks').put(row);
-        });
+        await putTrackRow(db, row);
+        const cacheKey = offlineMediaKeyId(key);
+        emitOfflineMediaReady(cacheKey);
+        scheduleWaveformPrecompute(key, row);
       } finally {
         inflight.delete(id);
       }

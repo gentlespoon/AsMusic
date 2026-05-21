@@ -187,7 +187,7 @@ export function LibraryBrowser() {
       setSearchParams(
         (prev) =>
           mergeLibraryBrowserSearchParams(new URLSearchParams(prev), {
-            tab: 'artists',
+            tab: 'albums',
             album: null,
             artist: { id: artistUrlId, name: row.artist.name ?? artistUrlId, allSongs: false },
             playlist: null,
@@ -234,7 +234,7 @@ export function LibraryBrowser() {
     setSearchParams(
       (prev) =>
         mergeLibraryBrowserSearchParams(new URLSearchParams(prev), {
-          tab: 'artists',
+          tab: 'songs',
           album: null,
           artist: {
             id: artistAlbumScope.id,
@@ -329,84 +329,58 @@ export function LibraryBrowser() {
       )}
 
       <Box sx={{ ...libraryFlexFillSx, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        {tab === 'albums' && (
-          <AlbumListView
-            rows={albumCatalogRows}
-            apiForServer={apiForServer}
-            initialReady={initialReady}
-            syncing={syncing}
-            resolveCachedArtworkForScope={resolveCachedArtworkForScope}
-            artworkVersionKey={artworkVersionKey}
-            artworkVersionById={artworkVersionById}
-            onAlbumOpen={openAlbum}
-          />
-        )}
-
-        {tab === 'artists' &&
-          (artistAlbumScope && resolvedArtist && artistDetailApi ? (
-            artistAlbumScope.allSongs ? (
-              <ArtistAllSongListView
-                artistName={artistAlbumScope.name}
-                scrollRestorationKey={artistAlbumScope.id}
-                tracks={artistScopeTracks}
-                albums={albumsFromCachedSongs(resolvedArtist.slice.songs)}
-                api={artistDetailApi}
-                initialReady={initialReady}
-                syncing={syncing}
-                resolveCachedArtwork={(id) => resolveCachedArtworkForScope(resolvedArtist.slice.scope, id)}
-                artworkVersionById={artworkVersionById}
-                coverArtCacheBump={(id) =>
-                  id ? artworkVersionById[artworkVersionKey(id, resolvedArtist.slice.scope)] ?? 0 : 0
-                }
-                onPlayTrack={(t) => playTrackNow(resolvedArtist.slice.serverId, resolvedArtist.slice.libraryId, t)}
-                onPlayNextTrack={(t) => playNextForTrack(resolvedArtist.slice.serverId, resolvedArtist.slice.libraryId, t)}
-                onAppendTrackToQueue={(t) => appendForTrack(resolvedArtist.slice.serverId, resolvedArtist.slice.libraryId, t)}
-                onAppendAllToQueue={appendAllArtistTracksToQueue}
-                onShufflePlayAll={shufflePlayAllArtistTracks}
-                onBack={popArtistView}
-                serverId={resolvedArtist.slice.serverId}
-                libraryId={resolvedArtist.slice.libraryId}
-                setTrackStarred={setTrackStarred}
-              />
-            ) : (
-              <ArtistAlbumListView
-                artistName={artistAlbumScope.name}
-                scrollRestorationKey={artistAlbumScope.id}
-                allSongsTrackCount={artistScopeTracks.length}
-                albums={artistScopeAlbums}
-                api={artistDetailApi}
-                initialReady={initialReady}
-                syncing={syncing}
-                resolveCachedArtwork={(id) => resolveCachedArtworkForScope(resolvedArtist.slice.scope, id)}
-                artworkVersionById={artworkVersionById}
-                coverArtCacheBump={(id) =>
-                  id ? artworkVersionById[artworkVersionKey(id, resolvedArtist.slice.scope)] ?? 0 : 0
-                }
-                onAlbumOpen={(album) =>
-                  openAlbum({
-                    album,
-                    serverId: resolvedArtist.slice.serverId,
-                    artworkScope: resolvedArtist.slice.scope,
-                  })
-                }
-                onAllSongsOpen={openArtistAllSongs}
-                onBack={popArtistView}
-                onPlayNextAlbum={playNextForArtistAlbum}
-                onAppendAlbumToQueue={appendArtistAlbumToQueue}
-              />
-            )
-          ) : artistAlbumScope ? (
+        {tab === 'albums' &&
+          (artistAlbumScope && !artistAlbumScope.allSongs && resolvedArtist && artistDetailApi ? (
+            <ArtistAlbumListView
+              artistName={artistAlbumScope.name}
+              scrollRestorationKey={artistAlbumScope.id}
+              allSongsTrackCount={artistScopeTracks.length}
+              albums={artistScopeAlbums}
+              api={artistDetailApi}
+              initialReady={initialReady}
+              syncing={syncing}
+              resolveCachedArtwork={(id) => resolveCachedArtworkForScope(resolvedArtist.slice.scope, id)}
+              artworkVersionById={artworkVersionById}
+              coverArtCacheBump={(id) =>
+                id ? artworkVersionById[artworkVersionKey(id, resolvedArtist.slice.scope)] ?? 0 : 0
+              }
+              onAlbumOpen={(album) =>
+                openAlbum({
+                  album,
+                  serverId: resolvedArtist.slice.serverId,
+                  artworkScope: resolvedArtist.slice.scope,
+                })
+              }
+              onAllSongsOpen={openArtistAllSongs}
+              onBack={popArtistView}
+              onPlayNextAlbum={playNextForArtistAlbum}
+              onAppendAlbumToQueue={appendArtistAlbumToQueue}
+            />
+          ) : artistAlbumScope && !artistAlbumScope.allSongs ? (
             <Typography variant="body2" color="text.secondary">
               {t('library.linkMismatch.artist')}
             </Typography>
           ) : (
-            <ArtistListView
-              rows={artistCatalogRows}
+            <AlbumListView
+              rows={albumCatalogRows}
+              apiForServer={apiForServer}
               initialReady={initialReady}
               syncing={syncing}
-              onArtistOpen={openArtist}
+              resolveCachedArtworkForScope={resolveCachedArtworkForScope}
+              artworkVersionKey={artworkVersionKey}
+              artworkVersionById={artworkVersionById}
+              onAlbumOpen={openAlbum}
             />
           ))}
+
+        {tab === 'artists' && (
+          <ArtistListView
+            rows={artistCatalogRows}
+            initialReady={initialReady}
+            syncing={syncing}
+            onArtistOpen={openArtist}
+          />
+        )}
 
         {tab === 'playlists' &&
           (playlistEditorTarget ? (
@@ -516,6 +490,34 @@ export function LibraryBrowser() {
               onShufflePlayAll={shufflePlayAllAlbumTracks}
               setTrackStarred={setTrackStarred}
             />
+          ) : artistAlbumScope?.allSongs && resolvedArtist && artistDetailApi ? (
+            <ArtistAllSongListView
+              artistName={artistAlbumScope.name}
+              scrollRestorationKey={artistAlbumScope.id}
+              tracks={artistScopeTracks}
+              albums={albumsFromCachedSongs(resolvedArtist.slice.songs)}
+              api={artistDetailApi}
+              initialReady={initialReady}
+              syncing={syncing}
+              resolveCachedArtwork={(id) => resolveCachedArtworkForScope(resolvedArtist.slice.scope, id)}
+              artworkVersionById={artworkVersionById}
+              coverArtCacheBump={(id) =>
+                id ? artworkVersionById[artworkVersionKey(id, resolvedArtist.slice.scope)] ?? 0 : 0
+              }
+              onPlayTrack={(t) => playTrackNow(resolvedArtist.slice.serverId, resolvedArtist.slice.libraryId, t)}
+              onPlayNextTrack={(t) => playNextForTrack(resolvedArtist.slice.serverId, resolvedArtist.slice.libraryId, t)}
+              onAppendTrackToQueue={(t) => appendForTrack(resolvedArtist.slice.serverId, resolvedArtist.slice.libraryId, t)}
+              onAppendAllToQueue={appendAllArtistTracksToQueue}
+              onShufflePlayAll={shufflePlayAllArtistTracks}
+              onBack={popArtistView}
+              serverId={resolvedArtist.slice.serverId}
+              libraryId={resolvedArtist.slice.libraryId}
+              setTrackStarred={setTrackStarred}
+            />
+          ) : artistAlbumScope?.allSongs ? (
+            <Typography variant="body2" color="text.secondary">
+              {t('library.linkMismatch.artist')}
+            </Typography>
           ) : (
             <SongListView
               entries={songEntriesSorted}

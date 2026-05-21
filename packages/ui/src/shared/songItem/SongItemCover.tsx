@@ -1,0 +1,43 @@
+import type { LibraryArtworkCacheRow, SubsonicAPI } from "@asmusic/core";
+import { Box, ListItemAvatar } from "@mui/material";
+import { CoverArtThumb } from "../CoverArtThumb";
+import { COVER_SIZE } from "./constants";
+
+export function SongItemCover({
+  api,
+  coverArtId,
+  resolveCachedArtwork,
+  artworkCacheBump,
+}: {
+  api: SubsonicAPI | null;
+  coverArtId?: string;
+  resolveCachedArtwork: (
+    coverArtId: string,
+  ) => Promise<LibraryArtworkCacheRow | null>;
+  artworkCacheBump: number;
+}) {
+  const coverSx = {
+    width: COVER_SIZE,
+    height: COVER_SIZE,
+    borderRadius: 1,
+    overflow: "hidden",
+  } as const;
+
+  return (
+    <ListItemAvatar sx={{ minWidth: 48 }}>
+      {api ? (
+        <CoverArtThumb
+          api={api}
+          coverArtId={coverArtId}
+          resolveCachedArtwork={resolveCachedArtwork}
+          artworkCacheBump={artworkCacheBump}
+          size={48}
+          label=""
+          sx={coverSx}
+        />
+      ) : (
+        <Box sx={{ ...coverSx, bgcolor: "action.hover" }} aria-hidden />
+      )}
+    </ListItemAvatar>
+  );
+}

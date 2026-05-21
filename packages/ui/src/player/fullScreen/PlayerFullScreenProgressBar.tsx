@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Box from "@mui/material/Box";
 import Slider from "@mui/material/Slider";
 import Typography from "@mui/material/Typography";
@@ -9,7 +9,7 @@ import {
   usePlayerTransportState,
 } from "../../contexts/PlayerContext";
 import { useWaveformProgressBarEnabled } from "../../preferences/waveformProgressBarPreference";
-import { WAVEFORM_PLACEHOLDER_PEAKS } from "../WaveformProgressBar";
+import { useOfflineReadyForItem } from "../useOfflineReadyForItem";
 import { WaveformScrubBar } from "./WaveformScrubBar";
 import { useWaveformPeaks } from "./useWaveformPeaks";
 
@@ -32,10 +32,15 @@ export function PlayerFullScreenProgressBar() {
   const item = state.currentItem;
   const busy = Boolean(item);
   const waveformEnabled = useWaveformProgressBarEnabled();
-  const useWaveform = state.playingFromLocalFile && waveformEnabled;
+  const offlineReady = useOfflineReadyForItem(item);
+  const wantWaveform = Boolean(
+    waveformEnabled &&
+      item &&
+      (state.playingFromLocalFile || offlineReady),
+  );
 
-  const waveform = useWaveformPeaks(item, useWaveform);
-  const showWaveform = useWaveform;
+  const waveform = useWaveformPeaks(item, wantWaveform);
+  const showWaveform = wantWaveform && waveform.status === "ready";
 
   const [scrub, setScrub] = useState<number | null>(null);
   const displayPos = scrub ?? state.positionSeconds;
@@ -44,10 +49,7 @@ export function PlayerFullScreenProgressBar() {
       ? state.durationSeconds
       : (item?.durationSeconds ?? 0);
 
-  const waveformPeaks = useMemo(() => {
-    if (waveform.status === "ready") return waveform.peaks;
-    return WAVEFORM_PLACEHOLDER_PEAKS;
-  }, [waveform]);
+  const waveformPeaks = waveform.status === "ready" ? waveform.peaks : [];
 
   const formatBitrateCaption =
     item &&

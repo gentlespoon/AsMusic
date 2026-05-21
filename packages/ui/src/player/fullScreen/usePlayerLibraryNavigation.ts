@@ -100,7 +100,7 @@ export function usePlayerLibraryNavigation() {
       const artistName = item.artist?.trim();
       if (!artistId || !artistName) return;
       navigateToLibrary({
-        tab: "artists",
+        tab: "albums",
         album: null,
         artist: {
           id: encodeEntityId(item, artistId),

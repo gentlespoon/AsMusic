@@ -1,10 +1,10 @@
-/** Base height of the fixed mini player (excluding device safe-area inset, applied separately on the bar). */
-export const PLAYER_MINI_BAR_BASE_PX = 96;
+/** Base height of the fixed mini player (positioned above the bottom safe area). */
+export const PLAYER_MINI_BAR_BASE_PX = 56;
 
 /** Height when the full-screen player is open (queue + minimize controls only). */
 export const PLAYER_MINI_BAR_COMPACT_PX = 56;
 
-/** Reserve space for the always-visible mini player - home indicator safe area.  */
+/** Reserve space for the fixed mini player (sits above the bottom safe area). */
 export const playerDockPaddingBottomSx = {
-  pb: `calc(${PLAYER_MINI_BAR_BASE_PX}px - env(safe-area-inset-bottom, 0px))`,
+  pb: `${PLAYER_MINI_BAR_BASE_PX}px`,
 } as const;

@@ -12,6 +12,9 @@ import type {
 import { AsmusicNative } from './asmusicNativePlugin';
 import { capacitorClipboard } from './capacitorClipboard';
 import { capacitorHaptics } from './capacitorHaptics';
+import { installCapacitorOfflineMediaEventBridge } from './installCapacitorOfflineMediaEventBridge';
+
+installCapacitorOfflineMediaEventBridge();
 
 const libraryCache = createCapacitorIosSqliteLibraryCacheStorage();
 const offlineMedia = createCapacitorIosOfflineMediaStorage();

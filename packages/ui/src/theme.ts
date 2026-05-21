@@ -62,6 +62,15 @@ export function createAppTheme(mode: PaletteMode) {
           body: {
             WebkitFontSmoothing: 'antialiased',
           },
+          '*, *::before, *::after': {
+            userSelect: 'none',
+            WebkitUserSelect: 'none',
+            WebkitTouchCallout: 'none',
+          },
+          'input, textarea, [contenteditable="true"]': {
+            userSelect: 'text',
+            WebkitUserSelect: 'text',
+          },
         },
       },
     },

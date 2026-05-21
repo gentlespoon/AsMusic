@@ -7,8 +7,8 @@
  * - `albumId`: optional; opens that album’s track list (songs tab). With multiple active libraries,
  *   this may be an opaque `lb1.` + base64url ref (see {@link encodeLibraryBrowserRef}) so the row
  *   resolves to the correct cache scope (no separate `serverId` / `libraryId` query params).
- * - `artistId`: optional (without `albumId`); opens that artist’s album list (artists tab); same `lb1.` rule.
- * - `artistSongs`: optional `1` with `artistId`; opens all cached tracks for that artist (artists tab).
+ * - `artistId`: optional (without `albumId`); opens that artist’s album list (albums tab); same `lb1.` rule.
+ * - `artistSongs`: optional `1` with `artistId`; opens all cached tracks for that artist (songs tab).
  * - `playlistId`: optional; opens that playlist’s track list (playlists tab); same `lb1.` rule.
  *
  * Optional: `artistName` for display before the artist list is resolved from cache.
@@ -93,6 +93,15 @@ function isTab(v: string | null): v is LibraryBrowserTab {
   return v === 'albums' || v === 'artists' || v === 'songs' || v === 'favorites' || v === 'playlists';
 }
 
+/** True when the URL already specifies tab or a library deep link (do not override from prefs). */
+export function hasExplicitLibraryBrowserNavigation(searchParams: URLSearchParams): boolean {
+  if (searchParams.get(LIBRARY_URL_TAB)) return true;
+  if (searchParams.get(LIBRARY_URL_ALBUM_ID)?.trim()) return true;
+  if (searchParams.get(LIBRARY_URL_ARTIST_ID)?.trim()) return true;
+  if (searchParams.get(LIBRARY_URL_PLAYLIST_ID)?.trim()) return true;
+  return false;
+}
+
 export function parseLibraryBrowserView(searchParams: URLSearchParams): LibraryBrowserView {
   const rawTab = searchParams.get(LIBRARY_URL_TAB);
   let tab: LibraryBrowserTab = isTab(rawTab) ? rawTab : defaultLibraryBrowserView.tab;
@@ -113,7 +122,7 @@ export function parseLibraryBrowserView(searchParams: URLSearchParams): LibraryB
   }
   if (artistId) {
     return {
-      tab: 'artists',
+      tab: artistAllSongs ? 'songs' : 'albums',
       album: null,
       artist: { id: artistId, name: artistName.length > 0 ? artistName : artistId, allSongs: artistAllSongs },
       playlist: null,

@@ -5,6 +5,7 @@ import {
   AppBar,
   Box,
   Container,
+  Divider,
   List,
   ListItemButton,
   ListItemText,
@@ -12,8 +13,10 @@ import {
   Toolbar,
 } from "@mui/material";
 import { PageCloseButton } from "../../shared/PageCloseButton";
+import { useEdgeSwipeBack } from "../../shared/useEdgeSwipeBack";
 import {
   SettingsAppBarTitle,
+  SettingsListItemCaption,
   SettingsListItemTitle,
   SettingsPageDescription,
 } from "./SettingsTypography";
@@ -22,8 +25,11 @@ import { playerDockPaddingBottomSx } from "../../player/core/constants";
 export function SettingsView() {
   const t = useT();
   const navigate = useNavigate();
+  const edgeSwipeBack = useEdgeSwipeBack(() => navigate("/"));
+
   return (
     <Box
+      {...edgeSwipeBack}
       sx={{
         minHeight:
           "calc(100dvh - var(--safe-area-top) - var(--safe-area-bottom))",
@@ -38,7 +44,9 @@ export function SettingsView() {
         </Toolbar>
       </AppBar>
       <Container maxWidth="sm" sx={{ py: 3 }}>
-        <SettingsPageDescription>{t("settings.description")}</SettingsPageDescription>
+        <SettingsPageDescription>
+          {t("settings.description")}
+        </SettingsPageDescription>
 
         <Paper
           variant="outlined"
@@ -54,8 +62,16 @@ export function SettingsView() {
               sx={{ py: 1.5, px: 2 }}
             >
               <ListItemText
+                disableTypography
                 primary={
-                  <SettingsListItemTitle kind="nav">{t("settings.userExperience")}</SettingsListItemTitle>
+                  <>
+                    <SettingsListItemTitle kind="nav">
+                      {t("settings.userExperience")}
+                    </SettingsListItemTitle>
+                    <SettingsListItemCaption>
+                      {t("settings.userExperience.caption")}
+                    </SettingsListItemCaption>
+                  </>
                 }
               />
               <ChevronRight
@@ -63,13 +79,22 @@ export function SettingsView() {
                 fontSize="small"
               />
             </ListItemButton>
+            <Divider component="li" />
             <ListItemButton
               onClick={() => navigate("/settings/servers-libraries")}
               sx={{ py: 1.5, px: 2 }}
             >
               <ListItemText
+                disableTypography
                 primary={
-                  <SettingsListItemTitle kind="nav">{t("settings.serversLibraries")}</SettingsListItemTitle>
+                  <>
+                    <SettingsListItemTitle kind="nav">
+                      {t("settings.serversLibraries")}
+                    </SettingsListItemTitle>
+                    <SettingsListItemCaption>
+                      {t("settings.serversLibraries.caption")}
+                    </SettingsListItemCaption>
+                  </>
                 }
               />
               <ChevronRight

@@ -44,8 +44,8 @@ export interface OfflineMediaStore {
   /** Local playback URL when status is `ready`; otherwise `null`. */
   getReadyPlaybackSource(key: OfflineMediaKey): Promise<OfflinePlaybackSource | null>;
   /**
-   * Normalized peak samples in `[0, 1]` for waveform UI. Native iOS implements via AVFoundation;
-   * web may omit and rely on Web Audio in the UI layer.
+   * Normalized peak samples in `[0, 1]` for waveform UI. Implementations must return persisted
+   * peaks from the offline track row when present; otherwise compute, persist, and return.
    */
   getWaveformPeaks?(key: OfflineMediaKey, barCount: number): Promise<number[] | null>;
   /**

@@ -1,5 +1,6 @@
 import { getEmbeddedAppBuildInfo } from '@asmusic/core';
 import { Capacitor } from '@capacitor/core';
+import { appAssetUrl } from './appBasePath';
 
 export type AppBuildInfo = {
   version: string;
@@ -21,7 +22,7 @@ function readWebBuildInfoFromEnv(): AppBuildInfo | null {
 
 async function readWebBuildInfoFromManifest(): Promise<AppBuildInfo | null> {
   try {
-    const response = await fetch('/app-info.json', { cache: 'no-store' });
+    const response = await fetch(appAssetUrl('app-info.json'), { cache: 'no-store' });
     if (!response.ok) return null;
     const data: unknown = await response.json();
     if (

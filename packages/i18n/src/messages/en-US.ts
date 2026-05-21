@@ -162,8 +162,11 @@ export const enUSMessages = {
   "nav.title": "AsMusic",
 
   "offline.downloaded.empty": "No downloaded tracks yet.",
+  "offline.downloaded.filter": "Filter downloaded tracks",
   "offline.downloaded.loadError": "Could not load offline library",
   "offline.downloaded.loading": "Loading…",
+  "offline.downloaded.noMatch": "No downloaded tracks match your search.",
+  "offline.downloaded.search": "Search downloaded tracks",
   "offline.downloaded.tab": "Downloaded",
   "offline.downloaded.trackCount": "{count} tracks",
   "offline.downloading.cancelAll": "Cancel all jobs",
@@ -178,6 +181,14 @@ export const enUSMessages = {
     'No bulk download jobs. Use "Download album offline" from an album view.',
   "offline.downloading.tab": "Downloading",
   "offline.storageUsed": "{size} used",
+  "offline.storageUsed.activeLibraries": "{size} · active libraries",
+  "offline.storageUsed.allLibraries": "{size} · all libraries",
+  "offline.storageMenu": "Offline storage",
+  "offline.clearActive": "Clear active library downloads",
+  "offline.clearActive.busy": "Clearing…",
+  "offline.clearActive.confirmBody":
+    "This removes downloaded tracks for libraries you have activated. Downloads for other libraries are kept.",
+  "offline.clearActive.confirmTitle": "Clear active library downloads?",
   "offline.clearAll": "Clear all downloads",
   "offline.clearAll.busy": "Clearing…",
   "offline.clearAll.confirmBody":

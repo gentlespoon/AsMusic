@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Child } from 'subsonic-api';
 import PlaylistAdd from '@mui/icons-material/PlaylistAdd';
 import Shuffle from '@mui/icons-material/Shuffle';
-import { Box, IconButton, Stack, Tooltip, Typography } from '@mui/material';
+import { Box, IconButton, Stack, TextField, Tooltip, Typography } from '@mui/material';
 import { Virtuoso } from 'react-virtuoso';
 import { LibraryVirtuosoFill, libraryFlexFillSx } from '../../shared/LibraryVirtuosoFill';
 import { VirtuosoMuiList } from '../../shared/virtuosoMuiList';
@@ -15,10 +15,11 @@ import {
   type SubsonicAPI,
 } from '@asmusic/core';
 import { useHost } from '../../host/HostContext';
-import { usePlayerActions, useServerAndLibrary } from '../../contexts';
+import { useActiveLibraryScopes, usePlayerActions, useServerAndLibrary } from '../../contexts';
 import { playerQueueItemFromChild } from '../../player/core/playerQueueItemFromChild';
 import type { PlayerQueueItem } from '../../player/core/types';
 import { SongItem } from '../../shared/SongItem';
+import { songMatchesQuery } from '../../shared/songSearch';
 import { formatBytes } from '../../utils/formatBytes';
 
 type RowModel = {
@@ -56,11 +57,19 @@ export function DownloadedSongListView({ reloadNonce = 0 }: DownloadedSongListVi
   const t = useT();
   const { format } = useI18n();
   const host = useHost();
+  const activeScopes = useActiveLibraryScopes();
   const { servers, getApiForServer } = useServerAndLibrary();
   const { insertAfterCurrent, appendToQueue, replaceQueueAndPlay } = usePlayerActions();
   const [rows, setRows] = useState<RowModel[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+
+  const filteredRows = useMemo(
+    () => rows.filter((r) => songMatchesQuery(r.track, search)),
+    [rows, search]
+  );
+  const queryTrimmed = search.trim();
 
   const serverLabelForKey = useCallback(
     (scope: LibraryCacheScope) => {
@@ -74,7 +83,10 @@ export function DownloadedSongListView({ reloadNonce = 0 }: DownloadedSongListVi
     setLoading(true);
     setError(null);
     try {
-      const keys = await host.offlineMedia.listReadyKeys(null);
+      const keyLists = await Promise.all(
+        activeScopes.map((scope) => host.offlineMedia.listReadyKeys(scope))
+      );
+      const keys = keyLists.flat();
       const scopeCache = new Map<string, Child[]>();
       const next: RowModel[] = [];
       for (const key of keys) {
@@ -117,7 +129,7 @@ export function DownloadedSongListView({ reloadNonce = 0 }: DownloadedSongListVi
     } finally {
       setLoading(false);
     }
-  }, [host, servers, getApiForServer, t]);
+  }, [host, activeScopes, servers, getApiForServer, t]);
 
   useEffect(() => {
     void load();
@@ -133,38 +145,38 @@ export function DownloadedSongListView({ reloadNonce = 0 }: DownloadedSongListVi
 
   const playRowNow = useCallback(
     (rowIndex: number) => {
-      const q = rows[rowIndex]?.queueItem;
+      const q = filteredRows[rowIndex]?.queueItem;
       if (!q) return;
       void insertAfterCurrent([q], { playFirst: true });
     },
-    [rows, insertAfterCurrent]
+    [filteredRows, insertAfterCurrent]
   );
 
   const playNextForRow = useCallback(
     (rowIndex: number) => {
-      const q = rows[rowIndex]?.queueItem;
+      const q = filteredRows[rowIndex]?.queueItem;
       if (!q) return;
       void insertAfterCurrent([q], { playFirst: false });
     },
-    [rows, insertAfterCurrent]
+    [filteredRows, insertAfterCurrent]
   );
 
   const appendForRow = useCallback(
     (rowIndex: number) => {
-      const q = rows[rowIndex]?.queueItem;
+      const q = filteredRows[rowIndex]?.queueItem;
       if (!q) return;
       void appendToQueue([q]);
     },
-    [rows, appendToQueue]
+    [filteredRows, appendToQueue]
   );
 
   const appendableQueueItems = useMemo(() => {
     const out: PlayerQueueItem[] = [];
-    for (const r of rows) {
+    for (const r of filteredRows) {
       if (r.queueItem) out.push(r.queueItem);
     }
     return out;
-  }, [rows]);
+  }, [filteredRows]);
 
   const appendAllDownloadedToQueue = useCallback(() => {
     if (appendableQueueItems.length === 0) return;
@@ -180,8 +192,9 @@ export function DownloadedSongListView({ reloadNonce = 0 }: DownloadedSongListVi
     if (loading) return t('offline.downloaded.loading');
     if (error) return error;
     if (rows.length === 0) return t('offline.downloaded.empty');
-    return format.count(rows.length, { one: t('word.track'), other: t('word.tracks') });
-  }, [loading, error, rows.length, t, format]);
+    const count = queryTrimmed.length > 0 ? filteredRows.length : rows.length;
+    return format.count(count, { one: t('word.track'), other: t('word.tracks') });
+  }, [loading, error, rows.length, filteredRows.length, queryTrimmed, t, format]);
 
   return (
     <Box
@@ -192,44 +205,69 @@ export function DownloadedSongListView({ reloadNonce = 0 }: DownloadedSongListVi
         overflow: 'hidden',
       }}
     >
-      <Stack sx={{ flexDirection: 'row', alignItems: 'center', gap: 1, mb: 2, flexShrink: 0 }}>
-        <Typography variant="body2" color="text.secondary" sx={{ flex: 1, minWidth: 0 }}>
-          {header}
-        </Typography>
-        <Tooltip title={t('player.action.addAllToQueue')}>
-          <span>
-            <IconButton
-              size="small"
-              color="primary"
-              aria-label={t('player.action.addAllToQueue')}
-              disabled={loading || !!error || appendableQueueItems.length === 0}
-              onClick={appendAllDownloadedToQueue}
-            >
-              <PlaylistAdd fontSize="small" />
-            </IconButton>
-          </span>
-        </Tooltip>
-        <Tooltip title={t('player.action.shuffleAll')}>
-          <span>
-            <IconButton
-              size="small"
-              color="primary"
-              aria-label={t('player.action.shuffleAll')}
-              disabled={loading || !!error || appendableQueueItems.length === 0}
-              onClick={shufflePlayAllDownloaded}
-            >
-              <Shuffle fontSize="small" />
-            </IconButton>
-          </span>
-        </Tooltip>
-      </Stack>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2, flexShrink: 0 }}>
+        {header}
+      </Typography>
+
+      {!loading && !error && rows.length > 0 && (
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{ flexShrink: 0, mb: 2, alignItems: 'center' }}
+        >
+          <TextField
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={t('offline.downloaded.search')}
+            aria-label={t('offline.downloaded.filter')}
+            fullWidth
+            size="small"
+            sx={{ flex: 1, minWidth: 0 }}
+          />
+          <Tooltip title={t('player.action.addAllToQueue')}>
+            <span>
+              <IconButton
+                size="small"
+                color="primary"
+                aria-label={t('player.action.addAllToQueue')}
+                disabled={appendableQueueItems.length === 0}
+                onClick={appendAllDownloadedToQueue}
+              >
+                <PlaylistAdd fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
+          <Tooltip title={t('player.action.shuffleAll')}>
+            <span>
+              <IconButton
+                size="small"
+                color="primary"
+                aria-label={t('player.action.shuffleAll')}
+                disabled={appendableQueueItems.length === 0}
+                onClick={shufflePlayAllDownloaded}
+              >
+                <Shuffle fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
+        </Stack>
+      )}
 
       <Box sx={{ ...libraryFlexFillSx, display: 'flex', flexDirection: 'column' }}>
-        {!loading && !error && rows.length > 0 && (
+        {!loading &&
+          !error &&
+          rows.length > 0 &&
+          filteredRows.length === 0 &&
+          queryTrimmed.length > 0 && (
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              {t('offline.downloaded.noMatch')}
+            </Typography>
+          )}
+        {!loading && !error && filteredRows.length > 0 && (
           <LibraryVirtuosoFill>
             <Virtuoso
               style={{ height: '100%', width: '100%', minHeight: 0 }}
-              data={rows}
+              data={filteredRows}
               components={{ List: VirtuosoMuiList }}
               computeItemKey={(_, r) =>
                 `${r.key.scope.serverKey}|${r.key.scope.libraryId}|${r.key.trackId}|${r.key.variant ?? ''}`

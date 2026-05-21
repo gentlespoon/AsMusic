@@ -345,6 +345,16 @@ export function createIndexedDbOfflineMediaStorage(): OfflineMediaStore {
       });
     },
 
+    async purgeAll(): Promise<void> {
+      const db = await openDb();
+      await new Promise<void>((resolve, reject) => {
+        const tx = db.transaction('tracks', 'readwrite');
+        tx.onerror = () => reject(tx.error ?? new Error('IDB purgeAll tx failed'));
+        tx.oncomplete = () => resolve();
+        tx.objectStore('tracks').clear();
+      });
+    },
+
     async deleteServerAccount(serverKey: string): Promise<void> {
       const db = await openDb();
       await new Promise<void>((resolve, reject) => {

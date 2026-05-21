@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useT } from "@asmusic/i18n";
 import { useNavigate } from "react-router-dom";
 import Delete from "@mui/icons-material/Delete";
+import MoreVert from "@mui/icons-material/MoreVert";
 import {
   AppBar,
   Box,
@@ -12,6 +13,9 @@ import {
   DialogContent,
   DialogTitle,
   IconButton,
+  ListItemText,
+  Menu,
+  MenuItem,
   Tab,
   Tabs,
   Toolbar,
@@ -22,54 +26,103 @@ import { PageCloseButton } from "../../shared/PageCloseButton";
 import { DownloadedSongListView } from "./DownloadedSongListView";
 import { DownloadingSongListView } from "./DownloadingSongListView";
 import { useHost } from "../../host/HostContext";
+import { useActiveLibraryScopes } from "../../contexts";
 import { useOfflineDownload } from "../../contexts/OfflineDownloadContext";
 import { libraryFlexFillSx } from "../../shared/LibraryVirtuosoFill";
 import { playerDockPaddingBottomSx } from "../../player/core/constants";
 import { formatBytes } from "../../utils/formatBytes";
 
+type ClearTarget = "active" | "all";
+
 export function OfflineDownloadedView() {
   const t = useT();
   const navigate = useNavigate();
   const host = useHost();
+  const activeScopes = useActiveLibraryScopes();
   const { cancelAllJobs } = useOfflineDownload();
   const [tab, setTab] = useState(0);
-  const [totalBytes, setTotalBytes] = useState<number | null>(null);
+  const [activeBytes, setActiveBytes] = useState<number | null>(null);
+  const [allBytes, setAllBytes] = useState<number | null>(null);
   const [listReloadNonce, setListReloadNonce] = useState(0);
-  const [clearOpen, setClearOpen] = useState(false);
+  const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
+  const [clearTarget, setClearTarget] = useState<ClearTarget | null>(null);
   const [clearBusy, setClearBusy] = useState(false);
 
   const refreshTotalBytes = useCallback(() => {
-    void host.offlineMedia.totalReadyBytes(null).then(setTotalBytes);
-  }, [host]);
+    void Promise.all([
+      Promise.all(activeScopes.map((scope) => host.offlineMedia.totalReadyBytes(scope))).then(
+        (parts) => parts.reduce((sum, n) => sum + n, 0)
+      ),
+      host.offlineMedia.totalReadyBytes(null),
+    ]).then(([active, all]) => {
+      setActiveBytes(active);
+      setAllBytes(all);
+    });
+  }, [host, activeScopes]);
 
   useEffect(() => {
     let cancelled = false;
-    void host.offlineMedia.totalReadyBytes(null).then((n) => {
-      if (!cancelled) setTotalBytes(n);
+    void Promise.all([
+      Promise.all(activeScopes.map((scope) => host.offlineMedia.totalReadyBytes(scope))).then(
+        (parts) => parts.reduce((sum, n) => sum + n, 0)
+      ),
+      host.offlineMedia.totalReadyBytes(null),
+    ]).then(([active, all]) => {
+      if (!cancelled) {
+        setActiveBytes(active);
+        setAllBytes(all);
+      }
     });
     return () => {
       cancelled = true;
     };
-  }, [host, tab, listReloadNonce]);
+  }, [host, activeScopes, tab, listReloadNonce]);
 
-  const storageLabel =
-    totalBytes == null
+  const activeStorageLabel =
+    activeBytes == null
       ? "…"
-      : t("offline.storageUsed", { size: formatBytes(totalBytes) });
+      : t("offline.storageUsed.activeLibraries", { size: formatBytes(activeBytes) });
+  const allStorageLabel =
+    allBytes == null
+      ? "…"
+      : t("offline.storageUsed.allLibraries", { size: formatBytes(allBytes) });
+
+  const handleClearActive = useCallback(async () => {
+    setClearBusy(true);
+    try {
+      await Promise.all(activeScopes.map((scope) => host.offlineMedia.deleteScope(scope)));
+      setListReloadNonce((n) => n + 1);
+      refreshTotalBytes();
+      setClearTarget(null);
+    } finally {
+      setClearBusy(false);
+    }
+  }, [host, activeScopes, refreshTotalBytes]);
 
   const handleClearAll = useCallback(async () => {
     setClearBusy(true);
     try {
       cancelAllJobs();
-      const keys = await host.offlineMedia.listReadyKeys(null);
-      await Promise.all(keys.map((key) => host.offlineMedia.delete(key)));
+      await host.offlineMedia.purgeAll();
       setListReloadNonce((n) => n + 1);
       refreshTotalBytes();
-      setClearOpen(false);
+      setClearTarget(null);
     } finally {
       setClearBusy(false);
     }
   }, [cancelAllJobs, host, refreshTotalBytes]);
+
+  const confirmOpen = clearTarget != null;
+  const confirmTitle =
+    clearTarget === "active"
+      ? t("offline.clearActive.confirmTitle")
+      : t("offline.clearAll.confirmTitle");
+  const confirmBody =
+    clearTarget === "active"
+      ? t("offline.clearActive.confirmBody")
+      : t("offline.clearAll.confirmBody");
+  const confirmBusyLabel =
+    clearTarget === "active" ? t("offline.clearActive.busy") : t("offline.clearAll.busy");
 
   return (
     <Box
@@ -98,22 +151,85 @@ export function OfflineDownloadedView() {
             color="text.secondary"
             sx={{ flexShrink: 0, whiteSpace: "nowrap" }}
           >
-            {storageLabel}
+            {allStorageLabel}
           </Typography>
-          <Tooltip title={t("offline.clearAll")}>
+          <Tooltip title={t("offline.storageMenu")}>
             <span>
               <IconButton
                 edge="end"
                 size="small"
-                color="error"
-                aria-label={t("offline.clearAll")}
-                disabled={clearBusy || totalBytes == null || totalBytes === 0}
-                onClick={() => setClearOpen(true)}
+                aria-label={t("offline.storageMenu")}
+                aria-haspopup="true"
+                aria-expanded={Boolean(menuAnchor)}
+                onClick={(e) => setMenuAnchor(e.currentTarget)}
               >
-                <Delete fontSize="small" />
+                <MoreVert fontSize="small" />
               </IconButton>
             </span>
           </Tooltip>
+          <Menu
+            anchorEl={menuAnchor}
+            open={Boolean(menuAnchor)}
+            onClose={() => setMenuAnchor(null)}
+            anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+            transformOrigin={{ vertical: "top", horizontal: "right" }}
+            slotProps={{ paper: { sx: { minWidth: 280 } } }}
+          >
+            <MenuItem
+              disableGutters
+              sx={{ py: 0.5, pl: 2, pr: 0.5, gap: 0.5 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <ListItemText
+                primary={activeStorageLabel}
+                slotProps={{ primary: { variant: "body2", noWrap: true } }}
+                sx={{ minWidth: 0, mr: 0.5 }}
+              />
+              <Tooltip title={t("offline.clearActive")}>
+                <span>
+                  <IconButton
+                    size="small"
+                    color="error"
+                    aria-label={t("offline.clearActive")}
+                    disabled={clearBusy || activeBytes == null || activeBytes === 0}
+                    onClick={() => {
+                      setMenuAnchor(null);
+                      setClearTarget("active");
+                    }}
+                  >
+                    <Delete fontSize="small" />
+                  </IconButton>
+                </span>
+              </Tooltip>
+            </MenuItem>
+            <MenuItem
+              disableGutters
+              sx={{ py: 0.5, pl: 2, pr: 0.5, gap: 0.5 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <ListItemText
+                primary={allStorageLabel}
+                slotProps={{ primary: { variant: "body2", noWrap: true } }}
+                sx={{ minWidth: 0, mr: 0.5 }}
+              />
+              <Tooltip title={t("offline.clearAll")}>
+                <span>
+                  <IconButton
+                    size="small"
+                    color="error"
+                    aria-label={t("offline.clearAll")}
+                    disabled={clearBusy || allBytes == null || allBytes === 0}
+                    onClick={() => {
+                      setMenuAnchor(null);
+                      setClearTarget("all");
+                    }}
+                  >
+                    <Delete fontSize="small" />
+                  </IconButton>
+                </span>
+              </Tooltip>
+            </MenuItem>
+          </Menu>
         </Toolbar>
       </AppBar>
       <Container
@@ -175,26 +291,26 @@ export function OfflineDownloadedView() {
       </Container>
 
       <Dialog
-        open={clearOpen}
-        onClose={() => !clearBusy && setClearOpen(false)}
+        open={confirmOpen}
+        onClose={() => !clearBusy && setClearTarget(null)}
       >
-        <DialogTitle>{t("offline.clearAll.confirmTitle")}</DialogTitle>
+        <DialogTitle>{confirmTitle}</DialogTitle>
         <DialogContent>
-          <Typography variant="body2">
-            {t("offline.clearAll.confirmBody")}
-          </Typography>
+          <Typography variant="body2">{confirmBody}</Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setClearOpen(false)} disabled={clearBusy}>
+          <Button onClick={() => setClearTarget(null)} disabled={clearBusy}>
             {t("common.cancel")}
           </Button>
           <Button
             color="error"
             variant="contained"
             disabled={clearBusy}
-            onClick={() => void handleClearAll()}
+            onClick={() =>
+              void (clearTarget === "active" ? handleClearActive() : handleClearAll())
+            }
           >
-            {clearBusy ? t("offline.clearAll.busy") : t("common.clear")}
+            {clearBusy ? confirmBusyLabel : t("common.clear")}
           </Button>
         </DialogActions>
       </Dialog>

@@ -164,6 +164,10 @@ export const esESMessages = {
   "nav.title": "AsMusic",
 
   "offline.downloaded.empty": "Aún no hay pistas descargadas.",
+  "offline.downloaded.filter": "Filtrar pistas descargadas",
+  "offline.downloaded.noMatch":
+    "Ninguna pista descargada coincide con tu búsqueda.",
+  "offline.downloaded.search": "Buscar pistas descargadas",
   "offline.downloaded.loadError":
     "No se pudo cargar la biblioteca sin conexión",
   "offline.downloaded.loading": "Cargando…",
@@ -181,6 +185,14 @@ export const esESMessages = {
     "No hay trabajos de descarga masiva. Usa «Descargar álbum sin conexión» desde la vista de un álbum.",
   "offline.downloading.tab": "Descargando",
   "offline.storageUsed": "{size} en uso",
+  "offline.storageUsed.activeLibraries": "{size} · bibliotecas activas",
+  "offline.storageUsed.allLibraries": "{size} · todas las bibliotecas",
+  "offline.storageMenu": "Almacenamiento sin conexión",
+  "offline.clearActive": "Borrar descargas de bibliotecas activas",
+  "offline.clearActive.busy": "Borrando…",
+  "offline.clearActive.confirmBody":
+    "Elimina las pistas descargadas de las bibliotecas que tienes activadas. Las descargas de otras bibliotecas se conservan.",
+  "offline.clearActive.confirmTitle": "¿Borrar descargas de bibliotecas activas?",
   "offline.clearAll": "Borrar todas las descargas",
   "offline.clearAll.busy": "Borrando…",
   "offline.clearAll.confirmBody":

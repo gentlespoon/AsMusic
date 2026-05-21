@@ -406,7 +406,9 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
         if (!api) {
           throw new Error(`Could not open a session for ${sl.serverUrl}`);
         }
-        const { songs } = await refreshLibraryCache(api, host.libraryCache, sl.scope, (p) => setSyncProgress(p));
+        const { songs } = await refreshLibraryCache(api, host.libraryCache, sl.scope, (p) => setSyncProgress(p), {
+          offlineMedia: host.offlineMedia,
+        });
         const playlists = await host.libraryCache.readPlaylistSummaries(sl.scope);
         built.push({
           serverId: sl.serverId,

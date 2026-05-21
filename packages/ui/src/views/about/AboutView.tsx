@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
+import { appAssetUrl } from '../../app/appBasePath';
 import { getAppBuildLabel } from '../../app/appBuildInfo';
 import { useT } from '@asmusic/i18n';
 import { useNavigate } from 'react-router-dom';
@@ -129,7 +130,7 @@ export function AboutView() {
             ) : (
               <Box
                 component="img"
-                src="/icon/icon.png"
+                src={appAssetUrl('icon/icon.png')}
                 alt=""
                 sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 onError={() => setAppIconFailed(true)}

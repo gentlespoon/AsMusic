@@ -155,8 +155,11 @@ export const zhTWMessages = {
   "nav.title": "AsMusic",
 
   "offline.downloaded.empty": "尚無已下載曲目。",
+  "offline.downloaded.filter": "篩選已下載曲目",
   "offline.downloaded.loadError": "無法載入離線資料庫",
   "offline.downloaded.loading": "正在載入…",
+  "offline.downloaded.noMatch": "沒有符合的已下載曲目。",
+  "offline.downloaded.search": "搜尋已下載曲目",
   "offline.downloaded.tab": "已下載",
   "offline.downloaded.trackCount": "{count} 首曲目",
   "offline.downloading.cancelAll": "取消全部工作",
@@ -171,6 +174,14 @@ export const zhTWMessages = {
     "無批次下載工作。請在專輯檢視中使用「離線下載專輯」。",
   "offline.downloading.tab": "正在下載",
   "offline.storageUsed": "已用 {size}",
+  "offline.storageUsed.activeLibraries": "{size} · 已啟用資料庫",
+  "offline.storageUsed.allLibraries": "{size} · 全部資料庫",
+  "offline.storageMenu": "離線儲存空間",
+  "offline.clearActive": "清空已啟用資料庫的下載",
+  "offline.clearActive.busy": "正在清空…",
+  "offline.clearActive.confirmBody":
+    "將刪除已啟用資料庫中的已下載曲目，其他資料庫的下載會保留。",
+  "offline.clearActive.confirmTitle": "清空已啟用資料庫的下載？",
   "offline.clearAll": "清空全部下載",
   "offline.clearAll.busy": "正在清空…",
   "offline.clearAll.confirmBody":

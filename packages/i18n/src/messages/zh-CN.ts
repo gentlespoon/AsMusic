@@ -155,8 +155,11 @@ export const zhCNMessages = {
   "nav.title": "AsMusic",
 
   "offline.downloaded.empty": "尚无已下载曲目。",
+  "offline.downloaded.filter": "筛选已下载曲目",
   "offline.downloaded.loadError": "无法加载离线资料库",
   "offline.downloaded.loading": "正在加载…",
+  "offline.downloaded.noMatch": "没有匹配的已下载曲目。",
+  "offline.downloaded.search": "搜索已下载曲目",
   "offline.downloaded.tab": "已下载",
   "offline.downloaded.trackCount": "{count} 首曲目",
   "offline.downloading.cancelAll": "取消全部任务",
@@ -171,6 +174,14 @@ export const zhCNMessages = {
     "无批量下载任务。请在专辑视图中使用「离线下载专辑」。",
   "offline.downloading.tab": "正在下载",
   "offline.storageUsed": "已用 {size}",
+  "offline.storageUsed.activeLibraries": "{size} · 已启用库",
+  "offline.storageUsed.allLibraries": "{size} · 全部库",
+  "offline.storageMenu": "离线存储",
+  "offline.clearActive": "清空已启用库的下载",
+  "offline.clearActive.busy": "正在清空…",
+  "offline.clearActive.confirmBody":
+    "将删除已启用库中的已下载曲目，其他库的下载会保留。",
+  "offline.clearActive.confirmTitle": "清空已启用库的下载？",
   "offline.clearAll": "清空全部下载",
   "offline.clearAll.busy": "正在清空…",
   "offline.clearAll.confirmBody":

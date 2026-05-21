@@ -3,7 +3,7 @@ import { BrowserRouter } from "react-router-dom";
 import "@fontsource/roboto/400.css";
 import "@fontsource/roboto/500.css";
 import "@fontsource/roboto/700.css";
-import { AppThemeProvider, HostProvider, App } from "@asmusic/ui";
+import { AppThemeProvider, HostProvider, App, getAppRouterBasename } from "@asmusic/ui";
 import "./index.css";
 
 const rootEl = document.getElementById("root");
@@ -15,7 +15,10 @@ createRoot(rootEl).render(
   // <StrictMode>
   <AppThemeProvider>
     <HostProvider>
-      <BrowserRouter>
+      <BrowserRouter
+        basename={getAppRouterBasename()}
+        future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+      >
         <App />
       </BrowserRouter>
     </HostProvider>

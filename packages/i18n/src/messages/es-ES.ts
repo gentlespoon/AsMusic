@@ -349,6 +349,9 @@ export const esESMessages = {
   "settings.ux.appearance.auto": "Automático",
   "settings.ux.appearance.caption":
     "Automático sigue el modo claro u oscuro del sistema.",
+  "settings.ux.appearance.blackBackground": "Usar fondo negro",
+  "settings.ux.appearance.blackBackground.caption":
+    "Usa fondos negros puros en modo oscuro.",
   "settings.ux.appearance.dark": "Oscuro",
   "settings.ux.appearance.light": "Claro",
   "settings.ux.language": "Idioma de la interfaz",

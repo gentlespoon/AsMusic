@@ -326,6 +326,8 @@ export const zhTWMessages = {
   "settings.ux.appearance": "外觀",
   "settings.ux.appearance.auto": "自動",
   "settings.ux.appearance.caption": "自動跟隨系統的淺色或深色模式。",
+  "settings.ux.appearance.blackBackground": "使用黑色背景",
+  "settings.ux.appearance.blackBackground.caption": "在深色模式下使用純黑背景。",
   "settings.ux.appearance.dark": "深色",
   "settings.ux.appearance.light": "淺色",
   "settings.ux.language": "顯示語言",

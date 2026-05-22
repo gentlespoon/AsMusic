@@ -15,7 +15,7 @@ export type SongItemProps = {
   includeAlbumInSecondary: boolean;
   /** When set, replaces the default artist/album/duration secondary line. */
   secondaryContent?: ReactNode;
-  /** When true and `onRemove` is set, shows a trash action (offline downloads, etc.). */
+  /** When true and `onRemove` is set, adds remove-download to the song actions menu. */
   showRemoveButton?: boolean;
   onRemove?: () => void;
   /** Primary tap: play this track immediately after the current item (queue-preserving). */

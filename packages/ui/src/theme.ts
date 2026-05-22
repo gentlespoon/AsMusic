@@ -16,6 +16,14 @@ const darkPalette = {
   },
 };
 
+const darkBlackPalette = {
+  ...darkPalette,
+  background: {
+    default: '#000000',
+    paper: '#0a0a0a',
+  },
+};
+
 const lightPalette = {
   mode: 'light' as const,
   primary: { main: PRIMARY_MAIN },
@@ -30,8 +38,9 @@ const lightPalette = {
   },
 };
 
-export function createAppTheme(mode: PaletteMode) {
-  const palette = mode === 'dark' ? darkPalette : lightPalette;
+export function createAppTheme(mode: PaletteMode, blackBackground = false) {
+  const palette =
+    mode === 'dark' ? (blackBackground ? darkBlackPalette : darkPalette) : lightPalette;
 
   return createTheme({
     palette,

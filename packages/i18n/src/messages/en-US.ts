@@ -337,6 +337,9 @@ export const enUSMessages = {
   "settings.ux.appearance": "Appearance",
   "settings.ux.appearance.auto": "Auto",
   "settings.ux.appearance.caption": "Auto follows system light or dark mode.",
+  "settings.ux.appearance.blackBackground": "Use black background",
+  "settings.ux.appearance.blackBackground.caption":
+    "Uses pure black backgrounds in dark mode.",
   "settings.ux.appearance.dark": "Dark",
   "settings.ux.appearance.light": "Light",
   "settings.ux.language": "Display language",

@@ -1,12 +1,15 @@
+import { useState } from 'react';
 import {
   Box,
   IconButton,
   ListItem,
   ListItemButton,
   ListItemText,
+  Menu,
+  MenuItem,
   Tooltip,
 } from '@mui/material';
-import Delete from '@mui/icons-material/Delete';
+import MoreVert from '@mui/icons-material/MoreVert';
 import { useI18n, useT } from '@asmusic/i18n';
 import {
   useLibraryBrowseCache,
@@ -27,6 +30,7 @@ export function PlaylistListViewRow({
   const t = useT();
   const { format } = useI18n();
   const { libraryDisplayName } = useLibraryBrowseCache();
+  const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
 
   const count = row.playlist.songCount;
   const songCountLabel = format.count(count, {
@@ -54,16 +58,27 @@ export function PlaylistListViewRow({
         />
       </ListItemButton>
       <Box sx={{ display: 'flex', flexShrink: 0, alignSelf: 'center', pr: 0.5 }}>
-        <Tooltip title={t('library.playlist.delete')}>
+        <Tooltip title={t('library.playlist.actions')}>
           <IconButton
             size="small"
             edge="end"
-            aria-label={t('library.playlist.deleteAria', { name: row.playlist.name })}
-            onClick={() => onDeleteClick(row)}
+            aria-label={t('library.playlist.actions')}
+            onClick={(e) => setMenuAnchor(e.currentTarget)}
           >
-            <Delete fontSize="small" />
+            <MoreVert fontSize="small" />
           </IconButton>
         </Tooltip>
+        <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={() => setMenuAnchor(null)}>
+          <MenuItem
+            onClick={() => {
+              setMenuAnchor(null);
+              onDeleteClick(row);
+            }}
+            sx={{ color: 'error.main' }}
+          >
+            <ListItemText>{t('library.playlist.delete')}</ListItemText>
+          </MenuItem>
+        </Menu>
       </Box>
     </ListItem>
   );

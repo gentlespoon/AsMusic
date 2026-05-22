@@ -1,6 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import type { AlbumID3, Child } from 'subsonic-api';
-import { songsInCachedAlbum } from '@asmusic/core';
+import type { Child } from 'subsonic-api';
 import { usePlayerActions, useServerAndLibrary } from '../../../../contexts';
 import { playerQueueItemFromChild } from '../../../../player/core/playerQueueItemFromChild';
 import type { PlayerQueueItem } from '../../../../player/core/types';
@@ -131,43 +130,6 @@ export function useLibraryBrowserPlayback(options: {
     [queueItemFromCachedTrack, replaceQueueAndPlay]
   );
 
-  const queueItemsForArtistAlbum = useCallback(
-    (album: AlbumID3): PlayerQueueItem[] => {
-      if (!resolvedArtist) return [];
-      const tracks = songsInCachedAlbum(String(album.id), resolvedArtist.slice.songs);
-      const meta = serverMetaById[resolvedArtist.slice.serverId];
-      if (!meta) return [];
-      return tracks.map((song) =>
-        playerQueueItemFromChild({
-          song,
-          serverId: resolvedArtist.slice.serverId,
-          libraryId: resolvedArtist.slice.libraryId,
-          serverUrl: meta.serverUrl,
-          username: meta.username,
-        })
-      );
-    },
-    [resolvedArtist, serverMetaById]
-  );
-
-  const playNextForArtistAlbum = useCallback(
-    (album: AlbumID3) => {
-      const items = queueItemsForArtistAlbum(album);
-      if (items.length === 0) return;
-      void insertAfterCurrent(items, { playFirst: false });
-    },
-    [queueItemsForArtistAlbum, insertAfterCurrent]
-  );
-
-  const appendArtistAlbumToQueue = useCallback(
-    (album: AlbumID3) => {
-      const items = queueItemsForArtistAlbum(album);
-      if (items.length === 0) return;
-      void appendToQueue(items);
-    },
-    [queueItemsForArtistAlbum, appendToQueue]
-  );
-
   const appendAllAlbumTracksToQueue = useCallback(
     (tracks: Child[]) => {
       if (!resolvedAlbum) return;
@@ -282,8 +244,6 @@ export function useLibraryBrowserPlayback(options: {
     appendForTrack,
     appendAllSongEntriesToQueue,
     shufflePlayAllSongEntries,
-    playNextForArtistAlbum,
-    appendArtistAlbumToQueue,
     appendAllAlbumTracksToQueue,
     shufflePlayAllAlbumTracks,
     appendAllArtistTracksToQueue,

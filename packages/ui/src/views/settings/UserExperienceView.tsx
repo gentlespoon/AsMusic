@@ -37,6 +37,11 @@ import {
   type AppAppearanceMode,
 } from "../../preferences/appearanceMode";
 import {
+  setBlackBackgroundEnabled,
+  useBlackBackgroundEnabled,
+} from "../../preferences/blackBackgroundPreference";
+import { useAppPaletteMode } from "../../preferences/useAppPaletteMode";
+import {
   setHapticFeedbackEnabled,
   useHapticFeedbackEnabled,
 } from "../../preferences/hapticFeedbackPreference";
@@ -77,6 +82,8 @@ export function UserExperienceView() {
   const languageOptions = useLanguageOptions(t);
   const miniBarSwipeGestures = useMiniPlayerSwipeGesturesEnabled();
   const appearanceMode = useAppAppearanceMode();
+  const paletteMode = useAppPaletteMode();
+  const blackBackground = useBlackBackgroundEnabled();
   const hapticEnabled = useHapticFeedbackEnabled();
   const waveformProgressBar = useWaveformProgressBarEnabled();
   const edgeSwipeBack = useEdgeSwipeBack(() => navigate("/settings"));
@@ -162,6 +169,26 @@ export function UserExperienceView() {
                     </ToggleButton>
                   </Tooltip>
                 </ToggleButtonGroup>
+              </SettingsPreferenceRow>
+            </SettingsPreferenceListItem>
+            <Divider component="li" />
+            <SettingsPreferenceListItem>
+              <SettingsPreferenceRow>
+                <SettingsPreferenceRowLabel>
+                  <SettingsListItemTitle>
+                    {t("settings.ux.appearance.blackBackground")}
+                  </SettingsListItemTitle>
+                  <SettingsListItemCaption>
+                    {t("settings.ux.appearance.blackBackground.caption")}
+                  </SettingsListItemCaption>
+                </SettingsPreferenceRowLabel>
+                <Switch
+                  checked={blackBackground}
+                  disabled={paletteMode !== "dark"}
+                  onChange={(_, c) => setBlackBackgroundEnabled(c)}
+                  aria-label={t("settings.ux.appearance.blackBackground")}
+                  sx={{ mt: 0.125, flexShrink: 0 }}
+                />
               </SettingsPreferenceRow>
             </SettingsPreferenceListItem>
             <Divider component="li" />

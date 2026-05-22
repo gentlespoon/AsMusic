@@ -326,6 +326,8 @@ export const zhCNMessages = {
   "settings.ux.appearance": "外观",
   "settings.ux.appearance.auto": "自动",
   "settings.ux.appearance.caption": "自动跟随系统的浅色或深色模式。",
+  "settings.ux.appearance.blackBackground": "使用黑色背景",
+  "settings.ux.appearance.blackBackground.caption": "在深色模式下使用纯黑背景。",
   "settings.ux.appearance.dark": "深色",
   "settings.ux.appearance.light": "浅色",
   "settings.ux.language": "显示语言",

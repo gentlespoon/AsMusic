@@ -1,8 +1,14 @@
 import { useEffect, useRef } from 'react';
+import {
+  BELT_CANCEL_SLOP,
+  createBeltSkipGestureState,
+  resetBeltSkipGestureState,
+  resolveBeltSkipCommit,
+  updateBeltSkipGestureState,
+} from './playerBeltSkipGesture';
 
 const Belt = {
-  swipeThreshold: 28,
-  quickSwipeCommitSlop: 12,
+  quickSwipeCommitSlop: BELT_CANCEL_SLOP,
 } as const;
 
 export type PlayerCoverBeltGestureOptions = {
@@ -29,6 +35,7 @@ export function usePlayerCoverBeltGestures(opts: PlayerCoverBeltGestureOptions):
   const originXRef = useRef(0);
   const originYRef = useRef(0);
   const activePointerIdRef = useRef<number | null>(null);
+  const skipStateRef = useRef(createBeltSkipGestureState());
 
   const endDrag = () => {
     if (draggingRef.current) {
@@ -36,21 +43,18 @@ export function usePlayerCoverBeltGestures(opts: PlayerCoverBeltGestureOptions):
     }
     draggingRef.current = false;
     activePointerIdRef.current = null;
+    resetBeltSkipGestureState(skipStateRef.current);
   };
 
   useEffect(() => () => endDrag(), []);
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (!optsRef.current.enabled || e.button !== 0) return;
-    try {
-      e.currentTarget.setPointerCapture(e.pointerId);
-    } catch {
-      /* already captured */
-    }
     draggingRef.current = false;
     activePointerIdRef.current = e.pointerId;
     originXRef.current = e.clientX;
     originYRef.current = e.clientY;
+    resetBeltSkipGestureState(skipStateRef.current);
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
@@ -64,12 +68,22 @@ export function usePlayerCoverBeltGestures(opts: PlayerCoverBeltGestureOptions):
         Math.abs(h) > Math.abs(v)
       ) {
         draggingRef.current = true;
+        try {
+          e.currentTarget.setPointerCapture(e.pointerId);
+        } catch {
+          /* already captured */
+        }
       } else {
         return;
       }
     }
 
-    optsRef.current.onDrag?.(h);
+    const o = optsRef.current;
+    updateBeltSkipGestureState(skipStateRef.current, h, v, {
+      hasNext: o.hasNext,
+      hasPrevious: o.hasPrevious,
+    });
+    o.onDrag?.(h);
   };
 
   const onPointerUp = (e: React.PointerEvent) => {
@@ -87,22 +101,20 @@ export function usePlayerCoverBeltGestures(opts: PlayerCoverBeltGestureOptions):
 
     if (wasDragging) {
       o.onDragEnd?.();
-      const wantsSkipNext =
-        Math.abs(h) > Math.abs(v) && h < -Belt.swipeThreshold && o.hasNext;
-      const wantsSkipPrevious =
-        Math.abs(h) > Math.abs(v) && h > Belt.swipeThreshold && o.hasPrevious;
-      if (wantsSkipNext || wantsSkipPrevious) {
+      const commit = resolveBeltSkipCommit(skipStateRef.current, h, v);
+      if (commit) {
         o.playImpact?.();
-      }
-      if (wantsSkipNext) {
-        void o.skipNext();
-      } else if (wantsSkipPrevious) {
-        void o.skipPrevious();
+        if (commit === 'next') {
+          void o.skipNext();
+        } else {
+          void o.skipPrevious();
+        }
       }
     }
 
     draggingRef.current = false;
     activePointerIdRef.current = null;
+    resetBeltSkipGestureState(skipStateRef.current);
   };
 
   const onPointerCancel = (e: React.PointerEvent) => {

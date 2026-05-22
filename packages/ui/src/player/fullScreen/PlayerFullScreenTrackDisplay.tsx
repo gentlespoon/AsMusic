@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Box from "@mui/material/Box";
 import Snackbar from "@mui/material/Snackbar";
-import Typography from "@mui/material/Typography";
 import { useT } from "@asmusic/i18n";
 import {
   usePlayerActions,
@@ -17,27 +16,9 @@ import {
   resolvePlayerBeltSlots,
 } from "../shared/resolvePlayerBeltSlots";
 import { usePlayerCoverBeltGestures } from "../shared/usePlayerCoverBeltGestures";
-import { useLongPress } from "./useLongPress";
+import { PlayerFullScreenDisplayBelt } from "./PlayerFullScreenDisplayBelt";
+import { PlayerFullScreenTrackInfoSlot } from "./PlayerFullScreenTrackInfoSlot";
 import { usePlayerLibraryNavigation } from "./usePlayerLibraryNavigation";
-
-const libraryLinkSx = {
-  border: 0,
-  p: 0,
-  m: 0,
-  background: "none",
-  font: "inherit",
-  cursor: "pointer",
-  color: "text.secondary",
-  textAlign: "center" as const,
-  width: "100%",
-  "&:hover": { textDecoration: "underline" },
-};
-
-const copyableTextSx = {
-  userSelect: "none",
-  WebkitUserSelect: "none",
-  WebkitTouchCallout: "none",
-};
 
 const COVER_MAX_PX = 360;
 
@@ -50,7 +31,9 @@ export function PlayerFullScreenTrackDisplay() {
   const { openAlbum, openArtist } = usePlayerLibraryNavigation();
   const { getApiForServer } = useServerAndLibrary();
   const [toast, setToast] = useState<string | null>(null);
+  const beltZoneRef = useRef<HTMLDivElement | null>(null);
   const coverRef = useRef<HTMLDivElement | null>(null);
+  const [beltZoneWidth, setBeltZoneWidth] = useState(0);
   const [coverWidth, setCoverWidth] = useState(0);
   const [beltDragPx, setBeltDragPx] = useState(0);
   const [beltDragging, setBeltDragging] = useState(false);
@@ -73,9 +56,20 @@ export function PlayerFullScreenTrackDisplay() {
     ],
   );
 
-  const coverBeltInteractive = beltSlots.slots.length > 1;
+  const beltInteractive = beltSlots.slots.length > 1;
 
   useEffect(() => {
+    const el = beltInteractive ? beltZoneRef.current : coverRef.current;
+    if (!el) return;
+    const measure = () => setBeltZoneWidth(el.getBoundingClientRect().width);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [beltInteractive, item?.rowId]);
+
+  useEffect(() => {
+    if (beltInteractive) return;
     const el = coverRef.current;
     if (!el) return;
     const measure = () => setCoverWidth(el.getBoundingClientRect().width);
@@ -83,7 +77,7 @@ export function PlayerFullScreenTrackDisplay() {
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [item?.rowId]);
+  }, [beltInteractive, item?.rowId]);
 
   useEffect(() => {
     if (!beltDragging) {
@@ -91,19 +85,21 @@ export function PlayerFullScreenTrackDisplay() {
     }
   }, [item?.rowId, beltDragging]);
 
+  const slotWidthPx = beltInteractive ? beltZoneWidth : coverWidth;
+
   const clampBeltDrag = useCallback(
     (dragPx: number) =>
       clampPlayerBeltDragPx(
         dragPx,
         beltSlots.slots.length,
         beltSlots.activeIndex,
-        coverWidth,
+        slotWidthPx,
       ),
-    [beltSlots.activeIndex, beltSlots.slots.length, coverWidth],
+    [beltSlots.activeIndex, beltSlots.slots.length, slotWidthPx],
   );
 
-  const coverGestures = usePlayerCoverBeltGestures({
-    enabled: coverBeltInteractive,
+  const beltGestures = usePlayerCoverBeltGestures({
+    enabled: beltInteractive,
     hasNext: state.hasNext,
     hasPrevious: state.hasPrevious,
     onDrag: (deltaPx) => {
@@ -119,7 +115,13 @@ export function PlayerFullScreenTrackDisplay() {
     playImpact: () => playImpactIfEnabled(host),
   });
 
-  const coverSizePx = Math.max(1, Math.round(coverWidth || COVER_MAX_PX));
+  const coverSizePx = Math.max(
+    1,
+    Math.round(
+      (beltInteractive ? Math.min(beltZoneWidth, COVER_MAX_PX) : coverWidth) ||
+        COVER_MAX_PX,
+    ),
+  );
 
   const copyName = useCallback(
     async (text: string) => {
@@ -137,98 +139,58 @@ export function PlayerFullScreenTrackDisplay() {
     [host, t],
   );
 
-  const titleLongPress = useLongPress({
-    disabled: !item?.title?.trim(),
-    onLongPress: () => {
-      if (item?.title) void copyName(item.title);
-    },
-  });
-
-  const albumLongPress = useLongPress({
-    disabled: !item?.album?.trim(),
-    onLongPress: () => {
-      if (item?.album) void copyName(item.album);
-    },
-  });
-
-  const artistLongPress = useLongPress({
-    disabled: !item?.artist?.trim(),
-    onLongPress: () => {
-      if (item?.artist) void copyName(item.artist);
-    },
-  });
-
   if (!item) return null;
 
-  const emDash = t("common.emDash");
-  const albumLabel = item.album?.trim() || emDash;
-  const artistLabel = item.artist?.trim() || emDash;
-  const canOpenAlbum = Boolean(item.album?.trim());
-  const canOpenArtist = Boolean(item.artist?.trim());
+  if (beltInteractive) {
+    return (
+      <>
+        <Box
+          ref={beltZoneRef}
+          sx={{
+            width: "100%",
+            touchAction: "none",
+            userSelect: "none",
+            cursor: "default",
+          }}
+          role="group"
+          aria-label={t("player.gestureZone.label")}
+          onPointerDown={beltGestures.onPointerDown}
+          onPointerMove={beltGestures.onPointerMove}
+          onPointerUp={beltGestures.onPointerUp}
+          onPointerCancel={beltGestures.onPointerCancel}
+        >
+          <PlayerFullScreenDisplayBelt
+            slots={beltSlots.slots}
+            activeIndex={beltSlots.activeIndex}
+            dragPx={beltDragPx}
+            dragging={beltDragging}
+            coverSizePx={coverSizePx}
+            getApiForServer={getApiForServer}
+            onCopyName={(text) => void copyName(text)}
+            onOpenAlbum={openAlbum}
+            onOpenArtist={openArtist}
+          />
+        </Box>
+
+        <Snackbar
+          open={toast != null}
+          autoHideDuration={2000}
+          onClose={() => setToast(null)}
+          message={toast}
+          anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+        />
+      </>
+    );
+  }
 
   return (
     <>
-      <Typography
-        variant="h6"
-        component="h2"
-        align="center"
-        sx={{ fontWeight: 700, px: 1, width: "100%", ...copyableTextSx }}
-        {...titleLongPress.longPressPointerProps}
-      >
-        {item.title}
-      </Typography>
-      {canOpenAlbum ? (
-        <Typography
-          variant="body2"
-          component="button"
-          type="button"
-          aria-label={t("player.action.openAlbum", { name: albumLabel })}
-          onClick={() => {
-            if (albumLongPress.consumeLongPress()) return;
-            openAlbum(item);
-          }}
-          sx={{ ...libraryLinkSx, ...copyableTextSx, mt: 0.5 }}
-          {...albumLongPress.longPressPointerProps}
-        >
-          {albumLabel}
-        </Typography>
-      ) : (
-        <Typography
-          variant="body2"
-          color="text.secondary"
-          align="center"
-          sx={{ mt: 0.5, ...copyableTextSx }}
-          {...albumLongPress.longPressPointerProps}
-        >
-          {albumLabel}
-        </Typography>
-      )}
-      {canOpenArtist ? (
-        <Typography
-          variant="body2"
-          component="button"
-          type="button"
-          aria-label={t("player.action.openArtist", { name: artistLabel })}
-          onClick={() => {
-            if (artistLongPress.consumeLongPress()) return;
-            openArtist(item);
-          }}
-          sx={{ ...libraryLinkSx, ...copyableTextSx }}
-          {...artistLongPress.longPressPointerProps}
-        >
-          {artistLabel}
-        </Typography>
-      ) : (
-        <Typography
-          variant="body2"
-          color="text.secondary"
-          align="center"
-          sx={copyableTextSx}
-          {...artistLongPress.longPressPointerProps}
-        >
-          {artistLabel}
-        </Typography>
-      )}
+      <PlayerFullScreenTrackInfoSlot
+        item={item}
+        onCopyName={(text) => void copyName(text)}
+        onOpenAlbum={openAlbum}
+        onOpenArtist={openArtist}
+      />
 
       <Box
         ref={coverRef}
@@ -243,20 +205,7 @@ export function PlayerFullScreenTrackDisplay() {
           alignItems: "center",
           justifyContent: "center",
           bgcolor: "action.hover",
-          ...(coverBeltInteractive
-            ? { touchAction: "none", userSelect: "none", cursor: "default" }
-            : {}),
         }}
-        {...(coverBeltInteractive
-          ? {
-              role: "group",
-              "aria-label": t("player.gestureZone.label"),
-              onPointerDown: coverGestures.onPointerDown,
-              onPointerMove: coverGestures.onPointerMove,
-              onPointerUp: coverGestures.onPointerUp,
-              onPointerCancel: coverGestures.onPointerCancel,
-            }
-          : {})}
       >
         <PlayerCoverArtBelt
           slots={beltSlots.slots}

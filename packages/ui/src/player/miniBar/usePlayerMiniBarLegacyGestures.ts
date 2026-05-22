@@ -1,15 +1,22 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef } from "react";
+import {
+  BELT_CANCEL_SLOP,
+  createBeltSkipGestureState,
+  resetBeltSkipGestureState,
+  resolveBeltSkipCommit,
+  updateBeltSkipGestureState,
+} from "../shared/playerBeltSkipGesture";
 
 /** Mirrors thresholds from legacy `PlayerBarView.swift` (Bar enum). */
 const Bar = {
   swipeThreshold: 28,
   tapMaxDistance: 10,
   longPressMs: 380,
-  quickSwipeCommitSlop: 12,
+  quickSwipeCommitSlop: BELT_CANCEL_SLOP,
   scrubSeekThrottleMs: 120,
 } as const;
 
-type BarDragPhase = 'undecided' | 'carousel' | 'seeking';
+type BarDragPhase = "undecided" | "carousel" | "seeking";
 
 export type PlayerMiniBarLegacyGestureOptions = {
   enabled: boolean;
@@ -32,7 +39,9 @@ export type PlayerMiniBarLegacyGestureOptions = {
   playImpact?: () => void;
 };
 
-export function usePlayerMiniBarLegacyGestures(opts: PlayerMiniBarLegacyGestureOptions): {
+export function usePlayerMiniBarLegacyGestures(
+  opts: PlayerMiniBarLegacyGestureOptions,
+): {
   onPointerDown: (e: React.PointerEvent) => void;
   onPointerMove: (e: React.PointerEvent) => void;
   onPointerUp: (e: React.PointerEvent) => void;
@@ -41,7 +50,7 @@ export function usePlayerMiniBarLegacyGestures(opts: PlayerMiniBarLegacyGestureO
   const optsRef = useRef(opts);
   optsRef.current = opts;
 
-  const phaseRef = useRef<BarDragPhase>('undecided');
+  const phaseRef = useRef<BarDragPhase>("undecided");
   const startTimeRef = useRef(0);
   const originXRef = useRef(0);
   const originYRef = useRef(0);
@@ -53,6 +62,7 @@ export function usePlayerMiniBarLegacyGestures(opts: PlayerMiniBarLegacyGestureO
   const lastSeekAtRef = useRef(0);
   const activePointerIdRef = useRef<number | null>(null);
   const scrubDisplayRef = useRef<number | null>(null);
+  const skipStateRef = useRef(createBeltSkipGestureState());
 
   const clearLongPress = () => {
     if (longPressTimerRef.current != null) {
@@ -67,12 +77,21 @@ export function usePlayerMiniBarLegacyGestures(opts: PlayerMiniBarLegacyGestureO
 
   const resetGesture = () => {
     clearLongPress();
-    if (phaseRef.current === 'carousel') {
+    if (phaseRef.current === "carousel") {
       endCarouselDrag();
     }
-    phaseRef.current = 'undecided';
+    phaseRef.current = "undecided";
     activePointerIdRef.current = null;
     scrubDisplayRef.current = null;
+    resetBeltSkipGestureState(skipStateRef.current);
+  };
+
+  const updateSkipState = (h: number, v: number) => {
+    const o = optsRef.current;
+    updateBeltSkipGestureState(skipStateRef.current, h, v, {
+      hasNext: o.hasNext,
+      hasPrevious: o.hasPrevious,
+    });
   };
 
   useEffect(() => () => clearLongPress(), []);
@@ -85,21 +104,22 @@ export function usePlayerMiniBarLegacyGestures(opts: PlayerMiniBarLegacyGestureO
       /* already captured */
     }
     activePointerIdRef.current = e.pointerId;
-    phaseRef.current = 'undecided';
+    phaseRef.current = "undecided";
     startTimeRef.current = performance.now();
     originXRef.current = e.clientX;
     originYRef.current = e.clientY;
     latestHRef.current = 0;
     latestVRef.current = 0;
+    resetBeltSkipGestureState(skipStateRef.current);
 
     clearLongPress();
     longPressTimerRef.current = setTimeout(() => {
       longPressTimerRef.current = null;
-      if (phaseRef.current !== 'undecided') return;
+      if (phaseRef.current !== "undecided") return;
       const o = optsRef.current;
       if (!o.enabled || !o.busy || o.durationSeconds <= 0) return;
       o.playImpact?.();
-      phaseRef.current = 'seeking';
+      phaseRef.current = "seeking";
       seekPivotXRef.current = latestHRef.current;
       seekPivotTimeRef.current = o.positionSeconds;
       lastSeekAtRef.current = 0;
@@ -117,13 +137,14 @@ export function usePlayerMiniBarLegacyGestures(opts: PlayerMiniBarLegacyGestureO
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
-    if (!optsRef.current.enabled || e.pointerId !== activePointerIdRef.current) return;
+    if (!optsRef.current.enabled || e.pointerId !== activePointerIdRef.current)
+      return;
     const h = e.clientX - originXRef.current;
     const v = e.clientY - originYRef.current;
     latestHRef.current = h;
     latestVRef.current = v;
 
-    if (phaseRef.current === 'seeking') {
+    if (phaseRef.current === "seeking") {
       const o = optsRef.current;
       const barW = Math.max(o.zoneWidthPx, 1);
       const deltaX = h - seekPivotXRef.current;
@@ -140,7 +161,8 @@ export function usePlayerMiniBarLegacyGestures(opts: PlayerMiniBarLegacyGestureO
       return;
     }
 
-    if (phaseRef.current === 'carousel') {
+    if (phaseRef.current === "carousel") {
+      updateSkipState(h, v);
       optsRef.current.onCarouselDrag?.(h);
       return;
     }
@@ -152,13 +174,15 @@ export function usePlayerMiniBarLegacyGestures(opts: PlayerMiniBarLegacyGestureO
       Math.abs(h) > Math.abs(v)
     ) {
       clearLongPress();
-      phaseRef.current = 'carousel';
+      phaseRef.current = "carousel";
+      updateSkipState(h, v);
       optsRef.current.onCarouselDrag?.(h);
     }
   };
 
   const onPointerUp = (e: React.PointerEvent) => {
-    if (!optsRef.current.enabled || e.pointerId !== activePointerIdRef.current) return;
+    if (!optsRef.current.enabled || e.pointerId !== activePointerIdRef.current)
+      return;
     try {
       e.currentTarget.releasePointerCapture(e.pointerId);
     } catch {
@@ -174,11 +198,10 @@ export function usePlayerMiniBarLegacyGestures(opts: PlayerMiniBarLegacyGestureO
 
     clearLongPress();
 
-    const wantsPresentPlayer = () => Math.abs(h) <= Math.abs(v) && v < -Bar.swipeThreshold;
-    const wantsSkipNext = () => Math.abs(h) > Math.abs(v) && h < -Bar.swipeThreshold && o.hasNext;
-    const wantsSkipPrevious = () => Math.abs(h) > Math.abs(v) && h > Bar.swipeThreshold && o.hasPrevious;
+    const wantsPresentPlayer = () =>
+      Math.abs(h) <= Math.abs(v) && v < -Bar.swipeThreshold;
 
-    if (phase === 'seeking') {
+    if (phase === "seeking") {
       const d = o.durationSeconds;
       if (d > 0) {
         o.playImpact?.();
@@ -190,21 +213,25 @@ export function usePlayerMiniBarLegacyGestures(opts: PlayerMiniBarLegacyGestureO
       return;
     }
 
-    if (phase === 'carousel') {
+    if (phase === "carousel") {
       endCarouselDrag();
       if (wantsPresentPlayer()) {
         o.openFullPlayer();
         commit();
-      } else if (wantsSkipNext()) {
-        void o.skipNext();
-        commit();
-      } else if (wantsSkipPrevious()) {
-        void o.skipPrevious();
-        commit();
+      } else {
+        const skipCommit = resolveBeltSkipCommit(skipStateRef.current, h, v);
+        if (skipCommit === "next") {
+          void o.skipNext();
+          commit();
+        } else if (skipCommit === "previous") {
+          void o.skipPrevious();
+          commit();
+        }
       }
-      phaseRef.current = 'undecided';
+      phaseRef.current = "undecided";
       activePointerIdRef.current = null;
       scrubDisplayRef.current = null;
+      resetBeltSkipGestureState(skipStateRef.current);
       return;
     }
 
@@ -224,7 +251,8 @@ export function usePlayerMiniBarLegacyGestures(opts: PlayerMiniBarLegacyGestureO
   };
 
   const onPointerCancel = (e: React.PointerEvent) => {
-    if (!optsRef.current.enabled || e.pointerId !== activePointerIdRef.current) return;
+    if (!optsRef.current.enabled || e.pointerId !== activePointerIdRef.current)
+      return;
     try {
       e.currentTarget.releasePointerCapture(e.pointerId);
     } catch {

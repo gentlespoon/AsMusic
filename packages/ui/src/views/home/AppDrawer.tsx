@@ -93,11 +93,10 @@ export function AppDrawer({ open, onClose }: AppDrawerProps) {
                       bgcolor: alpha(theme.palette.primary.main, 0.18),
                     },
                     "& .MuiListItemText-primary": {
-                      color: "primary.main",
-                      fontWeight: 600,
+                      fontWeight: 900,
                     },
                     "& .MuiListItemText-secondary": {
-                      color: alpha(theme.palette.primary.main, 0.85),
+                      fontWeight: 800,
                     },
                   }
                 : {}

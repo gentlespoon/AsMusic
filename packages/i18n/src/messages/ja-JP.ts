@@ -341,6 +341,9 @@ export const jaJPMessages = {
   "settings.ux.appearance.auto": "自動",
   "settings.ux.appearance.caption":
     "自動はシステムのライト／ダークモードに従います。",
+  "settings.ux.appearance.blackBackground": "黒背景を使用",
+  "settings.ux.appearance.blackBackground.caption":
+    "ダークモードで純粋な黒の背景を使用します。",
   "settings.ux.appearance.dark": "ダーク",
   "settings.ux.appearance.light": "ライト",
   "settings.ux.language": "表示言語",

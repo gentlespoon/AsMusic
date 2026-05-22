@@ -1,6 +1,5 @@
 import type { MouseEvent } from "react";
 import { Box, IconButton, Tooltip } from "@mui/material";
-import Delete from "@mui/icons-material/Delete";
 import MoreVert from "@mui/icons-material/MoreVert";
 import Star from "@mui/icons-material/Star";
 import StarBorder from "@mui/icons-material/StarBorder";
@@ -12,7 +11,6 @@ export function SongItemActions({
   starBusy,
   onStarClick,
   showDelete,
-  onRemove,
   showQueueMenu,
   onOpenQueueMenu,
   stopRowClick,
@@ -23,13 +21,14 @@ export function SongItemActions({
   starBusy: boolean;
   onStarClick: () => void;
   showDelete: boolean;
-  onRemove?: () => void;
   showQueueMenu: boolean;
   onOpenQueueMenu: (e: MouseEvent<HTMLElement>) => void;
   stopRowClick: (e: MouseEvent<HTMLElement>) => void;
   t: ReturnType<typeof useT>;
 }) {
-  if (!showStar && !showDelete && !showQueueMenu) {
+  const showActionsMenu = showQueueMenu || showDelete;
+
+  if (!showStar && !showActionsMenu) {
     return null;
   }
 
@@ -75,20 +74,7 @@ export function SongItemActions({
           </span>
         </Tooltip>
       ) : null}
-      {showDelete && onRemove ? (
-        <IconButton
-          edge="end"
-          size="small"
-          aria-label={t("player.offline.removeDownload")}
-          onClick={(e) => {
-            stopRowClick(e);
-            onRemove();
-          }}
-        >
-          <Delete fontSize="small" />
-        </IconButton>
-      ) : null}
-      {showQueueMenu ? (
+      {showActionsMenu ? (
         <IconButton
           edge="end"
           size="small"

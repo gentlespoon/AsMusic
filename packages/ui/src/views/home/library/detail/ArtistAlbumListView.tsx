@@ -6,21 +6,17 @@ import {
   Card,
   CardActionArea,
   CardContent,
-  IconButton,
   List,
   ListItem,
   ListItemAvatar,
   ListItemButton,
   ListItemText,
-  Menu,
-  MenuItem,
   Stack,
   TextField,
   ToggleButton,
   ToggleButtonGroup,
   Typography,
 } from '@mui/material';
-import MoreVert from '@mui/icons-material/MoreVert';
 import ViewList from '@mui/icons-material/ViewList';
 import ViewModule from '@mui/icons-material/ViewModule';
 import { Virtuoso, VirtuosoGrid, type VirtuosoGridHandle, type VirtuosoHandle } from 'react-virtuoso';
@@ -92,8 +88,6 @@ export function ArtistAlbumListView({
   onAlbumOpen,
   onAllSongsOpen,
   onBack,
-  onPlayNextAlbum,
-  onAppendAlbumToQueue,
 }: {
   artistName: string;
   /** Stable id for scroll memory (URL artist id, including encoded multi-library refs). */
@@ -111,22 +105,15 @@ export function ArtistAlbumListView({
   onAlbumOpen: (album: AlbumID3) => void;
   onAllSongsOpen: () => void;
   onBack: () => void;
-  /** Enqueue this album’s cached tracks after the current track. */
-  onPlayNextAlbum?: (album: AlbumID3) => void;
-  /** Append this album’s cached tracks to the end of the queue. */
-  onAppendAlbumToQueue?: (album: AlbumID3) => void;
 }) {
   const t = useT();
   const { format } = useI18n();
   const bumpFor = coverArtCacheBump ?? ((id: string | undefined) => (id ? artworkVersionById[id] ?? 0 : 0));
   const [search, setSearch] = useState('');
   const displayMode = useAlbumDisplayMode();
-  const [albumMenu, setAlbumMenu] = useState<{ anchor: HTMLElement; album: AlbumID3 } | null>(null);
-  const showAlbumQueueMenu = Boolean(onPlayNextAlbum || onAppendAlbumToQueue);
 
   useEffect(() => {
     setSearch('');
-    setAlbumMenu(null);
   }, [artistName]);
 
   const filteredAlbums = useMemo(
@@ -275,29 +262,6 @@ export function ArtistAlbumListView({
                 components={gridComponents}
                 computeItemKey={(_, album) => String(album.id)}
                 itemContent={(_, album) => (
-                  <Box sx={{ position: 'relative', height: '100%' }}>
-                    {showAlbumQueueMenu && (
-                      <IconButton
-                        size="small"
-                        aria-label={t('library.album.ariaActions')}
-                        sx={{
-                          position: 'absolute',
-                          top: 4,
-                          right: 4,
-                          zIndex: 2,
-                          bgcolor: 'background.paper',
-                          boxShadow: 1,
-                          '&:hover': { bgcolor: 'action.hover' },
-                        }}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          setAlbumMenu({ anchor: e.currentTarget, album });
-                        }}
-                      >
-                        <MoreVert fontSize="small" />
-                      </IconButton>
-                    )}
                     <Card
                       elevation={0}
                       sx={{
@@ -330,7 +294,6 @@ export function ArtistAlbumListView({
                       </CardContent>
                     </CardActionArea>
                   </Card>
-                  </Box>
                 )}
               />
               </LibraryVirtuosoFill>
@@ -382,22 +345,6 @@ export function ArtistAlbumListView({
                         }}
                       />
                     </ListItemButton>
-                    {showAlbumQueueMenu ? (
-                      <Box sx={{ display: 'flex', flexShrink: 0, alignSelf: 'center', pr: 0.5 }}>
-                        <IconButton
-                          aria-label={t('library.album.ariaActions')}
-                          size="small"
-                          edge="end"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setAlbumMenu({ anchor: e.currentTarget, album });
-                          }}
-                        >
-                          <MoreVert fontSize="small" />
-                        </IconButton>
-                      </Box>
-                    ) : null}
                   </ListItem>
                 )}
               />
@@ -406,29 +353,6 @@ export function ArtistAlbumListView({
           </Box>
         )}
       </Box>
-
-      <Menu anchorEl={albumMenu?.anchor} open={Boolean(albumMenu)} onClose={() => setAlbumMenu(null)}>
-        {onPlayNextAlbum && albumMenu ? (
-          <MenuItem
-            onClick={() => {
-              onPlayNextAlbum(albumMenu.album);
-              setAlbumMenu(null);
-            }}
-          >
-            {t('player.action.playNext')}
-          </MenuItem>
-        ) : null}
-        {onAppendAlbumToQueue && albumMenu ? (
-          <MenuItem
-            onClick={() => {
-              onAppendAlbumToQueue(albumMenu.album);
-              setAlbumMenu(null);
-            }}
-          >
-            {t('player.action.addToQueue')}
-          </MenuItem>
-        ) : null}
-      </Menu>
     </Box>
   );
 }

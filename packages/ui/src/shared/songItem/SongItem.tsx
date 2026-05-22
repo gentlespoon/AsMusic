@@ -32,7 +32,8 @@ export function SongItem({
   const showQueueMenu = Boolean(onPlayNext || onAppendToQueue);
   const showStar = Boolean(onToggleStar) && isStarred != null;
   const showDelete = Boolean(showRemoveButton && onRemove);
-  const hasActions = showStar || showDelete || showQueueMenu;
+  const showActionsMenu = showQueueMenu || showDelete;
+  const hasActions = showStar || showActionsMenu;
 
   const secondary =
     secondaryContent ??
@@ -67,7 +68,6 @@ export function SongItem({
         void Promise.resolve(onToggleStar()).finally(() => setStarBusy(false));
       }}
       showDelete={showDelete}
-      onRemove={onRemove}
       showQueueMenu={showQueueMenu}
       onOpenQueueMenu={(e) => setMenuAnchor(e.currentTarget)}
       stopRowClick={stopRowClick}
@@ -83,12 +83,13 @@ export function SongItem({
         onClick={onClick}
         hasActions={hasActions}
       />
-      {showQueueMenu ? (
+      {showActionsMenu ? (
         <SongItemQueueMenu
           anchorEl={menuAnchor}
           onClose={() => setMenuAnchor(null)}
           onPlayNext={onPlayNext}
           onAppendToQueue={onAppendToQueue}
+          onRemove={showDelete ? onRemove : undefined}
           t={t}
         />
       ) : null}

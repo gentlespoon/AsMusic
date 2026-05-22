@@ -137,8 +137,6 @@ export function LibraryBrowser() {
     appendForTrack,
     appendAllSongEntriesToQueue,
     shufflePlayAllSongEntries,
-    playNextForArtistAlbum,
-    appendArtistAlbumToQueue,
     appendAllAlbumTracksToQueue,
     shufflePlayAllAlbumTracks,
     appendAllArtistTracksToQueue,
@@ -353,8 +351,6 @@ export function LibraryBrowser() {
               }
               onAllSongsOpen={openArtistAllSongs}
               onBack={popArtistView}
-              onPlayNextAlbum={playNextForArtistAlbum}
-              onAppendAlbumToQueue={appendArtistAlbumToQueue}
             />
           ) : artistAlbumScope && !artistAlbumScope.allSongs ? (
             <Typography variant="body2" color="text.secondary">

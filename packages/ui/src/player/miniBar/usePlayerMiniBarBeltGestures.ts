@@ -17,13 +17,8 @@ export type PlayerMiniBarBeltGestures = ReturnType<
 
 export function usePlayerMiniBarBeltGestures(swipeGestures: boolean) {
   const state = usePlayerTransportState();
-  const {
-    togglePlayPause,
-    toggleFullPlayer,
-    skipNext,
-    skipPrevious,
-    seek,
-  } = usePlayerActions();
+  const { togglePlayPause, toggleFullPlayer, skipNext, skipPrevious, seek } =
+    usePlayerActions();
   const host = useHost();
   const item = state.currentItem;
   const busy = Boolean(item);
@@ -45,13 +40,7 @@ export function usePlayerMiniBarBeltGestures(swipeGestures: boolean) {
         state.hasNext,
         state.hasPrevious,
       ),
-    [
-      state.queue,
-      state.currentIndex,
-      item,
-      state.hasNext,
-      state.hasPrevious,
-    ],
+    [state.queue, state.currentIndex, item, state.hasNext, state.hasPrevious],
   );
 
   useEffect(() => {

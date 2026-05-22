@@ -7,6 +7,8 @@ export function useLongPress(options: {
   disabled?: boolean;
   onLongPress: () => void;
   delayMs?: number;
+  /** When false, pointer capture is skipped so parent belt gestures can receive moves. */
+  capturePointer?: boolean;
 }): {
   longPressPointerProps: {
     onPointerDown: (e: React.PointerEvent) => void;
@@ -37,14 +39,20 @@ export function useLongPress(options: {
 
   const onPointerDown = useCallback(
     (e: React.PointerEvent) => {
-      const { disabled, onLongPress, delayMs = DEFAULT_DELAY_MS } =
-        optionsRef.current;
+      const {
+        disabled,
+        onLongPress,
+        delayMs = DEFAULT_DELAY_MS,
+        capturePointer = true,
+      } = optionsRef.current;
       if (disabled || e.button !== 0) return;
 
-      try {
-        e.currentTarget.setPointerCapture(e.pointerId);
-      } catch {
-        /* already captured */
+      if (capturePointer) {
+        try {
+          e.currentTarget.setPointerCapture(e.pointerId);
+        } catch {
+          /* already captured */
+        }
       }
 
       clearTimer();

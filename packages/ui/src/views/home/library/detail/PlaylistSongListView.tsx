@@ -1,6 +1,7 @@
 import { useT } from '@asmusic/i18n';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AlbumID3, Child } from 'subsonic-api';
+import DownloadIcon from '@mui/icons-material/Download';
 import PlayArrow from '@mui/icons-material/PlayArrow';
 import MoreVert from '@mui/icons-material/MoreVert';
 import PlaylistAdd from '@mui/icons-material/PlaylistAdd';
@@ -33,6 +34,8 @@ import { LibraryVirtuosoFill, libraryFlexFillSx } from '../../../../shared/Libra
 import { useLibraryScrollRestoration } from '../../../../shared/useLibraryScrollRestoration';
 import { useLibraryVirtuosoScroller } from '../../../../shared/useLibraryVirtuosoScroller';
 import { VirtuosoMuiList } from '../../../../shared/virtuosoMuiList';
+import { useOfflineDownload } from '../../../../contexts/OfflineDownloadContext';
+
 export function PlaylistSongListView({
   playlistId,
   scrollRestorationKey,
@@ -94,6 +97,7 @@ export function PlaylistSongListView({
   }) => Promise<void>;
 }) {
   const t = useT();
+  const { enqueuePlaylistDownload } = useOfflineDownload();
   const bumpFor =
     coverArtCacheBump ?? ((id: string | undefined) => (id ? (artworkVersionById[id] ?? 0) : 0));
   const [search, setSearch] = useState('');
@@ -150,6 +154,15 @@ export function PlaylistSongListView({
 
   const listReady = initialReady && !loading && !loadError;
 
+  const onDownloadPlaylistOffline = useCallback(() => {
+    enqueuePlaylistDownload({
+      serverId,
+      libraryId,
+      playlistTitle: resolvedTitle,
+      trackIds: tracks.map((track) => String(track.id)),
+    });
+  }, [enqueuePlaylistDownload, serverId, libraryId, resolvedTitle, tracks]);
+
   return (
     <Box
       role="tabpanel"
@@ -176,6 +189,19 @@ export function PlaylistSongListView({
         <Typography variant="h6" component="h2" sx={{ fontWeight: 600, flex: 1, minWidth: 0 }}>
           {resolvedTitle}
         </Typography>
+        <Tooltip title={t('library.playlist.downloadOffline')}>
+          <span>
+            <IconButton
+              size="small"
+              color="primary"
+              aria-label={t('library.playlist.downloadOffline')}
+              onClick={onDownloadPlaylistOffline}
+              disabled={!listReady || tracks.length === 0}
+            >
+              <DownloadIcon fontSize="small" />
+            </IconButton>
+          </span>
+        </Tooltip>
         {(onEditPlaylist || onDeletePlaylist) && (
           <>
             <IconButton

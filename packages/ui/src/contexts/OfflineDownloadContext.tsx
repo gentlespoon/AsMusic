@@ -35,6 +35,12 @@ type OfflineDownloadContextValue = {
     albumTitle: string;
     trackIds: string[];
   }) => void;
+  enqueuePlaylistDownload: (opts: {
+    serverId: string;
+    libraryId: string;
+    playlistTitle: string;
+    trackIds: string[];
+  }) => void;
 };
 
 const OfflineDownloadContext = createContext<OfflineDownloadContextValue | null>(null);
@@ -102,8 +108,14 @@ export function OfflineDownloadProvider({ children }: { children: ReactNode }) {
     await queueRef.current?.retryFailedTracks(jobId);
   }, []);
 
-  const enqueueAlbumDownload = useCallback(
-    (opts: { serverId: string; libraryId: string; albumTitle: string; trackIds: string[] }) => {
+  const enqueueTracksDownload = useCallback(
+    (opts: {
+      serverId: string;
+      libraryId: string;
+      label: string;
+      trackIds: string[];
+      kind: 'album' | 'playlist';
+    }) => {
       const server = servers.find((s) => s.id === opts.serverId);
       if (!server) return;
       const scope = libraryCacheScope(server.serverUrl, server.username, opts.libraryId);
@@ -115,12 +127,38 @@ export function OfflineDownloadProvider({ children }: { children: ReactNode }) {
         tracks.push({ key: { scope, trackId: id }, streamUrl: u });
       }
       queueRef.current?.enqueue({
-        kind: 'album',
-        label: opts.albumTitle,
+        kind: opts.kind,
+        label: opts.label,
         tracks,
       });
     },
     [servers, getStreamUrl]
+  );
+
+  const enqueueAlbumDownload = useCallback(
+    (opts: { serverId: string; libraryId: string; albumTitle: string; trackIds: string[] }) => {
+      enqueueTracksDownload({
+        serverId: opts.serverId,
+        libraryId: opts.libraryId,
+        label: opts.albumTitle,
+        trackIds: opts.trackIds,
+        kind: 'album',
+      });
+    },
+    [enqueueTracksDownload]
+  );
+
+  const enqueuePlaylistDownload = useCallback(
+    (opts: { serverId: string; libraryId: string; playlistTitle: string; trackIds: string[] }) => {
+      enqueueTracksDownload({
+        serverId: opts.serverId,
+        libraryId: opts.libraryId,
+        label: opts.playlistTitle,
+        trackIds: opts.trackIds,
+        kind: 'playlist',
+      });
+    },
+    [enqueueTracksDownload]
   );
 
   const value = useMemo(
@@ -135,6 +173,7 @@ export function OfflineDownloadProvider({ children }: { children: ReactNode }) {
       moveJob,
       retryFailedTracks,
       enqueueAlbumDownload,
+      enqueuePlaylistDownload,
     }),
     [
       queueSnapshot,
@@ -147,6 +186,7 @@ export function OfflineDownloadProvider({ children }: { children: ReactNode }) {
       moveJob,
       retryFailedTracks,
       enqueueAlbumDownload,
+      enqueuePlaylistDownload,
     ]
   );
 

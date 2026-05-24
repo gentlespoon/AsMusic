@@ -1,5 +1,6 @@
-import Dialog from "@mui/material/Dialog";
-import type { ReactNode } from "react";
+import Box from "@mui/material/Box";
+import { useEffect, type ReactNode } from "react";
+import { PLAYER_MINI_BAR_COMPACT_PX } from "../core/constants";
 
 export type PlayerFullScreenShellProps = {
   open: boolean;
@@ -12,29 +13,46 @@ export function PlayerFullScreenShell({
   onClose,
   children,
 }: PlayerFullScreenShellProps) {
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open, onClose]);
+
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
+  if (!open) return null;
+
   return (
-    <Dialog
-      fullScreen
-      open={open}
-      onClose={onClose}
-      slotProps={{
-        paper: {
-          sx: {
-            display: "flex",
-            flexDirection: "column",
-            height: "100%",
-            maxHeight: "100dvh",
-            overflow: "hidden",
-            boxSizing: "border-box",
-            pt: "env(safe-area-inset-top, 0px)",
-            pl: "env(safe-area-inset-left, 0px)",
-            pr: "env(safe-area-inset-right, 0px)",
-            pb: "env(safe-area-inset-bottom, 0px)",
-          },
-        },
+    <Box
+      role="dialog"
+      aria-modal
+      sx={{
+        position: "fixed",
+        top: "var(--safe-area-top, 0px)",
+        left: "var(--safe-area-left, 0px)",
+        right: "var(--safe-area-right, 0px)",
+        bottom: "var(--safe-area-bottom, 0px)",
+        zIndex: (theme) => theme.zIndex.modal,
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+        boxSizing: "border-box",
+        bgcolor: "background.default",
+        pb: `${PLAYER_MINI_BAR_COMPACT_PX}px`,
       }}
     >
       {children}
-    </Dialog>
+    </Box>
   );
 }

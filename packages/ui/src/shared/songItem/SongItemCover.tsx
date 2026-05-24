@@ -8,6 +8,7 @@ export function SongItemCover({
   coverArtId,
   resolveCachedArtwork,
   artworkCacheBump,
+  artworkCacheKey,
 }: {
   api: SubsonicAPI | null;
   coverArtId?: string;
@@ -15,6 +16,7 @@ export function SongItemCover({
     coverArtId: string,
   ) => Promise<LibraryArtworkCacheRow | null>;
   artworkCacheBump: number;
+  artworkCacheKey?: string;
 }) {
   const coverSx = {
     width: COVER_SIZE,
@@ -31,6 +33,7 @@ export function SongItemCover({
           coverArtId={coverArtId}
           resolveCachedArtwork={resolveCachedArtwork}
           artworkCacheBump={artworkCacheBump}
+          artworkCacheKey={artworkCacheKey}
           size={48}
           label=""
           sx={coverSx}

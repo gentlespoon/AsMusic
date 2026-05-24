@@ -11,6 +11,8 @@ export type SongItemProps = {
     coverArtId: string,
   ) => Promise<LibraryArtworkCacheRow | null>;
   artworkCacheBump: number;
+  /** Scope/library disambiguator for shared cover-art object URL cache. */
+  artworkCacheKey?: string;
   /** When false (e.g. album track list), secondary line omits album title. */
   includeAlbumInSecondary: boolean;
   /** When set, replaces the default artist/album/duration secondary line. */
@@ -37,4 +39,5 @@ export type SongItemMainProps = {
     coverArtId: string,
   ) => Promise<LibraryArtworkCacheRow | null>;
   artworkCacheBump: number;
+  artworkCacheKey?: string;
 };

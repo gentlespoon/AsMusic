@@ -15,6 +15,7 @@ export function SongItem({
   api,
   resolveCachedArtwork,
   artworkCacheBump,
+  artworkCacheKey,
   includeAlbumInSecondary,
   secondaryContent,
   showRemoveButton,
@@ -54,6 +55,7 @@ export function SongItem({
       coverArtId={coverArtId}
       resolveCachedArtwork={resolveCachedArtwork}
       artworkCacheBump={artworkCacheBump}
+      artworkCacheKey={artworkCacheKey}
     />
   );
 

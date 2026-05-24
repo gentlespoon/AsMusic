@@ -207,6 +207,11 @@ export function SongListView({
                   entry.song,
                   albums,
                 );
+                const artworkKey = coverId
+                  ? artworkVersionKey
+                    ? artworkVersionKey(coverId, entry.artworkScope)
+                    : coverId
+                  : undefined;
                 const api = apiForServer(entry.serverId);
                 if (!api) {
                   return <Box sx={{ minHeight: 56 }} aria-hidden />;
@@ -221,6 +226,7 @@ export function SongListView({
                       resolveCachedArtwork(id, entry.artworkScope)
                     }
                     artworkCacheBump={versionFor(coverId, entry.artworkScope)}
+                    artworkCacheKey={artworkKey}
                     includeAlbumInSecondary={includeAlbumInSecondary}
                     onClick={onPlaySong ? () => onPlaySong(entry) : undefined}
                     onPlayNext={

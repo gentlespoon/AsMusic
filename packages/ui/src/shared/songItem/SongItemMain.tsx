@@ -10,6 +10,7 @@ export function SongItemMain({
   coverArtId,
   resolveCachedArtwork,
   artworkCacheBump,
+  artworkCacheKey,
 }: SongItemMainProps) {
   return (
     <>
@@ -18,6 +19,7 @@ export function SongItemMain({
         coverArtId={coverArtId}
         resolveCachedArtwork={resolveCachedArtwork}
         artworkCacheBump={artworkCacheBump}
+        artworkCacheKey={artworkCacheKey}
       />
       <SongItemText
         title={track.title ?? "—"}

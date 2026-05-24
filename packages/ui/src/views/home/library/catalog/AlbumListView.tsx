@@ -215,6 +215,7 @@ export function AlbumListView({
                       coverArtId={album.coverArt}
                       resolveCachedArtwork={(id) => resolveCachedArtworkForScope(row.artworkScope, id)}
                       artworkCacheBump={album.coverArt ? artworkVersionById[bumpKey] ?? 0 : 0}
+                      artworkCacheKey={album.coverArt ? bumpKey : undefined}
                       size={200}
                       label={album.name}
                       sx={{
@@ -270,6 +271,7 @@ export function AlbumListView({
                         coverArtId={album.coverArt}
                         resolveCachedArtwork={(id) => resolveCachedArtworkForScope(row.artworkScope, id)}
                         artworkCacheBump={album.coverArt ? artworkVersionById[bumpKey] ?? 0 : 0}
+                        artworkCacheKey={album.coverArt ? bumpKey : undefined}
                         size={48}
                         label=""
                         sx={{ width: 40, height: 40 }}

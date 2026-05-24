@@ -44,6 +44,9 @@ public class AsmusicNativePlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "offlineMediaDeleteScope", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "offlineMediaPurgeServerKey", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "offlineMediaTotalBytes", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "playerDebugLogGet", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "playerDebugLogClear", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "playerDebugLogAppend", returnType: CAPPluginReturnPromise),
     ]
 
     /// Target for lock-screen / route remote commands (latest player instance).
@@ -66,6 +69,11 @@ public class AsmusicNativePlugin: CAPPlugin, CAPBridgedPlugin {
     private var wasPlayingBeforeInterruption = false
     /// Bumped on each `playbackLoadUrl` / teardown so stale `AVPlayerItem` failures are ignored.
     private var playbackLoadGeneration = 0
+    /// Suppress duplicate `AVPlayerItemDidPlayToEndTime` for the same load generation.
+    private var endNotifiedForLoadGeneration: Int = -1
+
+    private static let debugLogFilename = "asmusic-player-debug.log"
+    private static let maxDebugLogBytes = 65536
 
     private var sleepTimerWorkItem: DispatchWorkItem?
     private var sleepEndsAtEpochMs: Double?
@@ -133,6 +141,60 @@ public class AsmusicNativePlugin: CAPPlugin, CAPBridgedPlugin {
             return
         }
         KeychainHelper.delete(service: AsmusicNativePlugin.keychainService, account: key)
+        call.resolve()
+    }
+
+    @objc func playerDebugLogGet(_ call: CAPPluginCall) {
+        guard let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            call.resolve(["log": ""])
+            return
+        }
+        let url = docs.appendingPathComponent(Self.debugLogFilename)
+        let text = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
+        call.resolve(["log": text])
+    }
+
+    @objc func playerDebugLogClear(_ call: CAPPluginCall) {
+        guard let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            call.resolve()
+            return
+        }
+        let url = docs.appendingPathComponent(Self.debugLogFilename)
+        try? FileManager.default.removeItem(at: url)
+        call.resolve()
+    }
+
+    private static func appendPlayerDebugLog(_ message: String) {
+        let ms = Int64(Date().timeIntervalSince1970 * 1000)
+        let line = "\(ms) [native] \(message)\n"
+        guard let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else { return }
+        let url = docs.appendingPathComponent(debugLogFilename)
+        guard let data = line.data(using: .utf8) else { return }
+        if FileManager.default.fileExists(atPath: url.path) {
+            if let handle = try? FileHandle(forWritingTo: url) {
+                handle.seekToEndOfFile()
+                handle.write(data)
+                try? handle.close()
+            }
+        } else {
+            try? data.write(to: url)
+        }
+        if let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
+           let size = attrs[.size] as? Int, size > maxDebugLogBytes,
+           let full = try? String(contentsOf: url, encoding: .utf8)
+        {
+            let trimmed = String(full.suffix(maxDebugLogBytes))
+            try? trimmed.data(using: .utf8)?.write(to: url)
+        }
+    }
+
+    /// For future native-side diagnostics; call sites are intentionally sparse in production builds.
+    @objc func playerDebugLogAppend(_ call: CAPPluginCall) {
+        guard let message = call.getString("message"), !message.isEmpty else {
+            call.reject("Missing message")
+            return
+        }
+        Self.appendPlayerDebugLog(message)
         call.resolve()
     }
 
@@ -877,6 +939,7 @@ public class AsmusicNativePlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     private func observePlayer(_ av: AVPlayer, item: AVPlayerItem) {
+        endNotifiedForLoadGeneration = -1
         let observedGeneration = playbackLoadGeneration
         let interval = CMTime(seconds: 0.25, preferredTimescale: 600)
         timeObserver = av.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self] _ in
@@ -888,7 +951,10 @@ public class AsmusicNativePlugin: CAPPlugin, CAPBridgedPlugin {
             object: item,
             queue: .main
         ) { [weak self] _ in
-            guard let self, observedGeneration == self.playbackLoadGeneration else { return }
+            guard let self else { return }
+            guard observedGeneration == self.playbackLoadGeneration else { return }
+            if self.endNotifiedForLoadGeneration == observedGeneration { return }
+            self.endNotifiedForLoadGeneration = observedGeneration
             self.notifyListeners("playbackEnded", data: [:])
             self.notifyPlaybackState()
         }
@@ -916,6 +982,7 @@ public class AsmusicNativePlugin: CAPPlugin, CAPBridgedPlugin {
 
     private func tearDownPlayerObservers() {
         playbackLoadGeneration += 1
+        endNotifiedForLoadGeneration = -1
         cancelArtworkLoad()
         if let timeObserver, let p = player {
             p.removeTimeObserver(timeObserver)

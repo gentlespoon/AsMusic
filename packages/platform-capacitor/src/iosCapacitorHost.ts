@@ -41,20 +41,23 @@ function buildPlayback(): PlaybackHost {
   const favoriteStarSubs = new Set<() => void>();
   const favoriteUnstarSubs = new Set<() => void>();
 
-  let stateHandle: PluginListenerHandle | null = null;
   let remoteHandlesInitialized = false;
+  let listenersReady: Promise<void> | null = null;
 
-  const ensureListeners = async () => {
-    if (stateHandle) return;
-    stateHandle = await AsmusicNative.addListener('playbackState', (p) => {
-      stateSubs.forEach((cb) => cb(p));
-    });
-    await AsmusicNative.addListener('playbackEnded', () => {
-      endedSubs.forEach((cb) => cb());
-    });
-    await AsmusicNative.addListener('playbackError', (p) => {
-      errorSubs.forEach((cb) => cb(p));
-    });
+  const ensureListeners = (): Promise<void> => {
+    if (listenersReady) return listenersReady;
+    listenersReady = (async () => {
+      await AsmusicNative.addListener('playbackState', (p) => {
+        stateSubs.forEach((cb) => cb(p));
+      });
+      await AsmusicNative.addListener('playbackEnded', () => {
+        endedSubs.forEach((cb) => cb());
+      });
+      await AsmusicNative.addListener('playbackError', (p) => {
+        errorSubs.forEach((cb) => cb(p));
+      });
+    })();
+    return listenersReady;
   };
 
   const ensureRemoteHandles = async () => {

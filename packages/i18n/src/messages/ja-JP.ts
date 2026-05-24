@@ -156,6 +156,10 @@ export const jaJPMessages = {
   "nav.aboutHint": "アプリ情報",
   "nav.playbackQueue": "再生キュー",
   "nav.playbackQueueHint": "並べ替え、ループ、クリア",
+  "nav.playerDebugLog": "プレイヤーデバッグログをコピー",
+  "nav.playerDebugLog.copied": "クリップボードにコピーしました",
+  "nav.playerDebugLog.copyFailed": "コピーに失敗しました",
+  "nav.playerDebugLog.hint": "ネイティブと JavaScript のプレイヤーログ",
   "nav.settings": "設定",
   "nav.settingsHint": "サーバー、ライブラリなど",
   "nav.sleepTimer": "スリープタイマー",
@@ -375,7 +379,11 @@ export const jaJPMessages = {
     "オンにするとミニプレイヤーは従来の iOS バーのようにスワイプ操作になり、スキップ／再生ボタンは非表示になります。",
   "settings.ux.waveform": "波形プログレスバー",
   "settings.ux.section.appearance": "外観",
+  "settings.ux.section.developer": "開発者",
   "settings.ux.section.playback": "再生",
+  "settings.ux.playerDebugLog": "プレイヤーデバッグログを表示",
+  "settings.ux.playerDebugLog.caption":
+    "トラブルシューティング用に、ネイティブと JavaScript のプレイヤーログをコピーするメニュー項目を追加します。",
   "settings.ux.waveform.caption":
     "全画面プレイヤーはローカルファイルで波形スクラバーを表示します。ストリーミングでは常に通常のスライダーを使用します。",
 

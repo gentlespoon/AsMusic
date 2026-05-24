@@ -112,6 +112,7 @@ export class PlayerManager {
 
   private lastIosRemoteSession: PlaybackRemoteSessionPayload | null = null;
   private loadTrackSeq = 0;
+  private handlingPlaybackEnded = false;
 
   constructor(host: PlatformHost, deps: PlayerManagerDeps) {
     this.host = host;
@@ -474,34 +475,18 @@ export class PlayerManager {
   }
 
   private async handlePlaybackEnded(): Promise<void> {
-    const idx = this.currentIndex;
-    if (idx === null || this.queue.length === 0) {
-      this.emit();
+    if (this.handlingPlaybackEnded) {
       return;
     }
-
-    if (this.loopOne) {
-      try {
-        await this.host.playback.seek(0);
-        await this.host.playback.play();
-      } catch {
-        /* ignore */
+    this.handlingPlaybackEnded = true;
+    try {
+      const idx = this.currentIndex;
+      if (idx === null || this.queue.length === 0) {
+        this.emit();
+        return;
       }
-      this.emit();
-      return;
-    }
 
-    if (idx + 1 < this.queue.length) {
-      this.currentIndex = idx + 1;
-      this.loadError = null;
-      this.emit();
-      await this.loadCurrentTrack({ autoplay: true });
-      this.schedulePersist();
-      return;
-    }
-
-    if (this.loopQueue && this.queue.length > 0) {
-      if (this.queue.length <= 1) {
+      if (this.loopOne) {
         try {
           await this.host.playback.seek(0);
           await this.host.playback.play();
@@ -509,25 +494,49 @@ export class PlayerManager {
           /* ignore */
         }
         this.emit();
+        return;
+      }
+
+      if (idx + 1 < this.queue.length) {
+        this.currentIndex = idx + 1;
+        this.loadError = null;
+        this.emit();
+        await this.loadCurrentTrack({ autoplay: true });
         this.schedulePersist();
         return;
       }
-      this.currentIndex = 0;
-      this.loadError = null;
-      this.emit();
-      await this.loadCurrentTrack({ autoplay: true });
-      this.schedulePersist();
-      return;
-    }
 
-    try {
-      await this.host.playback.pause();
-    } catch {
-      /* ignore */
+      if (this.loopQueue && this.queue.length > 0) {
+        if (this.queue.length <= 1) {
+          try {
+            await this.host.playback.seek(0);
+            await this.host.playback.play();
+          } catch {
+            /* ignore */
+          }
+          this.emit();
+          this.schedulePersist();
+          return;
+        }
+        this.currentIndex = 0;
+        this.loadError = null;
+        this.emit();
+        await this.loadCurrentTrack({ autoplay: true });
+        this.schedulePersist();
+        return;
+      }
+
+      try {
+        await this.host.playback.pause();
+      } catch {
+        /* ignore */
+      }
+      this.isPlaying = false;
+      this.emit();
+      this.schedulePersist();
+    } finally {
+      this.handlingPlaybackEnded = false;
     }
-    this.isPlaying = false;
-    this.emit();
-    this.schedulePersist();
   }
 
   private async loadCurrentTrack(options: { autoplay: boolean }): Promise<void> {

@@ -19,6 +19,7 @@ import {
   Tooltip,
 } from "@mui/material";
 import { PageCloseButton } from "../../shared/PageCloseButton";
+import { useHost } from "../../host/HostContext";
 import { useEdgeSwipeBack } from "../../shared/useEdgeSwipeBack";
 import {
   SettingsPreferenceListItem,
@@ -59,6 +60,10 @@ import {
   useDisplayLanguagePreference,
   type DisplayLanguagePreference,
 } from "../../preferences/displayLanguagePreference";
+import {
+  setPlayerDebugLogMenuEnabled,
+  usePlayerDebugLogMenuEnabled,
+} from "../../preferences/playerDebugLogPreference";
 
 type LanguageOption = { value: DisplayLanguagePreference; label: string };
 
@@ -77,6 +82,7 @@ function useLanguageOptions(t: ReturnType<typeof useT>): LanguageOption[] {
 
 export function UserExperienceView() {
   const t = useT();
+  const host = useHost();
   const navigate = useNavigate();
   const displayLanguage = useDisplayLanguagePreference();
   const languageOptions = useLanguageOptions(t);
@@ -86,6 +92,8 @@ export function UserExperienceView() {
   const blackBackground = useBlackBackgroundEnabled();
   const hapticEnabled = useHapticFeedbackEnabled();
   const waveformProgressBar = useWaveformProgressBarEnabled();
+  const playerDebugLogMenu = usePlayerDebugLogMenuEnabled();
+  const showPlayerDebugLogSetting = host.kind === "ios-capacitor";
   const edgeSwipeBack = useEdgeSwipeBack(() => navigate("/settings"));
 
   return (
@@ -284,6 +292,31 @@ export function UserExperienceView() {
               </SettingsPreferenceRow>
             </SettingsPreferenceListItem>
           </SettingsPreferenceSection>
+
+          {showPlayerDebugLogSetting ? (
+            <SettingsPreferenceSection
+              title={t("settings.ux.section.developer")}
+            >
+              <SettingsPreferenceListItem>
+                <SettingsPreferenceRow>
+                  <SettingsPreferenceRowLabel>
+                    <SettingsListItemTitle>
+                      {t("settings.ux.playerDebugLog")}
+                    </SettingsListItemTitle>
+                    <SettingsListItemCaption>
+                      {t("settings.ux.playerDebugLog.caption")}
+                    </SettingsListItemCaption>
+                  </SettingsPreferenceRowLabel>
+                  <Switch
+                    checked={playerDebugLogMenu}
+                    onChange={(_, c) => setPlayerDebugLogMenuEnabled(c)}
+                    aria-label={t("settings.ux.playerDebugLog")}
+                    sx={{ mt: 0.125, flexShrink: 0 }}
+                  />
+                </SettingsPreferenceRow>
+              </SettingsPreferenceListItem>
+            </SettingsPreferenceSection>
+          ) : null}
         </Stack>
       </Container>
     </Box>

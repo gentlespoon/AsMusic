@@ -155,6 +155,10 @@ export const enUSMessages = {
   "nav.aboutHint": "App information",
   "nav.playbackQueue": "Playback queue",
   "nav.playbackQueueHint": "Reorder, loop, and clear",
+  "nav.playerDebugLog": "Copy player debug log",
+  "nav.playerDebugLog.copied": "Copied to clipboard",
+  "nav.playerDebugLog.copyFailed": "Copy failed",
+  "nav.playerDebugLog.hint": "Native and JavaScript player logs",
   "nav.settings": "Settings",
   "nav.settingsHint": "Servers, libraries, and more",
   "nav.sleepTimer": "Sleep timer",
@@ -371,7 +375,11 @@ export const enUSMessages = {
     "Mini player uses swipes like the legacy iOS bar when on; skip and play buttons are hidden.",
   "settings.ux.waveform": "Waveform progress bar",
   "settings.ux.section.appearance": "Appearance",
+  "settings.ux.section.developer": "Developer",
   "settings.ux.section.playback": "Playback",
+  "settings.ux.playerDebugLog": "Show player debug log",
+  "settings.ux.playerDebugLog.caption":
+    "Adds a menu item to copy native and JavaScript player logs for troubleshooting.",
   "settings.ux.waveform.caption":
     "Full-screen player shows a waveform scrubber for local files. Streaming will always use a standard slider.",
 

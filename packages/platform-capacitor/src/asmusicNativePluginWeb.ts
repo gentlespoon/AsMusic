@@ -119,6 +119,14 @@ export class AsmusicNativeWeb extends WebPlugin implements AsmusicNativePlugin {
   async offlineMediaTotalBytes(): Promise<{ totalBytes: number }> {
     throwNativeOnly('offlineMediaTotalBytes');
   }
+
+  async playerDebugLogGet(): Promise<{ log: string }> {
+    return { log: '' };
+  }
+
+  async playerDebugLogClear(): Promise<void> {}
+
+  async playerDebugLogAppend(): Promise<void> {}
 }
 
 function throwNativeOnly(method: string): never {

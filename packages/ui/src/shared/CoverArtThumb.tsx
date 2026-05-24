@@ -3,6 +3,13 @@ import Box from '@mui/material/Box';
 import { keyframes, type SxProps, type Theme } from '@mui/material/styles';
 import type { SubsonicAPI } from '@asmusic/core';
 import type { LibraryArtworkCacheRow } from '@asmusic/core';
+import {
+  acquireCoverArtUrl,
+  buildCoverArtCacheKey,
+  getOrStartCoverArtLoad,
+  peekCoverArtUrl,
+  releaseCoverArtUrl,
+} from './coverArtObjectUrlCache';
 
 const pulse = keyframes`
   50% { opacity: 0.65; }
@@ -15,6 +22,8 @@ type Props = {
   resolveCachedArtwork?: (coverArtId: string) => Promise<LibraryArtworkCacheRow | null>;
   /** Increment when this id was written to local cache so the image reloads from storage. */
   artworkCacheBump?: number;
+  /** Scope/library disambiguator for multi-library artwork caches. */
+  artworkCacheKey?: string;
   size?: number;
   sx?: SxProps<Theme>;
   label?: string;
@@ -42,59 +51,63 @@ export function CoverArtThumb({
   coverArtId,
   resolveCachedArtwork,
   artworkCacheBump = 0,
+  artworkCacheKey,
   size = 128,
   sx,
   label,
 }: Props) {
-  const [src, setSrc] = useState<string | null>(null);
-  const objectUrlRef = useRef<string | null>(null);
+  const resolveCachedArtworkRef = useRef(resolveCachedArtwork);
+  resolveCachedArtworkRef.current = resolveCachedArtwork;
+
+  const cacheKey =
+    coverArtId && api
+      ? buildCoverArtCacheKey(api, coverArtId, size, artworkCacheBump, artworkCacheKey)
+      : null;
+
+  const [src, setSrc] = useState<string | null>(() =>
+    cacheKey ? peekCoverArtUrl(cacheKey) : null,
+  );
 
   useEffect(() => {
-    const revoke = () => {
-      if (objectUrlRef.current) {
-        URL.revokeObjectURL(objectUrlRef.current);
-        objectUrlRef.current = null;
-      }
-    };
-
-    if (!coverArtId) {
-      revoke();
+    if (!coverArtId || !cacheKey) {
       setSrc(null);
       return;
     }
 
     let cancelled = false;
-    void (async () => {
+    const cached = acquireCoverArtUrl(cacheKey);
+    if (cached) {
+      setSrc(cached);
+    }
+
+    void getOrStartCoverArtLoad(cacheKey, async () => {
       try {
         let blob: Blob | null = null;
-        const cached = resolveCachedArtwork && coverArtId ? await resolveCachedArtwork(coverArtId) : null;
-        if (cancelled) return;
-        if (cached?.data?.byteLength) {
-          blob = new Blob([cached.data], { type: cached.mimeType || 'image/jpeg' });
+        const resolve = resolveCachedArtworkRef.current;
+        const fromDisk = resolve ? await resolve(coverArtId) : null;
+        if (fromDisk?.data?.byteLength) {
+          blob = new Blob([fromDisk.data], { type: fromDisk.mimeType || 'image/jpeg' });
         } else {
           const res = await api.getCoverArt({ id: coverArtId, size });
-          if (cancelled || !res.ok) return;
+          if (!res.ok) return null;
           blob = await res.blob();
         }
-        if (cancelled || !blob) return;
-        const u = URL.createObjectURL(blob);
-        revoke();
-        objectUrlRef.current = u;
-        setSrc(u);
+        if (!blob) return null;
+        return URL.createObjectURL(blob);
       } catch {
-        if (!cancelled) {
-          revoke();
-          setSrc(null);
-        }
+        return null;
       }
-    })();
+    }).then((url) => {
+      if (!cancelled && url) {
+        setSrc(url);
+      }
+    });
 
     return () => {
       cancelled = true;
-      revoke();
-      setSrc(null);
+      releaseCoverArtUrl(cacheKey);
     };
-  }, [api, coverArtId, size, resolveCachedArtwork, artworkCacheBump]);
+  }, [api, cacheKey, coverArtId, size, artworkCacheBump, artworkCacheKey]);
 
   if (!coverArtId) {
     return (
@@ -130,7 +143,6 @@ export function CoverArtThumb({
       component="img"
       src={src}
       alt={label ?? ''}
-      loading="lazy"
       sx={[baseCoverSx, { objectFit: 'cover' }, ...(Array.isArray(sx) ? sx : sx ? [sx] : [])]}
     />
   );

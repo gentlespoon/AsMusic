@@ -148,6 +148,10 @@ export const zhCNMessages = {
   "nav.aboutHint": "应用信息",
   "nav.playbackQueue": "播放队列",
   "nav.playbackQueueHint": "重排、循环与清空",
+  "nav.playerDebugLog": "复制播放器调试日志",
+  "nav.playerDebugLog.copied": "已复制到剪贴板",
+  "nav.playerDebugLog.copyFailed": "复制失败",
+  "nav.playerDebugLog.hint": "原生与 JavaScript 播放器日志",
   "nav.settings": "设置",
   "nav.settingsHint": "服务器、资料库等",
   "nav.sleepTimer": "睡眠定时器",
@@ -358,7 +362,11 @@ export const zhCNMessages = {
     "开启时迷你播放器使用滑动手势；上一曲、下一曲与播放按钮会隐藏。",
   "settings.ux.waveform": "波形进度条",
   "settings.ux.section.appearance": "外观",
+  "settings.ux.section.developer": "开发者",
   "settings.ux.section.playback": "播放",
+  "settings.ux.playerDebugLog": "显示播放器调试日志",
+  "settings.ux.playerDebugLog.caption":
+    "在菜单中添加一项，用于复制原生与 JavaScript 播放器日志以便排查问题。",
   "settings.ux.waveform.caption":
     "全屏播放器对本地文件显示波形 scrubber。流式播放始终使用标准滑块。",
 

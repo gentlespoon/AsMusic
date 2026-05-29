@@ -14,6 +14,10 @@ import { PlayerManager, type PlayerSleepTimerSnapshot, type SavedServerRef } fro
 import type { PlayerQueueItem, PlayerViewState } from '../player/core/types';
 import { useServerAndLibrary } from './ServerAndLibraryContext';
 import { useLibraryBrowseCache } from './LibraryBrowseCacheContext';
+import {
+  clearPlayerDebugLog,
+  copyPlayerDebugLogToClipboard,
+} from '../player/core/playerDebugLog';
 
 export type PlayerActions = {
   replaceQueueAndPlay: (items: PlayerQueueItem[], startIndex: number) => Promise<void>;
@@ -86,6 +90,20 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       manager.dispose();
     };
   }, [manager]);
+
+  useEffect(() => {
+  type AsMusicDebugWindow = Window & {
+    __asmusicCopyPlayerDebugLog?: () => Promise<string>;
+    __asmusicClearPlayerDebugLog?: () => Promise<void>;
+  };
+    const w = window as AsMusicDebugWindow;
+    w.__asmusicCopyPlayerDebugLog = () => copyPlayerDebugLogToClipboard(host);
+    w.__asmusicClearPlayerDebugLog = () => clearPlayerDebugLog(host);
+    return () => {
+      delete w.__asmusicCopyPlayerDebugLog;
+      delete w.__asmusicClearPlayerDebugLog;
+    };
+  }, [host]);
 
   useEffect(() => {
     const p = host.playback;

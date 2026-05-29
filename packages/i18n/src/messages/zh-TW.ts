@@ -148,6 +148,10 @@ export const zhTWMessages = {
   "nav.aboutHint": "App 資訊",
   "nav.playbackQueue": "播放佇列",
   "nav.playbackQueueHint": "重新排序、循環與清空",
+  "nav.playerDebugLog": "複製播放器偵錯記錄",
+  "nav.playerDebugLog.copied": "已複製到剪貼簿",
+  "nav.playerDebugLog.copyFailed": "複製失敗",
+  "nav.playerDebugLog.hint": "原生與 JavaScript 播放器記錄",
   "nav.settings": "設定",
   "nav.settingsHint": "伺服器、資料庫等",
   "nav.sleepTimer": "睡眠計時器",
@@ -357,7 +361,11 @@ export const zhTWMessages = {
   "settings.ux.playerBarSwipe.caption":
     "開啟時迷你播放器使用與舊版 iOS 列類似的滑動；略過與播放按鈕會隱藏。",
   "settings.ux.section.appearance": "外觀",
+  "settings.ux.section.developer": "開發者",
   "settings.ux.section.playback": "播放",
+  "settings.ux.playerDebugLog": "顯示播放器偵錯記錄",
+  "settings.ux.playerDebugLog.caption":
+    "在選單中新增一項，用於複製原生與 JavaScript 播放器記錄以便疑難排解。",
   "settings.ux.waveform": "波形進度列",
   "settings.ux.waveform.caption":
     "全螢幕播放器對本機檔案顯示波形 scrubber。串流播放一律使用標準滑桿。",

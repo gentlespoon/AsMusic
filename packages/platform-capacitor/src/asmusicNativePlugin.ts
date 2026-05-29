@@ -129,6 +129,9 @@ export interface AsmusicNativePlugin {
   offlineMediaDeleteScope(options: { serverKey: string; libraryId: string }): Promise<void>;
   offlineMediaPurgeServerKey(options: { serverKey: string }): Promise<void>;
   offlineMediaTotalBytes(options: { serverKey?: string; libraryId?: string }): Promise<{ totalBytes: number }>;
+  playerDebugLogGet(): Promise<{ log: string }>;
+  playerDebugLogClear(): Promise<void>;
+  playerDebugLogAppend(options: { message: string }): Promise<void>;
   addListener<E extends keyof AsmusicNativePluginEvents>(
     event: E,
     listener: (payload: AsmusicNativePluginEvents[E]) => void

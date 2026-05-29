@@ -1,5 +1,9 @@
 # Project notes
 
+## Equalizer (deferred)
+
+Global EQ for streaming and offline downloads — one global preset/band setting for all output. See [`.cursor/plans/equalizer_platformhost.plan.md`](.cursor/plans/equalizer_platformhost.plan.md). iOS native DSP notes: [`ios/NOTE.md`](ios/NOTE.md).
+
 ## Playlist creation and multiple active libraries
 
 Subsonic playlists are **per server account**, not per music-folder (`libraryId`). The app still caches playlist summaries under each active library scope (`serverUrl` + `username` + `libraryId`), so a full library browse can load several scopes at once (multiple servers, or multiple folders on one server).

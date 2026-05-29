@@ -1,5 +1,9 @@
 # AsMusic on iOS (Capacitor shell) — notes
 
+## Equalizer (deferred)
+
+Playback today uses **`AVPlayer`** in `AsmusicNativePlugin.swift`, which has no built-in EQ. A global equalizer for **streaming + offline** requires native DSP — likely `AVAudioEngine` + `AVAudioUnitEQ` or an `MTAudioProcessingTap` on `AVPlayerItem`. Full plan: [`.cursor/plans/equalizer_platformhost.plan.md`](../.cursor/plans/equalizer_platformhost.plan.md).
+
 ## Xcode scheme / product name
 
 - Shared scheme: **`AsMusic`** (`ios/App/App.xcodeproj/xcshareddata/xcschemes/AsMusic.xcscheme`).

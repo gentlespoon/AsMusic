@@ -12,6 +12,9 @@ import { alpha } from "@mui/material/styles";
 import { useT } from "@asmusic/i18n";
 import { useNavigate } from "react-router-dom";
 import { PageCloseButton } from "../../shared/PageCloseButton";
+import { useHost } from "../../host/HostContext";
+import { usePlayerDebugLogMenuEnabled } from "../../preferences/playerDebugLogPreference";
+import { copyPlayerDebugLogToClipboard } from "../../player/core/playerDebugLog";
 import {
   formatSleepTimerRemaining,
   SleepTimerDialog,
@@ -28,11 +31,18 @@ export type AppDrawerProps = {
 
 export function AppDrawer({ open, onClose }: AppDrawerProps) {
   const t = useT();
+  const host = useHost();
   const navigate = useNavigate();
   const [sleepTimerOpen, setSleepTimerOpen] = useState(false);
+  const [debugCopyState, setDebugCopyState] = useState<"idle" | "copied" | "error">(
+    "idle",
+  );
   const sleepRemainingSeconds = useSleepTimerRemainingSeconds();
   const sleepTimerActive =
     sleepRemainingSeconds != null && sleepRemainingSeconds > 0;
+  const playerDebugLogMenuEnabled = usePlayerDebugLogMenuEnabled();
+  const showPlayerDebugLog =
+    host.kind === "ios-capacitor" && playerDebugLogMenuEnabled;
 
   const go = (path: string) => {
     onClose();
@@ -128,6 +138,29 @@ export function AppDrawer({ open, onClose }: AppDrawerProps) {
               primary={t("nav.about")} /* secondary={t("nav.aboutHint")} */
             />
           </ListItemButton>
+          {showPlayerDebugLog ? (
+            <>
+              <Divider component="li" />
+              <ListItemButton
+                onClick={() => {
+                  void copyPlayerDebugLogToClipboard(host)
+                    .then(() => setDebugCopyState("copied"))
+                    .catch(() => setDebugCopyState("error"));
+                }}
+              >
+                <ListItemText
+                  primary={t("nav.playerDebugLog")}
+                  secondary={
+                    debugCopyState === "copied"
+                      ? t("nav.playerDebugLog.copied")
+                      : debugCopyState === "error"
+                        ? t("nav.playerDebugLog.copyFailed")
+                        : t("nav.playerDebugLog.hint")
+                  }
+                />
+              </ListItemButton>
+            </>
+          ) : null}
         </List>
       </Drawer>
       <SleepTimerDialog

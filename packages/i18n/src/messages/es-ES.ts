@@ -157,6 +157,10 @@ export const esESMessages = {
   "nav.aboutHint": "Información de la aplicación",
   "nav.playbackQueue": "Cola de reproducción",
   "nav.playbackQueueHint": "Reordenar, repetir y borrar",
+  "nav.playerDebugLog": "Copiar registro de depuración del reproductor",
+  "nav.playerDebugLog.copied": "Copiado al portapapeles",
+  "nav.playerDebugLog.copyFailed": "Error al copiar",
+  "nav.playerDebugLog.hint": "Registros del reproductor nativo y de JavaScript",
   "nav.settings": "Ajustes",
   "nav.settingsHint": "Servidores, bibliotecas y más",
   "nav.sleepTimer": "Temporizador de sueño",
@@ -384,7 +388,11 @@ export const esESMessages = {
     "Con esta opción activada, el minirreproductor usa deslizamientos como la barra iOS antigua; los botones de saltar y reproducir se ocultan.",
   "settings.ux.waveform": "Barra de progreso con forma de onda",
   "settings.ux.section.appearance": "Apariencia",
+  "settings.ux.section.developer": "Desarrollador",
   "settings.ux.section.playback": "Reproducción",
+  "settings.ux.playerDebugLog": "Mostrar registro de depuración del reproductor",
+  "settings.ux.playerDebugLog.caption":
+    "Añade un elemento de menú para copiar los registros nativos y de JavaScript del reproductor para la resolución de problemas.",
   "settings.ux.waveform.caption":
     "El reproductor a pantalla completa muestra un control de forma de onda para archivos locales. En streaming siempre se usa un deslizador estándar.",
 

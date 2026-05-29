@@ -84,6 +84,17 @@ export VITE_APP_BUILD="$BUILD"
 build_web() {
   echo "==> web"
   (cd "$ROOT" && pnpm run build)
+  mkdir -p "$ROOT/dist"
+  # -C archives dist contents at tarball root (not the full absolute path).
+  COPYFILE_DISABLE=1 tar -czf "$ROOT/dist/asmusic-web-$VERSION-$BUILD.tar.gz" \
+    --format ustar \
+    --no-xattrs \
+    --no-acls \
+    --no-fflags \
+    --uid=0 --gid=0 --uname=root --gname=wheel \
+    --exclude='.DS_Store' \
+    --exclude='._*' \
+    -C "$ROOT/apps/web/dist" .
 }
 
 build_ios() {

@@ -24,6 +24,12 @@ export type OfflineMediaStatusDetail = {
   updatedAt?: number;
 };
 
+/** One ready offline row for list UIs (avoids per-track `getStatus` round-trips). */
+export type OfflineReadyEntry = {
+  key: OfflineMediaKey;
+  byteLength: number;
+};
+
 /** Result of resolving a ready local file for playback; caller must invoke `revoke` when done (blob URLs). */
 export type OfflinePlaybackSource = {
   url: string;
@@ -41,6 +47,8 @@ export interface OfflineMediaStore {
   getStatus(key: OfflineMediaKey): Promise<OfflineMediaStatusDetail>;
   /** All keys with `ready` blobs; pass `null` to list across all libraries (for Download Manager). */
   listReadyKeys(scopeFilter: LibraryCacheScope | null): Promise<OfflineMediaKey[]>;
+  /** Ready rows with byte sizes for efficient bulk listing. */
+  listReadyEntries(scopeFilter: LibraryCacheScope | null): Promise<OfflineReadyEntry[]>;
   /** Local playback URL when status is `ready`; otherwise `null`. */
   getReadyPlaybackSource(key: OfflineMediaKey): Promise<OfflinePlaybackSource | null>;
   /**
@@ -75,6 +83,9 @@ export function createNoopOfflineMediaStore(): OfflineMediaStore {
       return empty;
     },
     async listReadyKeys() {
+      return [];
+    },
+    async listReadyEntries() {
       return [];
     },
     async getReadyPlaybackSource() {

@@ -15,7 +15,7 @@ import {
   type SubsonicAPI,
 } from '@asmusic/core';
 import { useHost } from '../../host/HostContext';
-import { useActiveLibraryScopes, usePlayerActions, useServerAndLibrary } from '../../contexts';
+import { useActiveLibraryScopes, useLibraryBrowseCache, usePlayerActions, useServerAndLibrary } from '../../contexts';
 import { playerQueueItemFromChild } from '../../player/core/playerQueueItemFromChild';
 import type { PlayerQueueItem } from '../../player/core/types';
 import { SongItem } from '../../shared/SongItem';
@@ -34,6 +34,14 @@ type RowModel = {
 
 function syntheticTrack(trackId: string): Child {
   return { id: trackId, title: trackId, isDir: false };
+}
+
+function scopeKey(scope: LibraryCacheScope): string {
+  return `${scope.serverKey}|${scope.libraryId}`;
+}
+
+function trackLookupKey(scope: LibraryCacheScope, trackId: string): string {
+  return `${scopeKey(scope)}|${trackId}`;
 }
 
 function shuffleCopy<T>(items: readonly T[]): T[] {
@@ -58,7 +66,8 @@ export function DownloadedSongListView({ reloadNonce = 0 }: DownloadedSongListVi
   const { format } = useI18n();
   const host = useHost();
   const activeScopes = useActiveLibraryScopes();
-  const { servers, getApiForServer } = useServerAndLibrary();
+  const { slices, apiForServer } = useLibraryBrowseCache();
+  const { servers } = useServerAndLibrary();
   const { insertAfterCurrent, appendToQueue, replaceQueueAndPlay } = usePlayerActions();
   const [rows, setRows] = useState<RowModel[]>([]);
   const [loading, setLoading] = useState(true);
@@ -83,23 +92,57 @@ export function DownloadedSongListView({ reloadNonce = 0 }: DownloadedSongListVi
     setLoading(true);
     setError(null);
     try {
-      const keyLists = await Promise.all(
-        activeScopes.map((scope) => host.offlineMedia.listReadyKeys(scope))
+      const activeScopeIds = new Set(activeScopes.map((scope) => scopeKey(scope)));
+      const entryLists = await Promise.all(
+        activeScopes.map((scope) => host.offlineMedia.listReadyEntries(scope))
       );
-      const keys = keyLists.flat();
-      const scopeCache = new Map<string, Child[]>();
-      const next: RowModel[] = [];
-      for (const key of keys) {
-        const sk = `${key.scope.serverKey}|${key.scope.libraryId}`;
-        let songs = scopeCache.get(sk);
-        if (!songs) {
-          songs = await host.libraryCache.readSongList(key.scope);
-          scopeCache.set(sk, songs);
+      const entries = entryLists.flat().filter((entry) => activeScopeIds.has(scopeKey(entry.key.scope)));
+
+      const trackByKey = new Map<string, Child>();
+      const apiByScopeKey = new Map<string, SubsonicAPI | null>();
+      const loadedScopeKeys = new Set<string>();
+
+      for (const slice of slices) {
+        const sk = scopeKey(slice.scope);
+        loadedScopeKeys.add(sk);
+        for (const song of slice.songs) {
+          trackByKey.set(trackLookupKey(slice.scope, String(song.id)), song);
         }
-        const child = songs.find((c) => String(c.id) === key.trackId);
+        apiByScopeKey.set(sk, apiForServer(slice.serverId));
+      }
+
+      const scopesNeedingDisk = activeScopes.filter((scope) => !loadedScopeKeys.has(scopeKey(scope)));
+      if (scopesNeedingDisk.length > 0) {
+        await Promise.all(
+          scopesNeedingDisk.map(async (scope) => {
+            const sk = scopeKey(scope);
+            const songs = await host.libraryCache.readSongList(scope);
+            for (const song of songs) {
+              trackByKey.set(trackLookupKey(scope, String(song.id)), song);
+            }
+            const server = servers.find(
+              (x) => serverAccountKey(x.serverUrl, x.username) === scope.serverKey
+            );
+            apiByScopeKey.set(sk, server ? apiForServer(server.id) : null);
+          })
+        );
+      }
+
+      const serverByScopeKey = new Map<string, (typeof servers)[number]>();
+      for (const server of servers) {
+        for (const scope of activeScopes) {
+          if (serverAccountKey(server.serverUrl, server.username) === scope.serverKey) {
+            serverByScopeKey.set(scopeKey(scope), server);
+          }
+        }
+      }
+
+      const next: RowModel[] = entries.map(({ key, byteLength }) => {
+        const sk = scopeKey(key.scope);
+        const child = trackByKey.get(trackLookupKey(key.scope, key.trackId));
         const track = child ?? syntheticTrack(key.trackId);
-        const server = servers.find((x) => serverAccountKey(x.serverUrl, x.username) === key.scope.serverKey);
-        const api = server ? await getApiForServer(server.id) : null;
+        const server = serverByScopeKey.get(sk);
+        const api = apiByScopeKey.get(sk) ?? null;
         const queueItem =
           server != null
             ? playerQueueItemFromChild({
@@ -110,18 +153,16 @@ export function DownloadedSongListView({ reloadNonce = 0 }: DownloadedSongListVi
                 username: server.username,
               })
             : null;
-        const st = await host.offlineMedia.getStatus(key);
-        const size = st.byteLength ?? 0;
-        next.push({
+        return {
           key,
           scope: key.scope,
           track,
-          sizeLabel: formatBytes(size),
+          sizeLabel: formatBytes(byteLength),
           stale: !child,
           api,
           queueItem,
-        });
-      }
+        };
+      });
       next.sort((a, b) => (a.track.title ?? '').localeCompare(b.track.title ?? ''));
       setRows(next);
     } catch (e) {
@@ -129,7 +170,7 @@ export function DownloadedSongListView({ reloadNonce = 0 }: DownloadedSongListVi
     } finally {
       setLoading(false);
     }
-  }, [host, activeScopes, servers, getApiForServer, t]);
+  }, [host, activeScopes, slices, apiForServer, servers, t]);
 
   useEffect(() => {
     void load();

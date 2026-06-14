@@ -7,6 +7,7 @@ import {
   type OfflineMediaStatusDetail,
   type OfflineMediaStore,
   type OfflinePlaybackSource,
+  type OfflineReadyEntry,
 } from '@asmusic/core';
 import { AsmusicNative } from './asmusicNativePlugin';
 
@@ -44,7 +45,7 @@ export function createCapacitorIosOfflineMediaStorage(): OfflineMediaStore {
       return mapNativeStatus(raw);
     },
 
-    async listReadyKeys(scopeFilter: LibraryCacheScope | null): Promise<OfflineMediaKey[]> {
+    async listReadyEntries(scopeFilter: LibraryCacheScope | null): Promise<OfflineReadyEntry[]> {
       const { rowsJson } = await AsmusicNative.offlineMediaListReady(
         scopeFilter
           ? { serverKey: scopeFilter.serverKey, libraryId: scopeFilter.libraryId }
@@ -55,12 +56,21 @@ export function createCapacitorIosOfflineMediaStorage(): OfflineMediaStore {
         libraryId: string;
         trackId: string;
         variant: string;
+        byteLength: number;
       }>;
       return rows.map((r) => ({
-        scope: { serverKey: r.serverKey, libraryId: r.libraryId },
-        trackId: r.trackId,
-        variant: r.variant.length > 0 ? r.variant : undefined,
+        key: {
+          scope: { serverKey: r.serverKey, libraryId: r.libraryId },
+          trackId: r.trackId,
+          variant: r.variant.length > 0 ? r.variant : undefined,
+        },
+        byteLength: r.byteLength,
       }));
+    },
+
+    async listReadyKeys(scopeFilter: LibraryCacheScope | null): Promise<OfflineMediaKey[]> {
+      const entries = await this.listReadyEntries(scopeFilter);
+      return entries.map((e) => e.key);
     },
 
     async getReadyPlaybackSource(key: OfflineMediaKey): Promise<OfflinePlaybackSource | null> {

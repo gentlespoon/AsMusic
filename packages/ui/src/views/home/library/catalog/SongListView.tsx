@@ -213,9 +213,6 @@ export function SongListView({
                     : coverId
                   : undefined;
                 const api = apiForServer(entry.serverId);
-                if (!api) {
-                  return <Box sx={{ minHeight: 56 }} aria-hidden />;
-                }
                 const starred = isChildStarred(entry.song);
                 return (
                   <SongItem

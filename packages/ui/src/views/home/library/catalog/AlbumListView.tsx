@@ -99,10 +99,7 @@ export function AlbumListView({
     [rows, search]
   );
 
-  const virtualRows = useMemo(
-    () => filteredRows.filter((r) => apiForServer(r.serverId)),
-    [filteredRows, apiForServer]
-  );
+  const virtualRows = filteredRows;
 
   const queryTrimmed = search.trim();
 
@@ -196,7 +193,7 @@ export function AlbumListView({
             components={gridComponents}
             computeItemKey={(_, row) => rowKey(row)}
             itemContent={(_, row) => {
-              const api = apiForServer(row.serverId)!;
+              const api = apiForServer(row.serverId);
               const { album } = row;
               const bumpKey = album.coverArt ? artworkVersionKey(album.coverArt, row.artworkScope) : '';
               return (
@@ -259,7 +256,7 @@ export function AlbumListView({
             components={{ ...virtuosoScroller, List: VirtuosoMuiList }}
             computeItemKey={(_, row) => rowKey(row)}
             itemContent={(_, row) => {
-              const api = apiForServer(row.serverId)!;
+              const api = apiForServer(row.serverId);
               const { album } = row;
               const bumpKey = album.coverArt ? artworkVersionKey(album.coverArt, row.artworkScope) : '';
               return (

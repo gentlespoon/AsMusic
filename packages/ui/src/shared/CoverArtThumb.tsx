@@ -16,7 +16,8 @@ const pulse = keyframes`
 `;
 
 type Props = {
-  api: SubsonicAPI;
+  /** When omitted, cover art loads from `resolveCachedArtwork` only (offline-safe). */
+  api?: SubsonicAPI | null;
   coverArtId?: string;
   /** When set, disk/database cache is tried before hitting the network. */
   resolveCachedArtwork?: (coverArtId: string) => Promise<LibraryArtworkCacheRow | null>;
@@ -60,8 +61,8 @@ export function CoverArtThumb({
   resolveCachedArtworkRef.current = resolveCachedArtwork;
 
   const cacheKey =
-    coverArtId && api
-      ? buildCoverArtCacheKey(api, coverArtId, size, artworkCacheBump, artworkCacheKey)
+    coverArtId && (api || artworkCacheKey)
+      ? buildCoverArtCacheKey(coverArtId, size, artworkCacheBump, { api, artworkCacheKey })
       : null;
 
   const [src, setSrc] = useState<string | null>(() =>
@@ -87,7 +88,7 @@ export function CoverArtThumb({
         const fromDisk = resolve ? await resolve(coverArtId) : null;
         if (fromDisk?.data?.byteLength) {
           blob = new Blob([fromDisk.data], { type: fromDisk.mimeType || 'image/jpeg' });
-        } else {
+        } else if (api) {
           const res = await api.getCoverArt({ id: coverArtId, size });
           if (!res.ok) return null;
           blob = await res.blob();

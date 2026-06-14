@@ -23,13 +23,19 @@ export function getApiInstanceKey(api: SubsonicAPI): string {
 }
 
 export function buildCoverArtCacheKey(
-  api: SubsonicAPI,
   coverArtId: string,
   size: number,
   artworkCacheBump: number,
-  scopeKey?: string,
-): string {
-  return [getApiInstanceKey(api), scopeKey ?? '', coverArtId, String(size), String(artworkCacheBump)].join('|');
+  context: { api?: SubsonicAPI | null; artworkCacheKey?: string },
+): string | null {
+  const { api, artworkCacheKey } = context;
+  const ownerKey = api
+    ? getApiInstanceKey(api)
+    : artworkCacheKey
+      ? `local:${artworkCacheKey}`
+      : null;
+  if (!ownerKey) return null;
+  return [ownerKey, artworkCacheKey ?? '', coverArtId, String(size), String(artworkCacheBump)].join('|');
 }
 
 export function peekCoverArtUrl(key: string): string | null {

@@ -27,9 +27,9 @@ export function SongItemCover({
 
   return (
     <ListItemAvatar sx={{ minWidth: 48 }}>
-      {api ? (
+      {coverArtId ? (
         <CoverArtThumb
-          api={api}
+          api={api ?? undefined}
           coverArtId={coverArtId}
           resolveCachedArtwork={resolveCachedArtwork}
           artworkCacheBump={artworkCacheBump}

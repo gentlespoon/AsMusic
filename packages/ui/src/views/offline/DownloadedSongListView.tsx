@@ -343,6 +343,7 @@ export function DownloadedSongListView({ reloadNonce = 0 }: DownloadedSongListVi
                       host.libraryCache.readArtworkBlob(r.scope, coverArtIdArg)
                     }
                     artworkCacheBump={0}
+                    artworkCacheKey={scopeKey(r.scope)}
                     includeAlbumInSecondary
                     secondaryContent={secondaryContent}
                     showRemoveButton

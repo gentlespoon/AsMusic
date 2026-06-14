@@ -3,6 +3,11 @@ import Box from "@mui/material/Box";
 import type { SubsonicAPI } from "@asmusic/core";
 import type { PlayerQueueItem } from "../core/types";
 import { CoverArtThumb } from "../../shared/CoverArtThumb";
+import { useHost } from "../../host/HostContext";
+import {
+  playerQueueItemArtworkCacheKey,
+  resolvePlayerCachedArtwork,
+} from "../shared/resolvePlayerCachedArtwork";
 import { PlayerFullScreenTrackInfoSlot } from "./PlayerFullScreenTrackInfoSlot";
 
 const COVER_MAX_PX = 360;
@@ -23,6 +28,8 @@ function DisplaySlot({
   item,
   coverSizePx,
   api,
+  resolveCachedArtwork,
+  artworkCacheKey,
   onCopyName,
   onOpenAlbum,
   onOpenArtist,
@@ -30,6 +37,8 @@ function DisplaySlot({
   item: PlayerQueueItem;
   coverSizePx: number;
   api: SubsonicAPI | undefined;
+  resolveCachedArtwork: ReturnType<typeof resolvePlayerCachedArtwork>;
+  artworkCacheKey: string;
   onCopyName: (text: string) => void;
   onOpenAlbum: (item: PlayerQueueItem) => void;
   onOpenArtist: (item: PlayerQueueItem) => void;
@@ -66,10 +75,12 @@ function DisplaySlot({
           bgcolor: "action.hover",
         }}
       >
-        {api ? (
+        {item.coverArtId ? (
           <CoverArtThumb
             api={api}
             coverArtId={item.coverArtId}
+            resolveCachedArtwork={resolveCachedArtwork}
+            artworkCacheKey={artworkCacheKey}
             size={coverSizePx}
             label=""
             sx={{ width: "100%", height: "100%", objectFit: "contain" }}
@@ -91,6 +102,7 @@ export function PlayerFullScreenDisplayBelt({
   onOpenAlbum,
   onOpenArtist,
 }: PlayerFullScreenDisplayBeltProps) {
+  const host = useHost();
   const serverIds = useMemo(
     () => [...new Set(slots.map((s) => s.serverId))],
     [slots],
@@ -131,6 +143,8 @@ export function PlayerFullScreenDisplayBelt({
         item={slot}
         coverSizePx={coverSizePx}
         api={apisByServer[slot.serverId]}
+        resolveCachedArtwork={resolvePlayerCachedArtwork(host.libraryCache, slot)}
+        artworkCacheKey={playerQueueItemArtworkCacheKey(slot)}
         onCopyName={onCopyName}
         onOpenAlbum={onOpenAlbum}
         onOpenArtist={onOpenArtist}
@@ -165,6 +179,8 @@ export function PlayerFullScreenDisplayBelt({
               item={slot}
               coverSizePx={coverSizePx}
               api={apisByServer[slot.serverId]}
+              resolveCachedArtwork={resolvePlayerCachedArtwork(host.libraryCache, slot)}
+              artworkCacheKey={playerQueueItemArtworkCacheKey(slot)}
               onCopyName={onCopyName}
               onOpenAlbum={onOpenAlbum}
               onOpenArtist={onOpenArtist}

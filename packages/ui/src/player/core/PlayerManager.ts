@@ -587,7 +587,6 @@ export class PlayerManager {
 
       this.playingFromLocalFile =
         offlineResolved.usedOffline || Boolean(localFilePath);
-      this.revokePlayback = revoke;
       if (this.playingFromLocalFile) {
         this.emit();
       }
@@ -596,9 +595,28 @@ export class PlayerManager {
         this.startPersistWhileStreamingIfNeeded(item, streamUrl, playUrl);
       }
 
-      const artworkUrl = item.coverArtId
-        ? this.deps.getCoverArtUrl(item.serverId, item.coverArtId)
-        : null;
+      let artworkUrl: string | null = null;
+      let revokeArtwork: (() => void) | undefined;
+      if (item.coverArtId) {
+        if (offlineResolved.usedOffline) {
+          const scope = libraryCacheScope(item.serverUrl, item.username, item.libraryId);
+          const row = await this.host.libraryCache.readArtworkBlob(scope, item.coverArtId);
+          if (row?.data?.byteLength) {
+            const blob = new Blob([row.data], { type: row.mimeType || 'image/jpeg' });
+            const objectUrl = URL.createObjectURL(blob);
+            artworkUrl = objectUrl;
+            revokeArtwork = () => URL.revokeObjectURL(objectUrl);
+          }
+        } else {
+          artworkUrl = this.deps.getCoverArtUrl(item.serverId, item.coverArtId);
+        }
+      }
+
+      const playbackRevoke = revoke;
+      this.revokePlayback = () => {
+        playbackRevoke();
+        revokeArtwork?.();
+      };
 
       // iOS native loads from disk via localFilePath; browser uses blob/object URL from offline store.
       const loadUrlArg = offlineResolved.usedOffline && localFilePath ? '' : playUrl;

@@ -3,6 +3,11 @@ import Box from '@mui/material/Box';
 import type { SubsonicAPI } from '@asmusic/core';
 import type { PlayerQueueItem } from '../core/types';
 import { CoverArtThumb } from '../../shared/CoverArtThumb';
+import { useHost } from '../../host/HostContext';
+import {
+  playerQueueItemArtworkCacheKey,
+  resolvePlayerCachedArtwork,
+} from './resolvePlayerCachedArtwork';
 
 export type PlayerCoverArtBeltProps = {
   slots: PlayerQueueItem[];
@@ -21,6 +26,7 @@ export function PlayerCoverArtBelt({
   coverSizePx,
   getApiForServer,
 }: PlayerCoverArtBeltProps) {
+  const host = useHost();
   const serverIds = useMemo(
     () => [...new Set(slots.map((s) => s.serverId))],
     [slots],
@@ -65,10 +71,12 @@ export function PlayerCoverArtBelt({
           justifyContent: 'center',
         }}
       >
-        {api ? (
+        {slot.coverArtId ? (
           <CoverArtThumb
             api={api}
             coverArtId={slot.coverArtId}
+            resolveCachedArtwork={resolvePlayerCachedArtwork(host.libraryCache, slot)}
+            artworkCacheKey={playerQueueItemArtworkCacheKey(slot)}
             size={coverSizePx}
             label=""
             sx={{ width: '100%', height: '100%', objectFit: 'contain' }}
@@ -107,10 +115,12 @@ export function PlayerCoverArtBelt({
                 boxSizing: 'border-box',
               }}
             >
-              {api ? (
+              {slot.coverArtId ? (
                 <CoverArtThumb
                   api={api}
                   coverArtId={slot.coverArtId}
+                  resolveCachedArtwork={resolvePlayerCachedArtwork(host.libraryCache, slot)}
+                  artworkCacheKey={playerQueueItemArtworkCacheKey(slot)}
                   size={coverSizePx}
                   label=""
                   sx={{ width: '100%', height: '100%', objectFit: 'contain' }}

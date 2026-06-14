@@ -10,6 +10,7 @@ import {
   type OfflineMediaStatusDetail,
   type OfflineMediaStore,
   type OfflinePlaybackSource,
+  type OfflineReadyEntry,
 } from '@asmusic/core';
 
 const DB_NAME = 'asmusic-offline-media';
@@ -181,17 +182,17 @@ export function createIndexedDbOfflineMediaStorage(): OfflineMediaStore {
       });
     },
 
-    async listReadyKeys(scopeFilter: LibraryCacheScope | null): Promise<OfflineMediaKey[]> {
+    async listReadyEntries(scopeFilter: LibraryCacheScope | null): Promise<OfflineReadyEntry[]> {
       const db = await openDb();
       return new Promise((resolve, reject) => {
         const tx = db.transaction('tracks', 'readonly');
         const store = tx.objectStore('tracks');
-        const out: OfflineMediaKey[] = [];
+        const out: OfflineReadyEntry[] = [];
         if (scopeFilter) {
           const idx = store.index('byScope');
           const range = IDBKeyRange.only([scopeFilter.serverKey, scopeFilter.libraryId]);
           const cur = idx.openCursor(range);
-          cur.onerror = () => reject(cur.error ?? new Error('listReadyKeys cursor failed'));
+          cur.onerror = () => reject(cur.error ?? new Error('listReadyEntries cursor failed'));
           cur.onsuccess = () => {
             const c = cur.result;
             if (!c) {
@@ -199,12 +200,12 @@ export function createIndexedDbOfflineMediaStorage(): OfflineMediaStore {
               return;
             }
             const row = c.value as OfflineTrackRow;
-            out.push(offlineKeyFromRow(row));
+            out.push({ key: offlineKeyFromRow(row), byteLength: row.byteLength });
             c.continue();
           };
         } else {
           const cur = store.openCursor();
-          cur.onerror = () => reject(cur.error ?? new Error('listReadyKeys cursor failed'));
+          cur.onerror = () => reject(cur.error ?? new Error('listReadyEntries cursor failed'));
           cur.onsuccess = () => {
             const c = cur.result;
             if (!c) {
@@ -212,11 +213,16 @@ export function createIndexedDbOfflineMediaStorage(): OfflineMediaStore {
               return;
             }
             const row = c.value as OfflineTrackRow;
-            out.push(offlineKeyFromRow(row));
+            out.push({ key: offlineKeyFromRow(row), byteLength: row.byteLength });
             c.continue();
           };
         }
       });
+    },
+
+    async listReadyKeys(scopeFilter: LibraryCacheScope | null): Promise<OfflineMediaKey[]> {
+      const entries = await this.listReadyEntries(scopeFilter);
+      return entries.map((e) => e.key);
     },
 
     async getReadyPlaybackSource(key: OfflineMediaKey): Promise<OfflinePlaybackSource | null> {

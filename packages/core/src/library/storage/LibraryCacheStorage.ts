@@ -36,7 +36,7 @@ export interface LibraryCacheStorage {
   readCachedAlbumCount(scope: LibraryCacheScope): Promise<number>;
   /**
    * Clears derived album/artist index rows for the scope (not songs).
-   * Invoked at the start of a full library refresh so indexes stay empty while songs are re-fetched.
+   * Prefer {@link replaceSongList}, which rebuilds indexes atomically with the song list.
    */
   purgeArtistAndAlbumCaches(scope: LibraryCacheScope): Promise<void>;
   replaceSongList(scope: LibraryCacheScope, songs: Child[], onProgress?: (written: number) => void): Promise<void>;

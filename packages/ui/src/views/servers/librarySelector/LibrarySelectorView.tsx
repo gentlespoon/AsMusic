@@ -86,7 +86,7 @@ export function LibrarySelectorView({ embedded = false }: LibrarySelectorViewPro
           </Alert>
         )}
 
-        {loading && (
+        {loading && rows.length === 0 && (
           <Stack direction="row" spacing={1} sx={{ py: 2, alignItems: 'center' }}>
             <CircularProgress size={22} />
             <Typography variant="body2" color="text.secondary">
@@ -95,13 +95,13 @@ export function LibrarySelectorView({ embedded = false }: LibrarySelectorViewPro
           </Stack>
         )}
 
-        {!loading && servers.length === 0 && (
+        {servers.length === 0 && !loading && (
           <Typography variant="body2" color="text.secondary">
             {t('servers.libraries.addServerFirst')}
           </Typography>
         )}
 
-        {!loading && servers.length > 0 && rows.length > 0 && (
+        {servers.length > 0 && rows.length > 0 && (
           <LibrarySelectorList
             rows={rows}
             cacheStatsByRowKey={cacheStatsByRowKey}

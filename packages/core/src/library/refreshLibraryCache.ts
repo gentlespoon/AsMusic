@@ -25,9 +25,9 @@ export type LibraryRefreshProgress =
  * Full library refresh: paginated songs (`search3`, same as legacy iOS), write through {@link LibraryCacheStorage},
  * then playlist summaries. Compares the latest server list to the pre-refresh cache and purges local rows for
  * removed tracks (offline downloads when {@link RefreshLibraryCacheOptions.offlineMedia} is provided; library
- * songs via {@link LibraryCacheStorage.replaceSongList}). Clears derived artist/album index rows before the
- * network fetch; backends rebuild those indexes from the new song list when persisting. Cover art is filled
- * separately via {@link runLibraryArtworkBackgroundCache}.
+ * songs via {@link LibraryCacheStorage.replaceSongList}). Derived artist/album index rows stay intact until
+ * {@link LibraryCacheStorage.replaceSongList} atomically replaces songs and rebuilds those indexes from the new
+ * song list. Cover art is filled separately via {@link runLibraryArtworkBackgroundCache}.
  */
 export async function refreshLibraryCache(
   api: SubsonicAPI,
@@ -37,8 +37,6 @@ export async function refreshLibraryCache(
   options?: RefreshLibraryCacheOptions
 ): Promise<{ songCount: number; songs: Child[]; removedSongCount: number }> {
   const cachedSongs = await storage.readSongList(scope);
-
-  await storage.purgeArtistAndAlbumCaches(scope);
 
   const musicFolderId = scope.libraryId === DEFAULT_LIBRARY_ID ? undefined : scope.libraryId;
   const songs = await fetchAllLibrarySongs(

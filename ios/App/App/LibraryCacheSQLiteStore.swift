@@ -100,7 +100,7 @@ enum LibraryCacheSQLiteStore {
         }
     }
 
-    /// Removes derived album/artist rows for a scope (songs untouched). Called at the start of a library refresh.
+    /// Removes derived album/artist rows for a scope (songs untouched). Prefer `replaceSongList`, which rebuilds indexes atomically.
     static func purgeArtistAndAlbumCaches(serverKey: String, libraryId: String) throws {
         try queue.sync {
             try openIfNeeded()

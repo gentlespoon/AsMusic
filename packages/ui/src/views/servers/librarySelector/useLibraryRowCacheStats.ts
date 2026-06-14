@@ -19,7 +19,6 @@ export function useLibraryRowCacheStats(
   useEffect(() => {
     if (loading || servers.length === 0 || rows.length === 0) return;
     let cancelled = false;
-    setCacheStatsByRowKey({});
     void (async () => {
       const entries = await Promise.all(
         rows.map(async (row): Promise<[string, LibraryRowCacheStats | null]> => {

@@ -3,6 +3,7 @@ import Box from '@mui/material/Box';
 import { keyframes, type SxProps, type Theme } from '@mui/material/styles';
 import type { SubsonicAPI } from '@asmusic/core';
 import type { LibraryArtworkCacheRow } from '@asmusic/core';
+import type { PersistCachedArtwork } from './libraryArtworkCacheAccess';
 import {
   acquireCoverArtUrl,
   buildCoverArtCacheKey,
@@ -21,6 +22,8 @@ type Props = {
   coverArtId?: string;
   /** When set, disk/database cache is tried before hitting the network. */
   resolveCachedArtwork?: (coverArtId: string) => Promise<LibraryArtworkCacheRow | null>;
+  /** When set with `resolveCachedArtwork`, successful network fetches are written here. */
+  persistCachedArtwork?: PersistCachedArtwork;
   /** Increment when this id was written to local cache so the image reloads from storage. */
   artworkCacheBump?: number;
   /** Scope/library disambiguator for multi-library artwork caches. */
@@ -51,6 +54,7 @@ export function CoverArtThumb({
   api,
   coverArtId,
   resolveCachedArtwork,
+  persistCachedArtwork,
   artworkCacheBump = 0,
   artworkCacheKey,
   size = 128,
@@ -59,6 +63,8 @@ export function CoverArtThumb({
 }: Props) {
   const resolveCachedArtworkRef = useRef(resolveCachedArtwork);
   resolveCachedArtworkRef.current = resolveCachedArtwork;
+  const persistCachedArtworkRef = useRef(persistCachedArtwork);
+  persistCachedArtworkRef.current = persistCachedArtwork;
 
   const cacheKey =
     coverArtId && (api || artworkCacheKey)
@@ -68,18 +74,19 @@ export function CoverArtThumb({
   const [src, setSrc] = useState<string | null>(() =>
     cacheKey ? peekCoverArtUrl(cacheKey) : null,
   );
+  const srcCacheKeyRef = useRef<string | null>(cacheKey);
 
   useEffect(() => {
     if (!coverArtId || !cacheKey) {
+      srcCacheKeyRef.current = null;
       setSrc(null);
       return;
     }
 
     let cancelled = false;
+    srcCacheKeyRef.current = cacheKey;
     const cached = acquireCoverArtUrl(cacheKey);
-    if (cached) {
-      setSrc(cached);
-    }
+    setSrc(cached);
 
     void getOrStartCoverArtLoad(cacheKey, async () => {
       try {
@@ -92,6 +99,14 @@ export function CoverArtThumb({
           const res = await api.getCoverArt({ id: coverArtId, size });
           if (!res.ok) return null;
           blob = await res.blob();
+          const persist = persistCachedArtworkRef.current;
+          if (persist && blob.size > 0) {
+            const mimeType = blob.type?.split(';')[0]?.trim() || 'image/jpeg';
+            void persist(coverArtId, {
+              data: new Uint8Array(await blob.arrayBuffer()),
+              mimeType,
+            }).catch(() => undefined);
+          }
         }
         if (!blob) return null;
         return URL.createObjectURL(blob);
@@ -99,7 +114,8 @@ export function CoverArtThumb({
         return null;
       }
     }).then((url) => {
-      if (!cancelled && url) {
+      if (!cancelled) {
+        srcCacheKeyRef.current = cacheKey;
         setSrc(url);
       }
     });
@@ -109,6 +125,8 @@ export function CoverArtThumb({
       releaseCoverArtUrl(cacheKey);
     };
   }, [api, cacheKey, coverArtId, size, artworkCacheBump, artworkCacheKey]);
+
+  const displaySrc = srcCacheKeyRef.current === cacheKey ? src : null;
 
   if (!coverArtId) {
     return (
@@ -124,7 +142,7 @@ export function CoverArtThumb({
       />
     );
   }
-  if (!src) {
+  if (!displaySrc) {
     return (
       <Box
         aria-hidden
@@ -142,7 +160,7 @@ export function CoverArtThumb({
   return (
     <Box
       component="img"
-      src={src}
+      src={displaySrc}
       alt={label ?? ''}
       sx={[baseCoverSx, { objectFit: 'cover' }, ...(Array.isArray(sx) ? sx : sx ? [sx] : [])]}
     />

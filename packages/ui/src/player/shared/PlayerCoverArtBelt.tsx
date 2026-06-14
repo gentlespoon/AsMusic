@@ -6,6 +6,7 @@ import { CoverArtThumb } from '../../shared/CoverArtThumb';
 import { useHost } from '../../host/HostContext';
 import {
   playerQueueItemArtworkCacheKey,
+  persistPlayerCachedArtwork,
   resolvePlayerCachedArtwork,
 } from './resolvePlayerCachedArtwork';
 
@@ -76,6 +77,7 @@ export function PlayerCoverArtBelt({
             api={api}
             coverArtId={slot.coverArtId}
             resolveCachedArtwork={resolvePlayerCachedArtwork(host.libraryCache, slot)}
+            persistCachedArtwork={persistPlayerCachedArtwork(host.libraryCache, slot)}
             artworkCacheKey={playerQueueItemArtworkCacheKey(slot)}
             size={coverSizePx}
             label=""
@@ -120,6 +122,7 @@ export function PlayerCoverArtBelt({
                   api={api}
                   coverArtId={slot.coverArtId}
                   resolveCachedArtwork={resolvePlayerCachedArtwork(host.libraryCache, slot)}
+            persistCachedArtwork={persistPlayerCachedArtwork(host.libraryCache, slot)}
                   artworkCacheKey={playerQueueItemArtworkCacheKey(slot)}
                   size={coverSizePx}
                   label=""

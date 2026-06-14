@@ -34,6 +34,7 @@ import { useHost } from '../../host/HostContext';
 import { useServerAndLibrary } from '../../contexts';
 import { useOfflineDownload } from '../../contexts/OfflineDownloadContext';
 import { SongItemMain } from '../../shared/songItem/SongItemMain';
+import { createPersistCachedArtworkForScope } from '../../shared/libraryArtworkCacheAccess';
 import { rowSx } from '../../shared/songItem/constants';
 
 type TrackStatus = 'pending' | 'downloading' | 'completed' | 'failed';
@@ -178,6 +179,7 @@ function DownloadingTrackRow({
           api={api}
           coverArtId={coverArtId}
           resolveCachedArtwork={(coverArtIdArg) => host.libraryCache.readArtworkBlob(scope, coverArtIdArg)}
+          persistCachedArtwork={createPersistCachedArtworkForScope(host.libraryCache, scope)}
           artworkCacheBump={0}
           artworkCacheKey={scopeKey(scope)}
         />

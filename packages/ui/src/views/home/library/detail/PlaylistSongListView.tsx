@@ -29,6 +29,7 @@ import {
 import { PageCloseButton } from '../../../../shared/PageCloseButton';
 import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso';
 import { SongItem } from '../../../../shared/SongItem';
+import type { PersistCachedArtwork } from '../../../../shared/libraryArtworkCacheAccess';
 import { songMatchesQuery } from '../../../../shared/songSearch';
 import { LibraryVirtuosoFill, libraryFlexFillSx } from '../../../../shared/LibraryVirtuosoFill';
 import { useLibraryScrollRestoration } from '../../../../shared/useLibraryScrollRestoration';
@@ -46,6 +47,7 @@ export function PlaylistSongListView({
   initialReady,
   syncing,
   resolveCachedArtwork,
+  persistCachedArtwork,
   artworkVersionById,
   coverArtCacheBump,
   serverId,
@@ -72,6 +74,7 @@ export function PlaylistSongListView({
   initialReady: boolean;
   syncing: boolean;
   resolveCachedArtwork: (coverArtId: string) => Promise<LibraryArtworkCacheRow | null>;
+  persistCachedArtwork?: PersistCachedArtwork;
   artworkVersionById: Record<string, number>;
   coverArtCacheBump?: (coverArtId: string | undefined) => number;
   serverId: string;
@@ -355,6 +358,7 @@ export function PlaylistSongListView({
                     coverArtId={coverArtId}
                     api={api}
                     resolveCachedArtwork={resolveCachedArtwork}
+                    persistCachedArtwork={persistCachedArtwork}
                     artworkCacheBump={bumpFor(coverArtId)}
                     includeAlbumInSecondary={false}
                     onClick={onPlayTrack ? () => onPlayTrack(track) : undefined}

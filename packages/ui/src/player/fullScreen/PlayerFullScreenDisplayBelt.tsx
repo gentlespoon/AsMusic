@@ -3,9 +3,11 @@ import Box from "@mui/material/Box";
 import type { SubsonicAPI } from "@asmusic/core";
 import type { PlayerQueueItem } from "../core/types";
 import { CoverArtThumb } from "../../shared/CoverArtThumb";
+import type { PersistCachedArtwork } from "../../shared/libraryArtworkCacheAccess";
 import { useHost } from "../../host/HostContext";
 import {
   playerQueueItemArtworkCacheKey,
+  persistPlayerCachedArtwork,
   resolvePlayerCachedArtwork,
 } from "../shared/resolvePlayerCachedArtwork";
 import { PlayerFullScreenTrackInfoSlot } from "./PlayerFullScreenTrackInfoSlot";
@@ -29,6 +31,7 @@ function DisplaySlot({
   coverSizePx,
   api,
   resolveCachedArtwork,
+  persistCachedArtwork,
   artworkCacheKey,
   onCopyName,
   onOpenAlbum,
@@ -38,6 +41,7 @@ function DisplaySlot({
   coverSizePx: number;
   api: SubsonicAPI | undefined;
   resolveCachedArtwork: ReturnType<typeof resolvePlayerCachedArtwork>;
+  persistCachedArtwork: PersistCachedArtwork;
   artworkCacheKey: string;
   onCopyName: (text: string) => void;
   onOpenAlbum: (item: PlayerQueueItem) => void;
@@ -80,6 +84,7 @@ function DisplaySlot({
             api={api}
             coverArtId={item.coverArtId}
             resolveCachedArtwork={resolveCachedArtwork}
+            persistCachedArtwork={persistCachedArtwork}
             artworkCacheKey={artworkCacheKey}
             size={coverSizePx}
             label=""
@@ -144,6 +149,7 @@ export function PlayerFullScreenDisplayBelt({
         coverSizePx={coverSizePx}
         api={apisByServer[slot.serverId]}
         resolveCachedArtwork={resolvePlayerCachedArtwork(host.libraryCache, slot)}
+        persistCachedArtwork={persistPlayerCachedArtwork(host.libraryCache, slot)}
         artworkCacheKey={playerQueueItemArtworkCacheKey(slot)}
         onCopyName={onCopyName}
         onOpenAlbum={onOpenAlbum}
@@ -180,6 +186,7 @@ export function PlayerFullScreenDisplayBelt({
               coverSizePx={coverSizePx}
               api={apisByServer[slot.serverId]}
               resolveCachedArtwork={resolvePlayerCachedArtwork(host.libraryCache, slot)}
+              persistCachedArtwork={persistPlayerCachedArtwork(host.libraryCache, slot)}
               artworkCacheKey={playerQueueItemArtworkCacheKey(slot)}
               onCopyName={onCopyName}
               onOpenAlbum={onOpenAlbum}

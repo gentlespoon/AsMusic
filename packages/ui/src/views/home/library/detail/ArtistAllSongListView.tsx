@@ -13,6 +13,7 @@ import {
   type SubsonicAPI,
 } from "@asmusic/core";
 import { SongItem } from "../../../../shared/SongItem";
+import type { PersistCachedArtwork } from "../../../../shared/libraryArtworkCacheAccess";
 import { songMatchesQuery } from "../../../../shared/songSearch";
 import { LibraryVirtuosoFill, libraryFlexFillSx } from "../../../../shared/LibraryVirtuosoFill";
 import { useLibraryScrollRestoration } from "../../../../shared/useLibraryScrollRestoration";
@@ -28,6 +29,7 @@ export function ArtistAllSongListView({
   initialReady,
   syncing,
   resolveCachedArtwork,
+  persistCachedArtwork,
   artworkVersionById,
   coverArtCacheBump,
   onBack,
@@ -51,6 +53,7 @@ export function ArtistAllSongListView({
   resolveCachedArtwork: (
     coverArtId: string,
   ) => Promise<LibraryArtworkCacheRow | null>;
+  persistCachedArtwork?: PersistCachedArtwork;
   artworkVersionById: Record<string, number>;
   coverArtCacheBump?: (coverArtId: string | undefined) => number;
   onBack: () => void;
@@ -214,6 +217,7 @@ export function ArtistAllSongListView({
                     coverArtId={coverId}
                     api={api}
                     resolveCachedArtwork={resolveCachedArtwork}
+                    persistCachedArtwork={persistCachedArtwork}
                     artworkCacheBump={bumpFor(coverId)}
                     includeAlbumInSecondary
                     onClick={onPlayTrack ? () => onPlayTrack(track) : undefined}

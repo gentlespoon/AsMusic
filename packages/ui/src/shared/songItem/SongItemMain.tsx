@@ -9,6 +9,7 @@ export function SongItemMain({
   api,
   coverArtId,
   resolveCachedArtwork,
+  persistCachedArtwork,
   artworkCacheBump,
   artworkCacheKey,
 }: SongItemMainProps) {
@@ -18,6 +19,7 @@ export function SongItemMain({
         api={api}
         coverArtId={coverArtId}
         resolveCachedArtwork={resolveCachedArtwork}
+        persistCachedArtwork={persistCachedArtwork}
         artworkCacheBump={artworkCacheBump}
         artworkCacheKey={artworkCacheKey}
       />

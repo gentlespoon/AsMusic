@@ -5,6 +5,7 @@ import { useHost } from "../../host/HostContext";
 import type { PlayerQueueItem } from "../core/types";
 import {
   playerQueueItemArtworkCacheKey,
+  persistPlayerCachedArtwork,
   resolvePlayerCachedArtwork,
 } from "../shared/resolvePlayerCachedArtwork";
 
@@ -30,15 +31,19 @@ export function PlayerMiniBarCoverArt({ item, api }: PlayerMiniBarCoverArtProps)
     >
       {item?.coverArtId ? (
         <CoverArtThumb
+          key={item.rowId}
           api={api ?? undefined}
           coverArtId={item.coverArtId}
           resolveCachedArtwork={resolvePlayerCachedArtwork(host.libraryCache, item)}
+          persistCachedArtwork={persistPlayerCachedArtwork(host.libraryCache, item)}
           artworkCacheKey={playerQueueItemArtworkCacheKey(item)}
           size={COVER_SIZE}
           label=""
           sx={{ width: COVER_SIZE, height: COVER_SIZE }}
         />
-      ) : null}
+      ) : (
+        <Box sx={{ width: "100%", height: "100%", bgcolor: "action.hover" }} aria-hidden />
+      )}
     </Box>
   );
 }

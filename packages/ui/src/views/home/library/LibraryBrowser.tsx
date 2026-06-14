@@ -21,6 +21,7 @@ import { PlaylistSongListView } from './detail/PlaylistSongListView';
 import { PlaylistListView } from './playlists/PlaylistListView';
 import { useHost } from '../../../host/HostContext';
 import { useLibraryBrowseCache } from '../../../contexts';
+import { createPersistCachedArtworkForScope } from '../../../shared/libraryArtworkCacheAccess';
 import { ActiveScopeGate } from './browser/ActiveScopeGate';
 import {
   defaultLibraryBrowserView,
@@ -80,6 +81,7 @@ export function LibraryBrowser() {
     apiForServer,
     artworkVersionById,
     artworkVersionKey,
+    notifyArtworkCached,
     setTrackStarred,
   } = useLibraryBrowseCache();
 
@@ -94,6 +96,14 @@ export function LibraryBrowser() {
   const resolveCachedArtwork = useCallback(
     (coverArtId: string, sc: LibraryCacheScope) => resolveCachedArtworkForScope(sc, coverArtId),
     [resolveCachedArtworkForScope]
+  );
+
+  const persistCachedArtworkForScope = useCallback(
+    (sc: LibraryCacheScope) =>
+      createPersistCachedArtworkForScope(host.libraryCache, sc, {
+        onCached: (coverArtId) => notifyArtworkCached(artworkVersionKey(coverArtId, sc)),
+      }),
+    [host.libraryCache, notifyArtworkCached, artworkVersionKey]
   );
 
   const libraryScopeKeyRef = useRef<string | null>(null);
@@ -338,6 +348,7 @@ export function LibraryBrowser() {
               initialReady={initialReady}
               syncing={syncing}
               resolveCachedArtwork={(id) => resolveCachedArtworkForScope(resolvedArtist.slice.scope, id)}
+              persistCachedArtwork={persistCachedArtworkForScope(resolvedArtist.slice.scope)}
               artworkVersionById={artworkVersionById}
               coverArtCacheBump={(id) =>
                 id ? artworkVersionById[artworkVersionKey(id, resolvedArtist.slice.scope)] ?? 0 : 0
@@ -363,6 +374,7 @@ export function LibraryBrowser() {
               initialReady={initialReady}
               syncing={syncing}
               resolveCachedArtworkForScope={resolveCachedArtworkForScope}
+              persistCachedArtworkForScope={persistCachedArtworkForScope}
               artworkVersionKey={artworkVersionKey}
               artworkVersionById={artworkVersionById}
               onAlbumOpen={openAlbum}
@@ -399,6 +411,7 @@ export function LibraryBrowser() {
               initialReady={initialReady}
               syncing={syncing}
               resolveCachedArtwork={(id) => resolveCachedArtworkForScope(resolvedPlaylist.slice.scope, id)}
+              persistCachedArtwork={persistCachedArtworkForScope(resolvedPlaylist.slice.scope)}
               artworkVersionById={artworkVersionById}
               coverArtCacheBump={(id) =>
                 id ? artworkVersionById[artworkVersionKey(id, resolvedPlaylist.slice.scope)] ?? 0 : 0
@@ -443,6 +456,7 @@ export function LibraryBrowser() {
             initialReady={initialReady}
             syncing={syncing}
             resolveCachedArtwork={resolveCachedArtwork}
+            persistCachedArtworkForScope={persistCachedArtworkForScope}
             artworkVersionKey={artworkVersionKey}
             artworkVersionById={artworkVersionById}
             scrollRestorationKey="lb:favorites"
@@ -472,6 +486,7 @@ export function LibraryBrowser() {
               initialReady={initialReady}
               syncing={syncing}
               resolveCachedArtwork={(id) => resolveCachedArtworkForScope(resolvedAlbum.slice.scope, id)}
+              persistCachedArtwork={persistCachedArtworkForScope(resolvedAlbum.slice.scope)}
               artworkVersionById={artworkVersionById}
               coverArtCacheBump={(id) =>
                 id ? artworkVersionById[artworkVersionKey(id, resolvedAlbum.slice.scope)] ?? 0 : 0
@@ -496,6 +511,7 @@ export function LibraryBrowser() {
               initialReady={initialReady}
               syncing={syncing}
               resolveCachedArtwork={(id) => resolveCachedArtworkForScope(resolvedArtist.slice.scope, id)}
+              persistCachedArtwork={persistCachedArtworkForScope(resolvedArtist.slice.scope)}
               artworkVersionById={artworkVersionById}
               coverArtCacheBump={(id) =>
                 id ? artworkVersionById[artworkVersionKey(id, resolvedArtist.slice.scope)] ?? 0 : 0
@@ -522,6 +538,7 @@ export function LibraryBrowser() {
               initialReady={initialReady}
               syncing={syncing}
               resolveCachedArtwork={resolveCachedArtwork}
+              persistCachedArtworkForScope={persistCachedArtworkForScope}
               artworkVersionKey={artworkVersionKey}
               artworkVersionById={artworkVersionById}
               onPlaySong={playSongEntryNow}

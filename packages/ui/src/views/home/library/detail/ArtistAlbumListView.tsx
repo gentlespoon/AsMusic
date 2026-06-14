@@ -24,6 +24,7 @@ import { PageCloseButton } from '../../../../shared/PageCloseButton';
 import type { GridItemProps, GridListProps } from 'react-virtuoso';
 import type { LibraryArtworkCacheRow, SubsonicAPI } from '@asmusic/core';
 import { CoverArtThumb } from '../../../../shared/CoverArtThumb';
+import type { PersistCachedArtwork } from '../../../../shared/libraryArtworkCacheAccess';
 import { LibraryVirtuosoFill, libraryFlexFillSx } from '../../../../shared/LibraryVirtuosoFill';
 import { useLibraryScrollRestoration } from '../../../../shared/useLibraryScrollRestoration';
 import { useLibraryVirtuosoScroller } from '../../../../shared/useLibraryVirtuosoScroller';
@@ -81,6 +82,7 @@ export function ArtistAlbumListView({
   initialReady,
   syncing,
   resolveCachedArtwork,
+  persistCachedArtwork,
   artworkVersionById,
   coverArtCacheBump,
   scrollRestorationKey,
@@ -99,6 +101,7 @@ export function ArtistAlbumListView({
   initialReady: boolean;
   syncing: boolean;
   resolveCachedArtwork: (coverArtId: string) => Promise<LibraryArtworkCacheRow | null>;
+  persistCachedArtwork?: PersistCachedArtwork;
   artworkVersionById: Record<string, number>;
   /** When artwork version keys are scoped (multi-library), map cover id to bump. */
   coverArtCacheBump?: (coverArtId: string | undefined) => number;
@@ -276,6 +279,7 @@ export function ArtistAlbumListView({
                         api={api}
                         coverArtId={album.coverArt}
                         resolveCachedArtwork={resolveCachedArtwork}
+                        persistCachedArtwork={persistCachedArtwork}
                         artworkCacheBump={bumpFor(album.coverArt)}
                         size={200}
                         label={album.name}
@@ -323,6 +327,7 @@ export function ArtistAlbumListView({
                             api={api}
                             coverArtId={album.coverArt}
                             resolveCachedArtwork={resolveCachedArtwork}
+                        persistCachedArtwork={persistCachedArtwork}
                             artworkCacheBump={bumpFor(album.coverArt)}
                             size={48}
                             label=""

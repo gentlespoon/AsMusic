@@ -11,7 +11,7 @@ import {
 } from 'react';
 import { useHost } from '../host/HostContext';
 import { PlayerManager, type PlayerSleepTimerSnapshot, type SavedServerRef } from '../player/core/PlayerManager';
-import type { PlayerQueueItem, PlayerViewState } from '../player/core/types';
+import type { PlayerQueueItem, PlayerToastEvent, PlayerViewState } from '../player/core/types';
 import { useServerAndLibrary } from './ServerAndLibraryContext';
 import { useLibraryBrowseCache } from './LibraryBrowseCacheContext';
 import {
@@ -260,5 +260,14 @@ export function usePlayerSleepTimer(): PlayerSleepTimerSnapshot {
     (onStoreChange) => manager.subscribeSleepTimer(onStoreChange),
     () => manager.getSleepTimerSnapshot(),
     () => manager.getSleepTimerSnapshot()
+  );
+}
+
+export function usePlayerToast(): PlayerToastEvent | null {
+  const manager = usePlayerManager();
+  return useSyncExternalStore(
+    (onStoreChange) => manager.subscribeToast(onStoreChange),
+    () => manager.getToastSnapshot(),
+    () => manager.getToastSnapshot()
   );
 }

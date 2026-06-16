@@ -38,3 +38,10 @@ export type PlayerViewState = {
   /** True when the current track is playing from a ready offline copy (not streaming). */
   playingFromLocalFile: boolean;
 };
+
+/** Ephemeral toast shown when playback fails and the queue advances. */
+export type PlayerToastEvent = {
+  id: number;
+  messageKey: 'player.playback.skippedOnFailure';
+  params: { title: string; error: string };
+};

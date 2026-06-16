@@ -285,6 +285,9 @@ export const jaJPMessages = {
   "player.meta.title": "タイトル",
   "player.meta.trackId": "トラック ID",
   "player.offline.removeDownload": "ダウンロード済みのコピーを削除",
+  "player.playback.skippedOnFailure":
+    "「{title}」を再生できませんでした：{error}。次の曲にスキップします。",
+  "player.playback.thisTrack": "この曲",
   "player.trackDetails.title": "曲の詳細",
 
   "queue.action.clearExceptCurrent": "現在の曲以外をキューから削除",

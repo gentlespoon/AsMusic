@@ -276,6 +276,8 @@ export const zhCNMessages = {
   "player.meta.title": "标题",
   "player.meta.trackId": "曲目 ID",
   "player.offline.removeDownload": "移除已下载副本",
+  "player.playback.skippedOnFailure": "无法播放「{title}」：{error}。正在跳到下一曲。",
+  "player.playback.thisTrack": "此曲目",
   "player.trackDetails.title": "曲目详情",
 
   "queue.action.clearExceptCurrent": "清空队列（保留当前）",

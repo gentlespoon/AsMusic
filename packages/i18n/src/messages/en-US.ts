@@ -283,6 +283,9 @@ export const enUSMessages = {
   "player.meta.title": "Title",
   "player.meta.trackId": "Track ID",
   "player.offline.removeDownload": "Remove downloaded copy",
+  "player.playback.skippedOnFailure":
+    "Couldn't play \"{title}\": {error}. Skipping to next track.",
+  "player.playback.thisTrack": "this track",
   "player.trackDetails.title": "Track details",
 
   "queue.action.clearExceptCurrent": "Clear queue except current",

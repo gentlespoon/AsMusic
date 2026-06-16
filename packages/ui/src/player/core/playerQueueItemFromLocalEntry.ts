@@ -34,11 +34,12 @@ export function playerQueueItemsFromLocalResolvedEntries(args: {
   unavailableLabel: string;
 }): PlayerQueueItem[] {
   return args.resolved.map((row) => {
-    if (row.status === 'available') {
+    if (row.status === 'available' || row.status === 'libraryDisabled') {
       const server = args.servers.find((s) => s.id === row.serverId);
-      if (server) {
+      const song = row.status === 'available' ? row.song : row.song;
+      if (server && song) {
         return playerQueueItemFromChild({
-          song: row.song,
+          song,
           serverId: row.serverId,
           libraryId: row.libraryId,
           serverUrl: server.serverUrl,
@@ -48,7 +49,8 @@ export function playerQueueItemsFromLocalResolvedEntries(args: {
     }
     return playerQueueItemFromLocalPlaylistEntry({
       ref: row.ref,
-      song: row.status === 'available' ? row.song : undefined,
+      song:
+        row.status === 'available' || row.status === 'libraryDisabled' ? row.song : undefined,
       servers: args.servers,
       unavailableLabel: args.unavailableLabel,
     });
@@ -60,6 +62,7 @@ export function localPlaylistEntriesToResolvedSync(args: {
   songsByScope: ReadonlyMap<string, Child[]>;
   servers: readonly ServerConfigForLocalPlaylist[];
   unavailableLabel: string;
+  activeScopeKeys: ReadonlySet<string>;
 }): LocalPlaylistResolvedEntry[] {
   return args.entries.map((entry) =>
     resolveLocalPlaylistEntrySync({
@@ -67,6 +70,7 @@ export function localPlaylistEntriesToResolvedSync(args: {
       songsByScope: args.songsByScope,
       servers: args.servers,
       unavailableLabel: args.unavailableLabel,
+      activeScopeKeys: args.activeScopeKeys,
     })
   );
 }

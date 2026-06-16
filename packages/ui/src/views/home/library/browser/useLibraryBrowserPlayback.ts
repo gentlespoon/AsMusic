@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react';
 import type { Child } from 'subsonic-api';
 import { useT } from '@asmusic/i18n';
+import { libraryCacheScope } from '@asmusic/core';
 import { usePlayerActions, useServerAndLibrary } from '../../../../contexts';
 import { playerQueueItemFromChild } from '../../../../player/core/playerQueueItemFromChild';
 import {
@@ -38,13 +39,24 @@ export function useLibraryBrowserPlayback(options: {
 }) {
   const { resolvedAlbum, resolvedArtist, resolvedPlaylist, songsByScope } = options;
   const t = useT();
-  const { servers } = useServerAndLibrary();
+  const { servers, activeLibraryRefs } = useServerAndLibrary();
   const { insertAfterCurrent, appendToQueue, replaceQueueAndPlay } = usePlayerActions();
 
   const serverConfigs = useMemo(
     () => servers.map((s) => ({ id: s.id, serverUrl: s.serverUrl, username: s.username })),
     [servers]
   );
+
+  const activeScopeKeys = useMemo(() => {
+    const keys = new Set<string>();
+    for (const ref of activeLibraryRefs) {
+      const server = servers.find((s) => s.id === ref.serverId);
+      if (!server) continue;
+      const scope = libraryCacheScope(server.serverUrl, server.username, ref.libraryId);
+      keys.add(`${scope.serverKey}|${scope.libraryId}`);
+    }
+    return keys;
+  }, [activeLibraryRefs, servers]);
 
   const unavailableLabel = t('library.playlist.trackUnavailable');
 
@@ -211,6 +223,7 @@ export function useLibraryBrowserPlayback(options: {
           songsByScope,
           servers: serverConfigs,
           unavailableLabel,
+          activeScopeKeys,
         });
         return playerQueueItemsFromLocalResolvedEntries({
           resolved,
@@ -233,7 +246,7 @@ export function useLibraryBrowserPlayback(options: {
       }
       return items;
     },
-    [resolvedPlaylist, serverMetaById, songsByScope, serverConfigs, unavailableLabel]
+    [resolvedPlaylist, serverMetaById, songsByScope, serverConfigs, unavailableLabel, activeScopeKeys]
   );
 
   const appendAllPlaylistTracksToQueue = useCallback(

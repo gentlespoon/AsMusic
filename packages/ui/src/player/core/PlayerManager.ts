@@ -33,6 +33,12 @@ export type PlayerManagerDeps = {
   getStreamUrl: (serverId: string, trackId: string) => string | null;
   getCoverArtUrl: (serverId: string, coverArtId: string) => string | null;
   ensureStreamReady: (serverId: string) => Promise<void>;
+  isLibraryActive?: (serverId: string, libraryId: string) => boolean;
+  getLibraryDisplayName?: (serverId: string, libraryId: string) => string;
+  getServerDisplayName?: (serverId: string) => string;
+  ensureLibraryNames?: (
+    refs: readonly { serverId: string; libraryId: string }[]
+  ) => Promise<Record<string, string>>;
 };
 
 export type PlayerSleepTimerSnapshot = {
@@ -606,10 +612,7 @@ export class PlayerManager {
         }
         const failedItem = this.queue[idx];
         this.emitPlaybackSkippedToast(failedItem?.title ?? '', lastError);
-        this.currentIndex = idx + 1;
-        this.loadError = null;
-        this.emit();
-        const ok = await this.loadCurrentTrack({ autoplay: true, suppressFailureAdvance: true });
+        const ok = await this.advanceToNextTrack({ autoplay: true });
         if (ok) {
           this.schedulePersist();
           return;
@@ -619,6 +622,85 @@ export class PlayerManager {
     } finally {
       this.handlingPlaybackFailure = false;
     }
+  }
+
+  private async advanceToNextTrack(options: { autoplay: boolean }): Promise<boolean> {
+    const idx = this.currentIndex;
+    if (idx === null || idx + 1 >= this.queue.length) {
+      return false;
+    }
+    this.currentIndex = idx + 1;
+    this.loadError = null;
+    this.emit();
+    return this.loadCurrentTrack({ autoplay: options.autoplay, suppressFailureAdvance: true });
+  }
+
+  private async skipInactiveLibraryTracks(): Promise<void> {
+    if (this.handlingPlaybackFailure || this.handlingPlaybackEnded) {
+      return;
+    }
+    this.handlingPlaybackFailure = true;
+    try {
+      while (true) {
+        const idx = this.currentIndex;
+        if (idx === null || this.queue.length === 0) {
+          return;
+        }
+        const item = this.queue[idx]!;
+        if (
+          !item.serverId ||
+          !this.deps.isLibraryActive ||
+          this.deps.isLibraryActive(item.serverId, item.libraryId)
+        ) {
+          const ok = await this.loadCurrentTrack({ autoplay: true, suppressFailureAdvance: true });
+          if (ok) {
+            this.schedulePersist();
+          }
+          return;
+        }
+        const { serverName, libraryName } = await this.libraryScopeLabelsForToast(
+          item.serverId,
+          item.libraryId
+        );
+        this.emitToast({
+          id: ++this.toastSeq,
+          messageKey: 'player.playback.skippedLibraryDisabled',
+          params: { serverName, libraryName },
+        });
+        if (idx + 1 >= this.queue.length) {
+          this.isPlaying = false;
+          try {
+            await this.host.playback.pause();
+          } catch {
+            /* ignore */
+          }
+          this.emit();
+          this.schedulePersist();
+          return;
+        }
+        this.currentIndex = idx + 1;
+        this.loadError = null;
+        this.emit();
+      }
+    } finally {
+      this.handlingPlaybackFailure = false;
+    }
+  }
+
+  private async libraryScopeLabelsForToast(
+    serverId: string,
+    libraryId: string
+  ): Promise<{ serverName: string; libraryName: string }> {
+    const scopeKey = `${serverId}:${libraryId}`;
+    let libraryName = this.deps.getLibraryDisplayName?.(serverId, libraryId) ?? libraryId;
+    if (this.deps.ensureLibraryNames) {
+      const names = await this.deps.ensureLibraryNames([{ serverId, libraryId }]);
+      libraryName = names[scopeKey] ?? libraryName;
+    }
+    return {
+      serverName: this.deps.getServerDisplayName?.(serverId) ?? serverId,
+      libraryName,
+    };
   }
 
   private async loadCurrentTrack(options: {
@@ -636,6 +718,17 @@ export class PlayerManager {
     this.loadError = null;
     this.playingFromLocalFile = false;
     this.emit();
+
+    if (
+      item.serverId &&
+      this.deps.isLibraryActive &&
+      !this.deps.isLibraryActive(item.serverId, item.libraryId)
+    ) {
+      if (!options.suppressFailureAdvance) {
+        void this.skipInactiveLibraryTracks();
+      }
+      return false;
+    }
 
     playImpactIfEnabled(this.host);
     this.runRevoke();

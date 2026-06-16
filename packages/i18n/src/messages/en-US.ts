@@ -108,6 +108,8 @@ export const enUSMessages = {
   "library.playlist.createServerPickLibraryHint": "Choose which library should own the server playlist.",
   "library.playlist.onDevice": "On this device",
   "library.playlist.trackUnavailable": "Track unavailable",
+  "library.playlist.enableLibraryToPlay":
+    "Enable library in Settings to play this song",
   "library.playlist.emptyLocal": "This playlist has no tracks yet.",
   "library.playlist.createDisabledMulti":
     "Select a single library in Settings to create server playlists",
@@ -294,6 +296,8 @@ export const enUSMessages = {
   "player.offline.removeDownload": "Remove downloaded copy",
   "player.playback.skippedOnFailure":
     "Couldn't play \"{title}\": {error}. Skipping to next track.",
+  "player.playback.skippedLibraryDisabledTitle":
+    "Skipped — enable library in Settings to play this song",
   "player.playback.thisTrack": "this track",
   "player.trackDetails.title": "Track details",
 

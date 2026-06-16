@@ -115,6 +115,10 @@ type LibraryBrowseCacheContextValue = {
   artworkVersionKey: (coverArtId: string, sc: LibraryCacheScope) => string;
   notifyArtworkCached: (key: string) => void;
   libraryDisplayName: (serverId: string, libraryId: string) => string;
+  serverDisplayName: (serverId: string) => string;
+  ensureLibraryNames: (
+    refs: readonly { serverId: string; libraryId: string }[]
+  ) => Promise<Record<string, string>>;
   setTrackStarred: (args: {
     serverId: string;
     libraryId: string;
@@ -220,6 +224,83 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
     (serverId: string, libraryId: string) =>
       libraryNameByKey[libraryRefKey(serverId, libraryId)] ?? libraryId,
     [libraryNameByKey]
+  );
+
+  const libraryNameByKeyRef = useRef(libraryNameByKey);
+  libraryNameByKeyRef.current = libraryNameByKey;
+
+  const serverDisplayName = useCallback(
+    (serverId: string) => {
+      const s = servers.find((x) => x.id === serverId);
+      if (!s) return serverId;
+      return `${s.serverUrl.replace(/\/$/, '')} · ${s.username}`;
+    },
+    [servers]
+  );
+
+  const ensureLibraryNames = useCallback(
+    async (refs: readonly { serverId: string; libraryId: string }[]) => {
+      const defaultLibraryName = t('servers.defaultLibraryName');
+      const resolveName = (serverId: string, libraryId: string) => {
+        const key = libraryRefKey(serverId, libraryId);
+        return (
+          libraryNameByKeyRef.current[key] ??
+          (libraryId === DEFAULT_LIBRARY_ID ? defaultLibraryName : libraryId)
+        );
+      };
+
+      const missingByServer = new Map<string, string[]>();
+      for (const ref of refs) {
+        const key = libraryRefKey(ref.serverId, ref.libraryId);
+        if (libraryNameByKeyRef.current[key]) continue;
+        const list = missingByServer.get(ref.serverId);
+        if (list) {
+          if (!list.includes(ref.libraryId)) list.push(ref.libraryId);
+        } else {
+          missingByServer.set(ref.serverId, [ref.libraryId]);
+        }
+      }
+
+      const updates: Record<string, string> = {};
+      if (missingByServer.size > 0) {
+        await Promise.all(
+          [...missingByServer.entries()].map(async ([serverId, libraryIds]) => {
+            const api = await getApiForServer(serverId);
+            let folders: Awaited<ReturnType<typeof fetchMusicFolders>> = [];
+            if (api) {
+              try {
+                folders = await fetchMusicFolders(api);
+              } catch {
+                folders = [];
+              }
+            }
+            for (const libraryId of libraryIds) {
+              const key = libraryRefKey(serverId, libraryId);
+              if (folders.length === 0) {
+                updates[key] = libraryId === DEFAULT_LIBRARY_ID ? defaultLibraryName : libraryId;
+              } else {
+                const folder = folders.find((f) => f.id === libraryId);
+                updates[key] =
+                  folder?.name ?? (libraryId === DEFAULT_LIBRARY_ID ? defaultLibraryName : libraryId);
+              }
+            }
+          })
+        );
+
+        if (Object.keys(updates).length > 0) {
+          setLibraryNameByKey((prev) => ({ ...prev, ...updates }));
+          libraryNameByKeyRef.current = { ...libraryNameByKeyRef.current, ...updates };
+        }
+      }
+
+      const out: Record<string, string> = {};
+      for (const ref of refs) {
+        const key = libraryRefKey(ref.serverId, ref.libraryId);
+        out[key] = updates[key] ?? resolveName(ref.serverId, ref.libraryId);
+      }
+      return out;
+    },
+    [getApiForServer, t]
   );
 
   useEffect(() => {
@@ -781,6 +862,8 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
       artworkVersionKey,
       notifyArtworkCached,
       libraryDisplayName,
+      serverDisplayName,
+      ensureLibraryNames,
       setTrackStarred,
       refreshPlaylistSummariesForScope,
       createPlaylist,
@@ -823,6 +906,8 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
       artworkVersionKey,
       notifyArtworkCached,
       libraryDisplayName,
+      serverDisplayName,
+      ensureLibraryNames,
       setTrackStarred,
       refreshPlaylistSummariesForScope,
       createPlaylist,

@@ -101,6 +101,7 @@ export const zhCNMessages = {
   "library.playlist.createServerPickLibraryHint": "选择要在哪个曲库下创建服务器播放列表。",
   "library.playlist.onDevice": "此设备",
   "library.playlist.trackUnavailable": "曲目不可用",
+  "library.playlist.enableLibraryToPlay": "请在设置中启用资料库以播放此歌曲",
   "library.playlist.emptyLocal": "此播放列表还没有曲目。",
   "library.playlist.createDisabledMulti":
     "请在设置中选择一个资料库以创建播放列表",
@@ -285,6 +286,7 @@ export const zhCNMessages = {
   "player.meta.trackId": "曲目 ID",
   "player.offline.removeDownload": "移除已下载副本",
   "player.playback.skippedOnFailure": "无法播放「{title}」：{error}。正在跳到下一曲。",
+  "player.playback.skippedLibraryDisabledTitle": "已跳过 — 请在设置中启用资料库以播放此歌曲",
   "player.playback.thisTrack": "此曲目",
   "player.trackDetails.title": "曲目详情",
 

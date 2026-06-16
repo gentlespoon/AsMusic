@@ -14,6 +14,18 @@ export type LocalPlaylistResolvedEntry =
       scope: LibraryCacheScope;
     }
   | {
+      status: 'libraryDisabled';
+      ref: LocalPlaylistTrackRef;
+      sortIndex: number;
+      song?: Child;
+      serverId: string;
+      libraryId: string;
+      scope: LibraryCacheScope;
+      displayTitle: string;
+      displayArtist?: string;
+      displayAlbum?: string;
+    }
+  | {
       status: 'unavailable';
       ref: LocalPlaylistTrackRef;
       sortIndex: number;
@@ -44,12 +56,39 @@ export function resolveLocalPlaylistEntrySync(args: {
   songsByScope: ReadonlyMap<string, Child[]>;
   servers: readonly ServerConfigForLocalPlaylist[];
   unavailableLabel: string;
+  activeScopeKeys: ReadonlySet<string>;
 }): LocalPlaylistResolvedEntry {
-  const { entry, songsByScope, servers, unavailableLabel } = args;
+  const { entry, songsByScope, servers, unavailableLabel, activeScopeKeys } = args;
   const scopeKey = `${entry.serverKey}|${entry.libraryId}`;
   const songs = songsByScope.get(scopeKey);
   const song = songs ? findSongInList(songs, entry.trackId) : undefined;
   const serverId = serverIdForKey(servers, entry.serverKey);
+  const scope = { serverKey: entry.serverKey, libraryId: entry.libraryId };
+
+  if (!activeScopeKeys.has(scopeKey)) {
+    if (serverId) {
+      return {
+        status: 'libraryDisabled',
+        ref: entry,
+        sortIndex: entry.sortIndex,
+        song,
+        serverId,
+        libraryId: entry.libraryId,
+        scope,
+        displayTitle: song?.title?.trim() || entry.title?.trim() || unavailableLabel,
+        displayArtist: song?.artist ?? entry.artist,
+        displayAlbum: song?.album ?? entry.album,
+      };
+    }
+    return {
+      status: 'unavailable',
+      ref: entry,
+      sortIndex: entry.sortIndex,
+      displayTitle: entry.title?.trim() || unavailableLabel,
+      displayArtist: entry.artist,
+      displayAlbum: entry.album,
+    };
+  }
 
   if (song && serverId) {
     return {
@@ -59,7 +98,7 @@ export function resolveLocalPlaylistEntrySync(args: {
       song,
       serverId,
       libraryId: entry.libraryId,
-      scope: { serverKey: entry.serverKey, libraryId: entry.libraryId },
+      scope,
     };
   }
 
@@ -106,6 +145,7 @@ export async function resolveLocalPlaylistEntries(args: {
   libraryCache: LibraryCacheStorage;
   servers: readonly ServerConfigForLocalPlaylist[];
   unavailableLabel: string;
+  activeScopeKeys: ReadonlySet<string>;
 }): Promise<LocalPlaylistResolvedEntry[]> {
   const songsMap = await buildSongsByScopeMap({
     entries: args.entries,
@@ -118,6 +158,7 @@ export async function resolveLocalPlaylistEntries(args: {
       songsByScope: songsMap,
       servers: args.servers,
       unavailableLabel: args.unavailableLabel,
+      activeScopeKeys: args.activeScopeKeys,
     })
   );
 }

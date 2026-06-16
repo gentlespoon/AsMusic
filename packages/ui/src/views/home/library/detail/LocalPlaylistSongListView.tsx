@@ -1,11 +1,11 @@
-import { useT } from '@asmusic/i18n';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Child } from 'subsonic-api';
-import DownloadIcon from '@mui/icons-material/Download';
-import PlayArrow from '@mui/icons-material/PlayArrow';
-import MoreVert from '@mui/icons-material/MoreVert';
-import PlaylistAdd from '@mui/icons-material/PlaylistAdd';
-import Shuffle from '@mui/icons-material/Shuffle';
+import { useT } from "@asmusic/i18n";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { Child } from "subsonic-api";
+import DownloadIcon from "@mui/icons-material/Download";
+import PlayArrow from "@mui/icons-material/PlayArrow";
+import MoreVert from "@mui/icons-material/MoreVert";
+import PlaylistAdd from "@mui/icons-material/PlaylistAdd";
+import Shuffle from "@mui/icons-material/Shuffle";
 import {
   Box,
   CircularProgress,
@@ -13,51 +13,65 @@ import {
   ListItemText,
   Menu,
   MenuItem,
+  Snackbar,
   Stack,
   TextField,
   Tooltip,
   Typography,
-} from '@mui/material';
+} from "@mui/material";
 import {
   coverArtIdFromAlbumsForCachedSong,
   isChildStarred,
+  libraryCacheScope,
   resolveLocalPlaylistEntries,
+  serverAccountKey,
   type LibraryArtworkCacheRow,
   type LibraryCacheScope,
   type LocalPlaylistEntry,
   type LocalPlaylistResolvedEntry,
   type SubsonicAPI,
-} from '@asmusic/core';
-import { PageCloseButton } from '../../../../shared/PageCloseButton';
-import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso';
-import { SongItem } from '../../../../shared/SongItem';
-import type { PersistCachedArtwork } from '../../../../shared/libraryArtworkCacheAccess';
-import { LibraryVirtuosoFill, libraryFlexFillSx } from '../../../../shared/LibraryVirtuosoFill';
-import { useLibraryScrollRestoration } from '../../../../shared/useLibraryScrollRestoration';
-import { useLibraryVirtuosoScroller } from '../../../../shared/useLibraryVirtuosoScroller';
-import { VirtuosoMuiList } from '../../../../shared/virtuosoMuiList';
-import { useOfflineDownload } from '../../../../contexts/OfflineDownloadContext';
-import { useHost } from '../../../../host/HostContext';
-import { useServerAndLibrary } from '../../../../contexts';
+} from "@asmusic/core";
+import { PageCloseButton } from "../../../../shared/PageCloseButton";
+import { DisabledLibraryToastContent } from "../../../../shared/DisabledLibraryToastContent";
+import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
+import { SongItem } from "../../../../shared/SongItem";
+import type { PersistCachedArtwork } from "../../../../shared/libraryArtworkCacheAccess";
+import {
+  LibraryVirtuosoFill,
+  libraryFlexFillSx,
+} from "../../../../shared/LibraryVirtuosoFill";
+import { useLibraryScrollRestoration } from "../../../../shared/useLibraryScrollRestoration";
+import { useLibraryVirtuosoScroller } from "../../../../shared/useLibraryVirtuosoScroller";
+import { VirtuosoMuiList } from "../../../../shared/virtuosoMuiList";
+import { useOfflineDownload } from "../../../../contexts/OfflineDownloadContext";
+import { useHost } from "../../../../host/HostContext";
+import {
+  useLibraryBrowseCache,
+  useServerAndLibrary,
+} from "../../../../contexts";
+import { libraryRefKey } from "../../../../contexts/LibraryBrowseCacheContext";
 
 type LocalPlaylistRow = LocalPlaylistResolvedEntry & { rowKey: string };
 
 function rowMatchesQuery(row: LocalPlaylistRow, query: string): boolean {
   const q = query.trim().toLowerCase();
   if (!q) return true;
-  if (row.status === 'available') {
+  if (row.status === "available") {
     const song = row.song;
     return (
-      (song.title ?? '').toLowerCase().includes(q) ||
-      (song.artist ?? '').toLowerCase().includes(q) ||
-      (song.album ?? '').toLowerCase().includes(q)
+      (song.title ?? "").toLowerCase().includes(q) ||
+      (song.artist ?? "").toLowerCase().includes(q) ||
+      (song.album ?? "").toLowerCase().includes(q)
     );
   }
-  return (
-    row.displayTitle.toLowerCase().includes(q) ||
-    (row.displayArtist ?? '').toLowerCase().includes(q) ||
-    (row.displayAlbum ?? '').toLowerCase().includes(q)
-  );
+  if (row.status === "libraryDisabled" || row.status === "unavailable") {
+    return (
+      row.displayTitle.toLowerCase().includes(q) ||
+      (row.displayArtist ?? "").toLowerCase().includes(q) ||
+      (row.displayAlbum ?? "").toLowerCase().includes(q)
+    );
+  }
+  return false;
 }
 
 export function LocalPlaylistSongListView({
@@ -91,12 +105,20 @@ export function LocalPlaylistSongListView({
   playlistTitle: string;
   entries: LocalPlaylistEntry[];
   songsByScope: ReadonlyMap<string, Child[]>;
-  albumsByScope: ReadonlyMap<string, ReturnType<typeof import('@asmusic/core').albumsFromCachedSongs>>;
+  albumsByScope: ReadonlyMap<
+    string,
+    ReturnType<typeof import("@asmusic/core").albumsFromCachedSongs>
+  >;
   apiForServer: (serverId: string) => SubsonicAPI | null;
   initialReady: boolean;
   syncing: boolean;
-  resolveCachedArtworkForScope: (scope: LibraryCacheScope, coverArtId: string) => Promise<LibraryArtworkCacheRow | null>;
-  persistCachedArtworkForScope: (scope: LibraryCacheScope) => PersistCachedArtwork | undefined;
+  resolveCachedArtworkForScope: (
+    scope: LibraryCacheScope,
+    coverArtId: string,
+  ) => Promise<LibraryArtworkCacheRow | null>;
+  persistCachedArtworkForScope: (
+    scope: LibraryCacheScope,
+  ) => PersistCachedArtwork | undefined;
   artworkVersionById: Record<string, number>;
   artworkVersionKey: (coverArtId: string, sc: LibraryCacheScope) => string;
   onBack: () => void;
@@ -118,15 +140,49 @@ export function LocalPlaylistSongListView({
 }) {
   const t = useT();
   const host = useHost();
-  const { servers } = useServerAndLibrary();
+  const { servers, activeLibraryRefs } = useServerAndLibrary();
+  const { libraryDisplayName, serverDisplayName, ensureLibraryNames } =
+    useLibraryBrowseCache();
   const { enqueuePlaylistDownload } = useOfflineDownload();
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState("");
   const [rows, setRows] = useState<LocalPlaylistRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
+  const [disabledLibraryToast, setDisabledLibraryToast] = useState<{
+    serverName: string;
+    libraryName: string;
+  } | null>(null);
 
-  const unavailableLabel = t('library.playlist.trackUnavailable');
+  const unavailableLabel = t("library.playlist.trackUnavailable");
+
+  const activeScopeKeys = useMemo(() => {
+    const keys = new Set<string>();
+    for (const ref of activeLibraryRefs) {
+      const server = servers.find((s) => s.id === ref.serverId);
+      if (!server) continue;
+      const scope = libraryCacheScope(
+        server.serverUrl,
+        server.username,
+        ref.libraryId,
+      );
+      keys.add(`${scope.serverKey}|${scope.libraryId}`);
+    }
+    return keys;
+  }, [activeLibraryRefs, servers]);
+
+  const toastForDisabledLibrary = useCallback(
+    (serverId: string, libraryId: string) => {
+      void ensureLibraryNames([{ serverId, libraryId }]).then((names) => {
+        const key = libraryRefKey(serverId, libraryId);
+        setDisabledLibraryToast({
+          serverName: serverDisplayName(serverId),
+          libraryName: names[key] ?? libraryDisplayName(serverId, libraryId),
+        });
+      });
+    },
+    [ensureLibraryNames, libraryDisplayName, serverDisplayName],
+  );
 
   const loadRows = useCallback(async () => {
     setLoading(true);
@@ -137,25 +193,47 @@ export function LocalPlaylistSongListView({
         serverUrl: s.serverUrl,
         username: s.username,
       }));
+      const uniqueLibraryRefs: { serverId: string; libraryId: string }[] = [];
+      const seenLibKeys = new Set<string>();
+      for (const e of entries) {
+        const server = servers.find(
+          (s) => serverAccountKey(s.serverUrl, s.username) === e.serverKey,
+        );
+        if (!server) continue;
+        const k = libraryRefKey(server.id, e.libraryId);
+        if (seenLibKeys.has(k)) continue;
+        seenLibKeys.add(k);
+        uniqueLibraryRefs.push({ serverId: server.id, libraryId: e.libraryId });
+      }
+      await ensureLibraryNames(uniqueLibraryRefs);
       const resolved = await resolveLocalPlaylistEntries({
         entries,
         songsByScope,
         libraryCache: host.libraryCache,
         servers: serverConfigs,
         unavailableLabel,
+        activeScopeKeys,
       });
       setRows(
         resolved.map((row) => ({
           ...row,
           rowKey: `${row.ref.serverKey}|${row.ref.libraryId}|${row.ref.trackId}|${row.sortIndex}`,
-        }))
+        })),
       );
     } catch (e) {
-      setLoadError(e instanceof Error ? e.message : 'Could not load playlist');
+      setLoadError(e instanceof Error ? e.message : "Could not load playlist");
     } finally {
       setLoading(false);
     }
-  }, [entries, songsByScope, host.libraryCache, servers, unavailableLabel]);
+  }, [
+    entries,
+    songsByScope,
+    host.libraryCache,
+    servers,
+    unavailableLabel,
+    activeScopeKeys,
+    ensureLibraryNames,
+  ]);
 
   useEffect(() => {
     void loadRows();
@@ -163,29 +241,39 @@ export function LocalPlaylistSongListView({
 
   const filteredRows = useMemo(
     () => rows.filter((row) => rowMatchesQuery(row, search)),
-    [rows, search]
+    [rows, search],
   );
 
-  const scrollRef = useLibraryScrollRestoration(`lb:localPlaylistTracks:${scrollRestorationKey}`);
+  const scrollRef = useLibraryScrollRestoration(
+    `lb:localPlaylistTracks:${scrollRestorationKey}`,
+  );
   const virtuosoComponents = useLibraryVirtuosoScroller(scrollRef);
   const virtuosoRef = useRef<VirtuosoHandle>(null);
 
   useEffect(() => {
-    virtuosoRef.current?.scrollToIndex({ index: 0, align: 'start' });
+    virtuosoRef.current?.scrollToIndex({ index: 0, align: "start" });
   }, [search]);
 
   const listReady = initialReady && !loading && !loadError;
   const queryTrimmed = search.trim();
 
   const onDownloadPlaylistOffline = useCallback(() => {
-    const byScope = new Map<string, { serverId: string; libraryId: string; trackIds: string[] }>();
+    const byScope = new Map<
+      string,
+      { serverId: string; libraryId: string; trackIds: string[] }
+    >();
     for (const row of rows) {
-      if (row.status !== 'available') continue;
+      if (row.status !== "available") continue;
       const key = `${row.serverId}|${row.libraryId}`;
       const existing = byScope.get(key);
       const trackId = String(row.song.id);
       if (existing) existing.trackIds.push(trackId);
-      else byScope.set(key, { serverId: row.serverId, libraryId: row.libraryId, trackIds: [trackId] });
+      else
+        byScope.set(key, {
+          serverId: row.serverId,
+          libraryId: row.libraryId,
+          trackIds: [trackId],
+        });
     }
     for (const group of byScope.values()) {
       enqueuePlaylistDownload({
@@ -202,21 +290,46 @@ export function LocalPlaylistSongListView({
       role="tabpanel"
       id="library-panel-playlist-tracks"
       aria-labelledby="library-tab-playlists"
-      sx={{ ...libraryFlexFillSx, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+      sx={{
+        ...libraryFlexFillSx,
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+      }}
     >
-      <Stack sx={{ flexShrink: 0, mb: 2, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}>
-        <PageCloseButton edge="start" onClick={onBack} sx={{ alignSelf: 'flex-start' }} />
-        <Typography variant="h6" component="h2" sx={{ fontWeight: 600, flex: 1, minWidth: 0 }}>
+      <Stack
+        sx={{
+          flexShrink: 0,
+          mb: 2,
+          flexDirection: "row",
+          flexWrap: "wrap",
+          alignItems: "center",
+          gap: 1,
+        }}
+      >
+        <PageCloseButton
+          edge="start"
+          onClick={onBack}
+          sx={{ alignSelf: "flex-start" }}
+        />
+        <Typography
+          variant="h6"
+          component="h2"
+          sx={{ fontWeight: 600, flex: 1, minWidth: 0 }}
+        >
           {playlistTitle}
         </Typography>
-        <Tooltip title={t('library.playlist.downloadOffline')}>
+        <Tooltip title={t("library.playlist.downloadOffline")}>
           <span>
             <IconButton
               size="small"
               color="primary"
-              aria-label={t('library.playlist.downloadOffline')}
+              aria-label={t("library.playlist.downloadOffline")}
               onClick={onDownloadPlaylistOffline}
-              disabled={!listReady || rows.filter((r) => r.status === 'available').length === 0}
+              disabled={
+                !listReady ||
+                rows.filter((r) => r.status === "available").length === 0
+              }
             >
               <DownloadIcon fontSize="small" />
             </IconButton>
@@ -227,12 +340,16 @@ export function LocalPlaylistSongListView({
             <IconButton
               size="small"
               color="inherit"
-              aria-label={t('library.playlist.actions')}
+              aria-label={t("library.playlist.actions")}
               onClick={(e) => setMenuAnchor(e.currentTarget)}
             >
               <MoreVert fontSize="small" />
             </IconButton>
-            <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={() => setMenuAnchor(null)}>
+            <Menu
+              anchorEl={menuAnchor}
+              open={Boolean(menuAnchor)}
+              onClose={() => setMenuAnchor(null)}
+            >
               {onEditPlaylist && (
                 <MenuItem
                   onClick={() => {
@@ -240,7 +357,7 @@ export function LocalPlaylistSongListView({
                     onEditPlaylist();
                   }}
                 >
-                  <ListItemText>{t('library.playlist.edit')}</ListItemText>
+                  <ListItemText>{t("library.playlist.edit")}</ListItemText>
                 </MenuItem>
               )}
               {onDeletePlaylist && (
@@ -249,9 +366,9 @@ export function LocalPlaylistSongListView({
                     setMenuAnchor(null);
                     onDeletePlaylist();
                   }}
-                  sx={{ color: 'error.main' }}
+                  sx={{ color: "error.main" }}
                 >
-                  <ListItemText>{t('library.playlist.delete')}</ListItemText>
+                  <ListItemText>{t("library.playlist.delete")}</ListItemText>
                 </MenuItem>
               )}
             </Menu>
@@ -260,10 +377,14 @@ export function LocalPlaylistSongListView({
       </Stack>
 
       {loading && (
-        <Stack direction="row" spacing={1} sx={{ mb: 2, flexShrink: 0, alignItems: 'center' }}>
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{ mb: 2, flexShrink: 0, alignItems: "center" }}
+        >
           <CircularProgress size={20} />
           <Typography variant="body2" color="text.secondary">
-            {t('library.playlist.loading')}
+            {t("library.playlist.loading")}
           </Typography>
         </Stack>
       )}
@@ -273,23 +394,27 @@ export function LocalPlaylistSongListView({
         </Typography>
       )}
 
-      <Stack direction="row" spacing={1} sx={{ flexShrink: 0, mb: 2, alignItems: 'center' }}>
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{ flexShrink: 0, mb: 2, alignItems: "center" }}
+      >
         <TextField
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder={t('library.playlist.searchTracks')}
-          aria-label={t('library.playlist.filterTracks')}
+          placeholder={t("library.playlist.searchTracks")}
+          aria-label={t("library.playlist.filterTracks")}
           fullWidth
           size="small"
           sx={{ flex: 1, minWidth: 0 }}
           disabled={!listReady}
         />
-        <Tooltip title={t('player.action.playAll')}>
+        <Tooltip title={t("player.action.playAll")}>
           <span>
             <IconButton
               size="small"
               color="primary"
-              aria-label={t('player.action.playAllSongs')}
+              aria-label={t("player.action.playAllSongs")}
               disabled={!listReady || filteredRows.length === 0}
               onClick={onReplaceQueueAndPlayAll}
             >
@@ -297,12 +422,12 @@ export function LocalPlaylistSongListView({
             </IconButton>
           </span>
         </Tooltip>
-        <Tooltip title={t('player.action.addAllToQueue')}>
+        <Tooltip title={t("player.action.addAllToQueue")}>
           <span>
             <IconButton
               size="small"
               color="primary"
-              aria-label={t('player.action.addAllToQueue')}
+              aria-label={t("player.action.addAllToQueue")}
               disabled={!listReady || filteredRows.length === 0}
               onClick={onAppendAllToQueue}
             >
@@ -310,12 +435,12 @@ export function LocalPlaylistSongListView({
             </IconButton>
           </span>
         </Tooltip>
-        <Tooltip title={t('player.action.shuffleAll')}>
+        <Tooltip title={t("player.action.shuffleAll")}>
           <span>
             <IconButton
               size="small"
               color="primary"
-              aria-label={t('player.action.shuffleAll')}
+              aria-label={t("player.action.shuffleAll")}
               disabled={!listReady || filteredRows.length === 0}
               onClick={onShufflePlayAll}
             >
@@ -325,28 +450,60 @@ export function LocalPlaylistSongListView({
         </Tooltip>
       </Stack>
 
-      <Box sx={{ ...libraryFlexFillSx, display: 'flex', flexDirection: 'column' }}>
+      <Box
+        sx={{ ...libraryFlexFillSx, display: "flex", flexDirection: "column" }}
+      >
         {listReady && rows.length === 0 && !syncing && (
           <Typography variant="body2" color="text.secondary">
-            {t('library.playlist.emptyLocal')}
+            {t("library.playlist.emptyLocal")}
           </Typography>
         )}
-        {listReady && rows.length > 0 && filteredRows.length === 0 && queryTrimmed.length > 0 && (
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            {t('library.playlist.noTracksMatch')}
-          </Typography>
-        )}
+        {listReady &&
+          rows.length > 0 &&
+          filteredRows.length === 0 &&
+          queryTrimmed.length > 0 && (
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              {t("library.playlist.noTracksMatch")}
+            </Typography>
+          )}
         {listReady && filteredRows.length > 0 && (
           <LibraryVirtuosoFill>
             <Virtuoso
               ref={virtuosoRef}
-              style={{ height: '100%', width: '100%', minHeight: 0 }}
+              style={{ height: "100%", width: "100%", minHeight: 0 }}
               data={filteredRows}
               components={{ ...virtuosoComponents, List: VirtuosoMuiList }}
-              computeItemKey={(_index, row) => row?.rowKey ?? `lb-lpl-tr:${_index}`}
+              computeItemKey={(_index, row) =>
+                row?.rowKey ?? `lb-lpl-tr:${_index}`
+              }
               itemContent={(_index, row) => {
                 if (!row) return null;
-                if (row.status === 'unavailable') {
+                if (row.status === "libraryDisabled") {
+                  return (
+                    <SongItem
+                      track={{
+                        id: row.ref.trackId,
+                        isDir: false,
+                        title: row.displayTitle,
+                        artist: row.displayArtist,
+                        album: row.displayAlbum,
+                        coverArt: row.ref.coverArtId,
+                      }}
+                      coverArtId={row.ref.coverArtId}
+                      api={null}
+                      resolveCachedArtwork={async () => null}
+                      artworkCacheBump={0}
+                      unavailable
+                      includeAlbumInSecondary={false}
+                      onClick={() =>
+                        toastForDisabledLibrary(row.serverId, row.libraryId)
+                      }
+                      onPlayNext={() => onPlayNextResolvedRow(row)}
+                      onAppendToQueue={() => onAppendResolvedRowToQueue(row)}
+                    />
+                  );
+                }
+                if (row.status === "unavailable") {
                   return (
                     <SongItem
                       track={{
@@ -370,8 +527,14 @@ export function LocalPlaylistSongListView({
                   );
                 }
                 const track = row.song;
-                const albums = albumsByScope.get(`${row.scope.serverKey}|${row.scope.libraryId}`) ?? [];
-                const coverArtId = coverArtIdFromAlbumsForCachedSong(track, albums);
+                const albums =
+                  albumsByScope.get(
+                    `${row.scope.serverKey}|${row.scope.libraryId}`,
+                  ) ?? [];
+                const coverArtId = coverArtIdFromAlbumsForCachedSong(
+                  track,
+                  albums,
+                );
                 const api = apiForServer(row.serverId);
                 const starred = isChildStarred(track);
                 return (
@@ -379,10 +542,18 @@ export function LocalPlaylistSongListView({
                     track={track}
                     coverArtId={coverArtId}
                     api={api ?? null}
-                    resolveCachedArtwork={(id) => resolveCachedArtworkForScope(row.scope, id)}
-                    persistCachedArtwork={persistCachedArtworkForScope(row.scope)}
+                    resolveCachedArtwork={(id) =>
+                      resolveCachedArtworkForScope(row.scope, id)
+                    }
+                    persistCachedArtwork={persistCachedArtworkForScope(
+                      row.scope,
+                    )}
                     artworkCacheBump={
-                      coverArtId ? artworkVersionById[artworkVersionKey(coverArtId, row.scope)] ?? 0 : 0
+                      coverArtId
+                        ? (artworkVersionById[
+                            artworkVersionKey(coverArtId, row.scope)
+                          ] ?? 0)
+                        : 0
                     }
                     includeAlbumInSecondary={false}
                     onClick={() => onPlayResolvedRow(row)}
@@ -407,6 +578,21 @@ export function LocalPlaylistSongListView({
           </LibraryVirtuosoFill>
         )}
       </Box>
+      <Snackbar
+        open={disabledLibraryToast != null}
+        autoHideDuration={4000}
+        onClose={() => setDisabledLibraryToast(null)}
+        sx={{ alignItems: "center" }}
+        message={
+          disabledLibraryToast ? (
+            <DisabledLibraryToastContent
+              serverName={disabledLibraryToast.serverName}
+              libraryName={disabledLibraryToast.libraryName}
+            />
+          ) : undefined
+        }
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      />
     </Box>
   );
 }

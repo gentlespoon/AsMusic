@@ -101,6 +101,7 @@ export const zhTWMessages = {
   "library.playlist.createServerPickLibraryHint": "選擇要在哪個曲庫下建立伺服器播放清單。",
   "library.playlist.onDevice": "此裝置",
   "library.playlist.trackUnavailable": "曲目不可用",
+  "library.playlist.enableLibraryToPlay": "請在設定中啟用資料庫以播放此歌曲",
   "library.playlist.emptyLocal": "此播放清單還沒有曲目。",
   "library.playlist.createDisabledMulti":
     "請在設定中選擇一個資料庫以建立播放清單",
@@ -285,6 +286,7 @@ export const zhTWMessages = {
   "player.meta.trackId": "曲目 ID",
   "player.offline.removeDownload": "移除已下載副本",
   "player.playback.skippedOnFailure": "無法播放「{title}」：{error}。正在跳到下一曲。",
+  "player.playback.skippedLibraryDisabledTitle": "已跳過 — 請在設定中啟用資料庫以播放此歌曲",
   "player.playback.thisTrack": "此曲目",
   "player.trackDetails.title": "曲目詳情",
 

@@ -107,6 +107,8 @@ export const esESMessages = {
   "library.playlist.createServerPickLibraryHint": "Elige en qué biblioteca crear la lista del servidor.",
   "library.playlist.onDevice": "En este dispositivo",
   "library.playlist.trackUnavailable": "Pista no disponible",
+  "library.playlist.enableLibraryToPlay":
+    "Activa una biblioteca en Ajustes para reproducir esta canción",
   "library.playlist.emptyLocal": "Esta lista aún no tiene pistas.",
   "library.playlist.createDisabledMulti":
     "Selecciona una sola biblioteca en Ajustes para crear listas",
@@ -298,6 +300,8 @@ export const esESMessages = {
   "player.offline.removeDownload": "Eliminar copia descargada",
   "player.playback.skippedOnFailure":
     "No se pudo reproducir «{title}»: {error}. Pasando a la siguiente pista.",
+  "player.playback.skippedLibraryDisabledTitle":
+    "Omitida — activa una biblioteca en Ajustes para reproducir esta canción",
   "player.playback.thisTrack": "esta pista",
   "player.trackDetails.title": "Detalles de la pista",
 

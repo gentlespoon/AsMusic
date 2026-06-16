@@ -8,6 +8,7 @@ import {
   persistPlayerCachedArtwork,
   resolvePlayerCachedArtwork,
 } from "../shared/resolvePlayerCachedArtwork";
+import { usePlayerCoverArtCacheBump } from "../shared/usePlayerCoverArtCacheBump";
 
 const COVER_SIZE = 40;
 
@@ -18,6 +19,7 @@ export type PlayerMiniBarCoverArtProps = {
 
 export function PlayerMiniBarCoverArt({ item, api }: PlayerMiniBarCoverArtProps) {
   const host = useHost();
+  const artworkCacheBump = usePlayerCoverArtCacheBump(item);
 
   return (
     <Box
@@ -37,6 +39,7 @@ export function PlayerMiniBarCoverArt({ item, api }: PlayerMiniBarCoverArtProps)
           resolveCachedArtwork={resolvePlayerCachedArtwork(host.libraryCache, item)}
           persistCachedArtwork={persistPlayerCachedArtwork(host.libraryCache, item)}
           artworkCacheKey={playerQueueItemArtworkCacheKey(item)}
+          artworkCacheBump={artworkCacheBump}
           size={COVER_SIZE}
           label=""
           sx={{ width: COVER_SIZE, height: COVER_SIZE }}

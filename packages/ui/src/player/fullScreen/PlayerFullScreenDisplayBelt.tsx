@@ -10,6 +10,7 @@ import {
   persistPlayerCachedArtwork,
   resolvePlayerCachedArtwork,
 } from "../shared/resolvePlayerCachedArtwork";
+import { usePlayerCoverArtCacheBump } from "../shared/usePlayerCoverArtCacheBump";
 import { PlayerFullScreenTrackInfoSlot } from "./PlayerFullScreenTrackInfoSlot";
 
 const COVER_MAX_PX = 360;
@@ -33,6 +34,7 @@ function DisplaySlot({
   resolveCachedArtwork,
   persistCachedArtwork,
   artworkCacheKey,
+  artworkCacheBump,
   onCopyName,
   onOpenAlbum,
   onOpenArtist,
@@ -43,6 +45,7 @@ function DisplaySlot({
   resolveCachedArtwork: ReturnType<typeof resolvePlayerCachedArtwork>;
   persistCachedArtwork: PersistCachedArtwork;
   artworkCacheKey: string;
+  artworkCacheBump: number;
   onCopyName: (text: string) => void;
   onOpenAlbum: (item: PlayerQueueItem) => void;
   onOpenArtist: (item: PlayerQueueItem) => void;
@@ -86,6 +89,7 @@ function DisplaySlot({
             resolveCachedArtwork={resolveCachedArtwork}
             persistCachedArtwork={persistCachedArtwork}
             artworkCacheKey={artworkCacheKey}
+            artworkCacheBump={artworkCacheBump}
             size={coverSizePx}
             label=""
             sx={{ width: "100%", height: "100%", objectFit: "contain" }}
@@ -93,6 +97,40 @@ function DisplaySlot({
         ) : null}
       </Box>
     </Box>
+  );
+}
+
+function DisplaySlotWithBump({
+  item,
+  coverSizePx,
+  api,
+  onCopyName,
+  onOpenAlbum,
+  onOpenArtist,
+}: {
+  item: PlayerQueueItem;
+  coverSizePx: number;
+  api: SubsonicAPI | undefined;
+  onCopyName: (text: string) => void;
+  onOpenAlbum: (item: PlayerQueueItem) => void;
+  onOpenArtist: (item: PlayerQueueItem) => void;
+}) {
+  const host = useHost();
+  const artworkCacheBump = usePlayerCoverArtCacheBump(item);
+
+  return (
+    <DisplaySlot
+      item={item}
+      coverSizePx={coverSizePx}
+      api={api}
+      resolveCachedArtwork={resolvePlayerCachedArtwork(host.libraryCache, item)}
+      persistCachedArtwork={persistPlayerCachedArtwork(host.libraryCache, item)}
+      artworkCacheKey={playerQueueItemArtworkCacheKey(item)}
+      artworkCacheBump={artworkCacheBump}
+      onCopyName={onCopyName}
+      onOpenAlbum={onOpenAlbum}
+      onOpenArtist={onOpenArtist}
+    />
   );
 }
 
@@ -107,7 +145,6 @@ export function PlayerFullScreenDisplayBelt({
   onOpenAlbum,
   onOpenArtist,
 }: PlayerFullScreenDisplayBeltProps) {
-  const host = useHost();
   const serverIds = useMemo(
     () => [...new Set(slots.map((s) => s.serverId))],
     [slots],
@@ -144,13 +181,10 @@ export function PlayerFullScreenDisplayBelt({
   if (slots.length === 1) {
     const slot = slots[0]!;
     return (
-      <DisplaySlot
+      <DisplaySlotWithBump
         item={slot}
         coverSizePx={coverSizePx}
         api={apisByServer[slot.serverId]}
-        resolveCachedArtwork={resolvePlayerCachedArtwork(host.libraryCache, slot)}
-        persistCachedArtwork={persistPlayerCachedArtwork(host.libraryCache, slot)}
-        artworkCacheKey={playerQueueItemArtworkCacheKey(slot)}
         onCopyName={onCopyName}
         onOpenAlbum={onOpenAlbum}
         onOpenArtist={onOpenArtist}
@@ -181,13 +215,10 @@ export function PlayerFullScreenDisplayBelt({
               boxSizing: "border-box",
             }}
           >
-            <DisplaySlot
+            <DisplaySlotWithBump
               item={slot}
               coverSizePx={coverSizePx}
               api={apisByServer[slot.serverId]}
-              resolveCachedArtwork={resolvePlayerCachedArtwork(host.libraryCache, slot)}
-              persistCachedArtwork={persistPlayerCachedArtwork(host.libraryCache, slot)}
-              artworkCacheKey={playerQueueItemArtworkCacheKey(slot)}
               onCopyName={onCopyName}
               onOpenAlbum={onOpenAlbum}
               onOpenArtist={onOpenArtist}

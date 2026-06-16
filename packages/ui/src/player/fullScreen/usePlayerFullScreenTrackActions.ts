@@ -3,7 +3,12 @@ import { useT } from "@asmusic/i18n";
 import { useLibraryBrowseCache } from "../../contexts";
 import type { PlaylistCatalogRow } from "../../contexts/LibraryBrowseCacheContext";
 import { usePlayerActions } from "../../contexts/PlayerContext";
+import { useServerAndLibrary } from "../../contexts/ServerAndLibraryContext";
+import { useHost } from "../../host/HostContext";
 import type { PlayerQueueItem } from "../core/types";
+import { playerQueueItemArtworkScope } from "../shared/resolvePlayerCachedArtwork";
+
+const REFRESH_COVER_ART_SIZE = 512;
 
 export type PlayerFullScreenTrackActions = {
   isStarred: boolean;
@@ -19,15 +24,28 @@ export type PlayerFullScreenTrackActions = {
   canAddToPlaylist: boolean;
   playlistsForCurrentTrack: PlaylistCatalogRow[];
   addToPlaylist: (row: PlaylistCatalogRow) => void;
+  canRefreshCoverArt: boolean;
+  refreshCoverArtBusy: boolean;
+  refreshCoverArtError: string | null;
+  clearRefreshCoverArtError: () => void;
+  refreshCoverArt: () => void;
 };
 
 export function usePlayerFullScreenTrackActions(
   item: PlayerQueueItem | null,
 ): PlayerFullScreenTrackActions {
   const t = useT();
+  const host = useHost();
+  const { getApiForServer } = useServerAndLibrary();
   const { patchCurrentQueueItemStarred } = usePlayerActions();
-  const { setTrackStarred, playlistCatalogRows, addTrackToPlaylist, singleSlice } =
-    useLibraryBrowseCache();
+  const {
+    setTrackStarred,
+    playlistCatalogRows,
+    addTrackToPlaylist,
+    singleSlice,
+    notifyArtworkCached,
+    artworkVersionKey,
+  } = useLibraryBrowseCache();
   const canAddToPlaylist = singleSlice != null;
 
   const [starBusy, setStarBusy] = useState(false);
@@ -37,6 +55,10 @@ export function usePlayerFullScreenTrackActions(
     null,
   );
   const [addToPlaylistBusy, setAddToPlaylistBusy] = useState(false);
+  const [refreshCoverArtBusy, setRefreshCoverArtBusy] = useState(false);
+  const [refreshCoverArtError, setRefreshCoverArtError] = useState<string | null>(
+    null,
+  );
 
   const isStarred = Boolean(item?.starred);
 
@@ -46,9 +68,12 @@ export function usePlayerFullScreenTrackActions(
       )
     : [];
 
+  const canRefreshCoverArt = Boolean(item?.coverArtId?.trim());
+
   useEffect(() => {
     setStarError(null);
     setAddToPlaylistError(null);
+    setRefreshCoverArtError(null);
   }, [item?.rowId]);
 
   const toggleStarred = () => {
@@ -73,6 +98,52 @@ export function usePlayerFullScreenTrackActions(
         );
       })
       .finally(() => setStarBusy(false));
+  };
+
+  const refreshCoverArt = () => {
+    if (!item?.coverArtId?.trim()) return;
+    const coverArtId = item.coverArtId.trim();
+    const scope = playerQueueItemArtworkScope(item);
+    setRefreshCoverArtError(null);
+    setRefreshCoverArtBusy(true);
+    void (async () => {
+      try {
+        const api = await getApiForServer(item.serverId);
+        if (!api) {
+          throw new Error(
+            t("servers.error.noSession", { url: item.serverUrl }),
+          );
+        }
+        const res = await api.getCoverArt({
+          id: coverArtId,
+          size: REFRESH_COVER_ART_SIZE,
+        });
+        if (!res.ok) {
+          throw new Error(t("player.coverArt.couldNotRefresh"));
+        }
+        const buf = new Uint8Array(await res.arrayBuffer());
+        if (buf.length === 0) {
+          throw new Error(t("player.coverArt.couldNotRefresh"));
+        }
+        const mimeType =
+          res.headers.get("content-type")?.split(";")[0]?.trim() ||
+          "image/jpeg";
+        await host.libraryCache.putArtworkBlob(scope, {
+          coverArtId,
+          data: buf,
+          mimeType,
+        });
+        notifyArtworkCached(artworkVersionKey(coverArtId, scope));
+      } catch (e: unknown) {
+        setRefreshCoverArtError(
+          e instanceof Error
+            ? e.message
+            : t("player.coverArt.couldNotRefresh"),
+        );
+      } finally {
+        setRefreshCoverArtBusy(false);
+      }
+    })();
   };
 
   const addToPlaylist = (row: PlaylistCatalogRow) => {
@@ -107,5 +178,10 @@ export function usePlayerFullScreenTrackActions(
     canAddToPlaylist,
     playlistsForCurrentTrack,
     addToPlaylist,
+    canRefreshCoverArt,
+    refreshCoverArtBusy,
+    refreshCoverArtError,
+    clearRefreshCoverArtError: () => setRefreshCoverArtError(null),
+    refreshCoverArt,
   };
 }

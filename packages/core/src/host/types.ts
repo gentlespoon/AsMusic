@@ -30,6 +30,8 @@ export type PlaybackHost = {
       artist?: string;
       album?: string;
       artworkUrl?: string | null;
+      /** iOS native: JPEG/PNG bytes for lock-screen art when `artworkUrl` is unavailable offline. */
+      artworkDataBase64?: string | null;
       /** iOS native: load from this path instead of parsing `url` (offline downloads). */
       localFilePath?: string;
     }

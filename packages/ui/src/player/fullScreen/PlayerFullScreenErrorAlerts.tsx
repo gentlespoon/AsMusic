@@ -8,8 +8,14 @@ export type PlayerFullScreenErrorAlertsProps = {
 export function PlayerFullScreenErrorAlerts({
   actions,
 }: PlayerFullScreenErrorAlertsProps) {
-  const { starError, clearStarError, addToPlaylistError, clearAddToPlaylistError } =
-    actions;
+  const {
+    starError,
+    clearStarError,
+    addToPlaylistError,
+    clearAddToPlaylistError,
+    refreshCoverArtError,
+    clearRefreshCoverArtError,
+  } = actions;
 
   return (
     <>
@@ -29,6 +35,15 @@ export function PlayerFullScreenErrorAlerts({
           sx={{ borderRadius: 0, flexShrink: 0 }}
         >
           {addToPlaylistError}
+        </Alert>
+      ) : null}
+      {refreshCoverArtError ? (
+        <Alert
+          severity="error"
+          onClose={clearRefreshCoverArtError}
+          sx={{ borderRadius: 0, flexShrink: 0 }}
+        >
+          {refreshCoverArtError}
         </Alert>
       ) : null}
     </>

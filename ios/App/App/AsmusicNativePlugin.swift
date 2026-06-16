@@ -44,6 +44,13 @@ public class AsmusicNativePlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "offlineMediaDeleteScope", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "offlineMediaPurgeServerKey", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "offlineMediaTotalBytes", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "localPlaylistListSummaries", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "localPlaylistReadEntries", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "localPlaylistCreate", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "localPlaylistRename", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "localPlaylistDelete", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "localPlaylistReplaceEntries", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "localPlaylistAppendEntry", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "playerDebugLogGet", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "playerDebugLogClear", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "playerDebugLogAppend", returnType: CAPPluginReturnPromise),
@@ -752,6 +759,115 @@ public class AsmusicNativePlugin: CAPPlugin, CAPBridgedPlugin {
         do {
             let n = try LibraryCacheSQLiteStore.offlineTotalBytes(serverKey: serverKey, libraryId: libraryId)
             call.resolve(["totalBytes": n])
+        } catch {
+            call.reject(error.localizedDescription)
+        }
+    }
+
+    // MARK: - Local playlists
+
+    @objc func localPlaylistListSummaries(_ call: CAPPluginCall) {
+        do {
+            let summariesJson = try LibraryCacheSQLiteStore.readLocalPlaylistSummariesJson()
+            call.resolve(["summariesJson": summariesJson])
+        } catch {
+            call.reject(error.localizedDescription)
+        }
+    }
+
+    @objc func localPlaylistReadEntries(_ call: CAPPluginCall) {
+        guard let playlistId = call.getString("playlistId"), !playlistId.isEmpty else {
+            call.reject("Missing playlistId")
+            return
+        }
+        do {
+            let entriesJson = try LibraryCacheSQLiteStore.readLocalPlaylistEntriesJson(playlistId: playlistId)
+            call.resolve(["entriesJson": entriesJson])
+        } catch {
+            call.reject(error.localizedDescription)
+        }
+    }
+
+    @objc func localPlaylistCreate(_ call: CAPPluginCall) {
+        guard let playlistId = call.getString("playlistId"), !playlistId.isEmpty,
+              let name = call.getString("name"), !name.isEmpty else {
+            call.reject("Missing playlistId or name")
+            return
+        }
+        let createdAt = call.getDouble("createdAt") ?? (Date().timeIntervalSince1970 * 1000)
+        do {
+            let summaryJson = try LibraryCacheSQLiteStore.createLocalPlaylist(
+                name: name,
+                playlistId: playlistId,
+                createdAt: createdAt
+            )
+            call.resolve(["summaryJson": summaryJson])
+        } catch {
+            call.reject(error.localizedDescription)
+        }
+    }
+
+    @objc func localPlaylistRename(_ call: CAPPluginCall) {
+        guard let playlistId = call.getString("playlistId"), !playlistId.isEmpty,
+              let name = call.getString("name"), !name.isEmpty else {
+            call.reject("Missing playlistId or name")
+            return
+        }
+        let updatedAt = call.getDouble("updatedAt") ?? (Date().timeIntervalSince1970 * 1000)
+        do {
+            try LibraryCacheSQLiteStore.renameLocalPlaylist(playlistId: playlistId, name: name, updatedAt: updatedAt)
+            call.resolve()
+        } catch {
+            call.reject(error.localizedDescription)
+        }
+    }
+
+    @objc func localPlaylistDelete(_ call: CAPPluginCall) {
+        guard let playlistId = call.getString("playlistId"), !playlistId.isEmpty else {
+            call.reject("Missing playlistId")
+            return
+        }
+        do {
+            try LibraryCacheSQLiteStore.deleteLocalPlaylist(playlistId: playlistId)
+            call.resolve()
+        } catch {
+            call.reject(error.localizedDescription)
+        }
+    }
+
+    @objc func localPlaylistReplaceEntries(_ call: CAPPluginCall) {
+        guard let playlistId = call.getString("playlistId"), !playlistId.isEmpty,
+              let entriesJson = call.getString("entriesJson") else {
+            call.reject("Missing playlistId or entriesJson")
+            return
+        }
+        let updatedAt = call.getDouble("updatedAt") ?? (Date().timeIntervalSince1970 * 1000)
+        do {
+            try LibraryCacheSQLiteStore.replaceLocalPlaylistEntries(
+                playlistId: playlistId,
+                entriesJson: entriesJson,
+                updatedAt: updatedAt
+            )
+            call.resolve()
+        } catch {
+            call.reject(error.localizedDescription)
+        }
+    }
+
+    @objc func localPlaylistAppendEntry(_ call: CAPPluginCall) {
+        guard let playlistId = call.getString("playlistId"), !playlistId.isEmpty,
+              let entryJson = call.getString("entryJson") else {
+            call.reject("Missing playlistId or entryJson")
+            return
+        }
+        let updatedAt = call.getDouble("updatedAt") ?? (Date().timeIntervalSince1970 * 1000)
+        do {
+            try LibraryCacheSQLiteStore.appendLocalPlaylistEntry(
+                playlistId: playlistId,
+                entryJson: entryJson,
+                updatedAt: updatedAt
+            )
+            call.resolve()
         } catch {
             call.reject(error.localizedDescription)
         }

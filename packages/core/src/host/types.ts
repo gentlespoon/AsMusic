@@ -4,6 +4,7 @@
  */
 
 import type { LibraryCacheStorage } from '../library/storage/LibraryCacheStorage';
+import type { LocalPlaylistStore } from '../localPlaylists/LocalPlaylistStore';
 import type { OfflineMediaStore } from '../offline/OfflineMediaStore';
 
 export type PlatformKind = 'browser' | 'ios-capacitor';
@@ -85,4 +86,6 @@ export type PlatformHost = {
   readonly libraryCache: LibraryCacheStorage;
   /** Offline audio blobs keyed by library scope + track id. */
   readonly offlineMedia: OfflineMediaStore;
+  /** Device-local cross-library playlists. */
+  readonly localPlaylists: LocalPlaylistStore;
 };

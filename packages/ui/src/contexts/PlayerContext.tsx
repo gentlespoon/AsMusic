@@ -66,13 +66,30 @@ function usePlayerManager(): PlayerManager {
 
 export function PlayerProvider({ children }: { children: ReactNode }) {
   const host = useHost();
-  const { setTrackStarred } = useLibraryBrowseCache();
-  const { getStreamUrl, getCoverArtUrl, ensureStreamReady, servers, isRestoring } =
+  const { setTrackStarred, libraryDisplayName, serverDisplayName, ensureLibraryNames } =
+    useLibraryBrowseCache();
+  const { getStreamUrl, getCoverArtUrl, ensureStreamReady, servers, activeLibraryRefs, isRestoring } =
     useServerAndLibrary();
   const [fullPlayerOpen, setFullPlayerOpen] = useState(false);
 
-  const depsRef = useRef({ getStreamUrl, getCoverArtUrl, ensureStreamReady });
-  depsRef.current = { getStreamUrl, getCoverArtUrl, ensureStreamReady };
+  const depsRef = useRef({
+    getStreamUrl,
+    getCoverArtUrl,
+    ensureStreamReady,
+    activeLibraryRefs,
+    libraryDisplayName,
+    serverDisplayName,
+    ensureLibraryNames,
+  });
+  depsRef.current = {
+    getStreamUrl,
+    getCoverArtUrl,
+    ensureStreamReady,
+    activeLibraryRefs,
+    libraryDisplayName,
+    serverDisplayName,
+    ensureLibraryNames,
+  };
 
   const manager = useMemo(
     () =>
@@ -81,6 +98,14 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         getCoverArtUrl: (serverId, coverArtId) =>
           depsRef.current.getCoverArtUrl(serverId, coverArtId),
         ensureStreamReady: (serverId) => depsRef.current.ensureStreamReady(serverId),
+        isLibraryActive: (serverId, libraryId) =>
+          depsRef.current.activeLibraryRefs.some(
+            (r) => r.serverId === serverId && r.libraryId === libraryId
+          ),
+        getLibraryDisplayName: (serverId, libraryId) =>
+          depsRef.current.libraryDisplayName(serverId, libraryId),
+        getServerDisplayName: (serverId) => depsRef.current.serverDisplayName(serverId),
+        ensureLibraryNames: (refs) => depsRef.current.ensureLibraryNames(refs),
       }),
     [host]
   );

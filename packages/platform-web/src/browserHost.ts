@@ -1,5 +1,6 @@
 import { browserClipboard } from './browserClipboard';
 import { createIndexedDbLibraryCacheStorage } from './indexedDbLibraryCacheStorage';
+import { createIndexedDbLocalPlaylistStorage } from './indexedDbLocalPlaylistStorage';
 import { createIndexedDbOfflineMediaStorage } from './indexedDbOfflineMediaStorage';
 import type {
   HapticsHost,
@@ -12,6 +13,7 @@ import type {
 
 const libraryCache = createIndexedDbLibraryCacheStorage();
 const offlineMedia = createIndexedDbOfflineMediaStorage();
+const localPlaylists = createIndexedDbLocalPlaylistStorage();
 
 let audioEl: HTMLAudioElement | null = null;
 
@@ -197,4 +199,5 @@ export const browserHost: PlatformHost = {
   clipboard: browserClipboard,
   libraryCache,
   offlineMedia,
+  localPlaylists,
 };

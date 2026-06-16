@@ -23,6 +23,12 @@ import {
   type LibraryCacheScope,
   refreshPlaylistSummariesOnly,
   updatePlaylistTracks,
+  createLocalPlaylist,
+  deleteLocalPlaylist,
+  addTrackToLocalPlaylist,
+  updateLocalPlaylistMembership,
+  type LocalPlaylistSummary,
+  type LocalPlaylistTrackRef,
   type LibraryPlaylistSummary,
   type LibraryRefreshProgress,
   type SubsonicAPI,
@@ -44,13 +50,20 @@ export type LibraryBrowseSlice = {
   playlists: LibraryPlaylistSummary[];
 };
 
-export type PlaylistCatalogRow = {
-  playlist: LibraryPlaylistSummary;
-  serverId: string;
-  libraryId: string;
-  artworkScope: LibraryCacheScope;
-  rowKey: string;
-};
+export type PlaylistCatalogRow =
+  | {
+      kind: 'server';
+      playlist: LibraryPlaylistSummary;
+      serverId: string;
+      libraryId: string;
+      artworkScope: LibraryCacheScope;
+      rowKey: string;
+    }
+  | {
+      kind: 'local';
+      playlist: LibraryPlaylistSummary;
+      rowKey: string;
+    };
 
 function scopeListKey(list: { scope: LibraryCacheScope }[]): string {
   return list.map((s) => `${s.scope.serverKey}|${s.scope.libraryId}`).join('||');
@@ -84,6 +97,11 @@ type LibraryBrowseCacheContextValue = {
   songEntriesSorted: SongListEntry[];
   favoriteSongEntriesSorted: SongListEntry[];
   playlistCatalogRows: PlaylistCatalogRow[];
+  localPlaylistSummaries: LocalPlaylistSummary[];
+  canCreateServerPlaylist: boolean;
+  canCreateLocalPlaylist: boolean;
+  reloadLocalPlaylists: () => Promise<void>;
+  readLocalPlaylistEntries: (playlistId: string) => Promise<import('@asmusic/core').LocalPlaylistEntry[]>;
   initialReady: boolean;
   cacheReadError: string | null;
   syncing: boolean;
@@ -97,6 +115,10 @@ type LibraryBrowseCacheContextValue = {
   artworkVersionKey: (coverArtId: string, sc: LibraryCacheScope) => string;
   notifyArtworkCached: (key: string) => void;
   libraryDisplayName: (serverId: string, libraryId: string) => string;
+  serverDisplayName: (serverId: string) => string;
+  ensureLibraryNames: (
+    refs: readonly { serverId: string; libraryId: string }[]
+  ) => Promise<Record<string, string>>;
   setTrackStarred: (args: {
     serverId: string;
     libraryId: string;
@@ -118,6 +140,15 @@ type LibraryBrowseCacheContextValue = {
     playlistId: string;
     songIdsToAdd: string[];
     songIndexesToRemove: number[];
+  }) => Promise<void>;
+  createLocalPlaylist: (name: string) => Promise<LocalPlaylistSummary>;
+  deleteLocalPlaylist: (playlistId: string) => Promise<void>;
+  addTrackToLocalPlaylist: (args: { playlistId: string; ref: LocalPlaylistTrackRef }) => Promise<void>;
+  updateLocalPlaylistMembership: (args: {
+    playlistId: string;
+    songIdsToAdd: string[];
+    songIndexesToRemove: number[];
+    resolveRefForNewId: (compositeKey: string) => LocalPlaylistTrackRef | null;
   }) => Promise<void>;
 };
 
@@ -162,6 +193,21 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
   const [artworkVersionById, setArtworkVersionById] = useState<Record<string, number>>({});
   const [apiByServerId, setApiByServerId] = useState<Record<string, SubsonicAPI | null>>({});
   const [libraryNameByKey, setLibraryNameByKey] = useState<Record<string, string>>({});
+  const [localPlaylistSummaries, setLocalPlaylistSummaries] = useState<LocalPlaylistSummary[]>([]);
+
+  const reloadLocalPlaylists = useCallback(async () => {
+    const list = await host.localPlaylists.listSummaries();
+    setLocalPlaylistSummaries(list);
+  }, [host.localPlaylists]);
+
+  useEffect(() => {
+    void reloadLocalPlaylists();
+  }, [reloadLocalPlaylists]);
+
+  const readLocalPlaylistEntries = useCallback(
+    (playlistId: string) => host.localPlaylists.readEntries(playlistId),
+    [host.localPlaylists]
+  );
 
   const artworkAbortRef = useRef<AbortController | null>(null);
   const artworkPendingRef = useRef<Record<string, number>>({});
@@ -178,6 +224,83 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
     (serverId: string, libraryId: string) =>
       libraryNameByKey[libraryRefKey(serverId, libraryId)] ?? libraryId,
     [libraryNameByKey]
+  );
+
+  const libraryNameByKeyRef = useRef(libraryNameByKey);
+  libraryNameByKeyRef.current = libraryNameByKey;
+
+  const serverDisplayName = useCallback(
+    (serverId: string) => {
+      const s = servers.find((x) => x.id === serverId);
+      if (!s) return serverId;
+      return `${s.serverUrl.replace(/\/$/, '')} · ${s.username}`;
+    },
+    [servers]
+  );
+
+  const ensureLibraryNames = useCallback(
+    async (refs: readonly { serverId: string; libraryId: string }[]) => {
+      const defaultLibraryName = t('servers.defaultLibraryName');
+      const resolveName = (serverId: string, libraryId: string) => {
+        const key = libraryRefKey(serverId, libraryId);
+        return (
+          libraryNameByKeyRef.current[key] ??
+          (libraryId === DEFAULT_LIBRARY_ID ? defaultLibraryName : libraryId)
+        );
+      };
+
+      const missingByServer = new Map<string, string[]>();
+      for (const ref of refs) {
+        const key = libraryRefKey(ref.serverId, ref.libraryId);
+        if (libraryNameByKeyRef.current[key]) continue;
+        const list = missingByServer.get(ref.serverId);
+        if (list) {
+          if (!list.includes(ref.libraryId)) list.push(ref.libraryId);
+        } else {
+          missingByServer.set(ref.serverId, [ref.libraryId]);
+        }
+      }
+
+      const updates: Record<string, string> = {};
+      if (missingByServer.size > 0) {
+        await Promise.all(
+          [...missingByServer.entries()].map(async ([serverId, libraryIds]) => {
+            const api = await getApiForServer(serverId);
+            let folders: Awaited<ReturnType<typeof fetchMusicFolders>> = [];
+            if (api) {
+              try {
+                folders = await fetchMusicFolders(api);
+              } catch {
+                folders = [];
+              }
+            }
+            for (const libraryId of libraryIds) {
+              const key = libraryRefKey(serverId, libraryId);
+              if (folders.length === 0) {
+                updates[key] = libraryId === DEFAULT_LIBRARY_ID ? defaultLibraryName : libraryId;
+              } else {
+                const folder = folders.find((f) => f.id === libraryId);
+                updates[key] =
+                  folder?.name ?? (libraryId === DEFAULT_LIBRARY_ID ? defaultLibraryName : libraryId);
+              }
+            }
+          })
+        );
+
+        if (Object.keys(updates).length > 0) {
+          setLibraryNameByKey((prev) => ({ ...prev, ...updates }));
+          libraryNameByKeyRef.current = { ...libraryNameByKeyRef.current, ...updates };
+        }
+      }
+
+      const out: Record<string, string> = {};
+      for (const ref of refs) {
+        const key = libraryRefKey(ref.serverId, ref.libraryId);
+        out[key] = updates[key] ?? resolveName(ref.serverId, ref.libraryId);
+      }
+      return out;
+    },
+    [getApiForServer, t]
   );
 
   useEffect(() => {
@@ -304,6 +427,7 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
       );
       for (const playlist of sorted) {
         out.push({
+          kind: 'server',
           playlist,
           serverId: sl.serverId,
           libraryId: sl.libraryId,
@@ -312,8 +436,27 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
         });
       }
     }
+    for (const playlist of localPlaylistSummaries) {
+      out.push({
+        kind: 'local',
+        playlist: {
+          id: playlist.id,
+          name: playlist.name,
+          songCount: playlist.trackCount,
+        },
+        rowKey: `local|${playlist.id}`,
+      });
+    }
+    out.sort((a, b) => {
+      const c = a.playlist.name.localeCompare(b.playlist.name, undefined, { sensitivity: 'base' });
+      if (c !== 0) return c;
+      return a.rowKey.localeCompare(b.rowKey);
+    });
     return out;
-  }, [slices]);
+  }, [slices, localPlaylistSummaries]);
+
+  const canCreateServerPlaylist = scopesToLoad.length > 0;
+  const canCreateLocalPlaylist = scopesToLoad.length > 0;
 
   const clearArtworkVersionThrottle = useCallback(() => {
     if (artworkFlushTimerRef.current) {
@@ -594,6 +737,51 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
     [getApiForServer, refreshPlaylistSummariesForScope]
   );
 
+  const createLocalPlaylistFn = useCallback(
+    async (name: string) => {
+      const summary = await createLocalPlaylist(host.localPlaylists, name);
+      await reloadLocalPlaylists();
+      return summary;
+    },
+    [host.localPlaylists, reloadLocalPlaylists]
+  );
+
+  const deleteLocalPlaylistFn = useCallback(
+    async (playlistId: string) => {
+      await deleteLocalPlaylist(host.localPlaylists, playlistId);
+      await reloadLocalPlaylists();
+    },
+    [host.localPlaylists, reloadLocalPlaylists]
+  );
+
+  const addTrackToLocalPlaylistFn = useCallback(
+    async (args: { playlistId: string; ref: LocalPlaylistTrackRef }) => {
+      await addTrackToLocalPlaylist(host.localPlaylists, args);
+      await reloadLocalPlaylists();
+    },
+    [host.localPlaylists, reloadLocalPlaylists]
+  );
+
+  const updateLocalPlaylistMembershipFn = useCallback(
+    async (args: {
+      playlistId: string;
+      songIdsToAdd: string[];
+      songIndexesToRemove: number[];
+      resolveRefForNewId: (compositeKey: string) => LocalPlaylistTrackRef | null;
+    }) => {
+      const entries = await host.localPlaylists.readEntries(args.playlistId);
+      await updateLocalPlaylistMembership(host.localPlaylists, {
+        playlistId: args.playlistId,
+        entries,
+        songIdsToAdd: args.songIdsToAdd,
+        songIndexesToRemove: args.songIndexesToRemove,
+        resolveRefForNewId: args.resolveRefForNewId,
+      });
+      await reloadLocalPlaylists();
+    },
+    [host.localPlaylists, reloadLocalPlaylists]
+  );
+
   const setTrackStarred = useCallback(
     async (args: { serverId: string; libraryId: string; trackId: string; starred: boolean }) => {
       const { serverId, libraryId, trackId, starred } = args;
@@ -656,6 +844,11 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
       songEntriesSorted,
       favoriteSongEntriesSorted,
       playlistCatalogRows,
+      localPlaylistSummaries,
+      canCreateServerPlaylist,
+      canCreateLocalPlaylist,
+      reloadLocalPlaylists,
+      readLocalPlaylistEntries,
       initialReady,
       cacheReadError,
       syncing,
@@ -669,12 +862,18 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
       artworkVersionKey,
       notifyArtworkCached,
       libraryDisplayName,
+      serverDisplayName,
+      ensureLibraryNames,
       setTrackStarred,
       refreshPlaylistSummariesForScope,
       createPlaylist,
       deletePlaylist,
       addTrackToPlaylist,
       updatePlaylistMembership,
+      createLocalPlaylist: createLocalPlaylistFn,
+      deleteLocalPlaylist: deleteLocalPlaylistFn,
+      addTrackToLocalPlaylist: addTrackToLocalPlaylistFn,
+      updateLocalPlaylistMembership: updateLocalPlaylistMembershipFn,
     }),
     [
       scopesToLoad,
@@ -689,6 +888,11 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
       songEntriesSorted,
       favoriteSongEntriesSorted,
       playlistCatalogRows,
+      localPlaylistSummaries,
+      canCreateServerPlaylist,
+      canCreateLocalPlaylist,
+      reloadLocalPlaylists,
+      readLocalPlaylistEntries,
       initialReady,
       cacheReadError,
       syncing,
@@ -702,12 +906,18 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
       artworkVersionKey,
       notifyArtworkCached,
       libraryDisplayName,
+      serverDisplayName,
+      ensureLibraryNames,
       setTrackStarred,
       refreshPlaylistSummariesForScope,
       createPlaylist,
       deletePlaylist,
       addTrackToPlaylist,
       updatePlaylistMembership,
+      createLocalPlaylistFn,
+      deleteLocalPlaylistFn,
+      addTrackToLocalPlaylistFn,
+      updateLocalPlaylistMembershipFn,
     ]
   );
 

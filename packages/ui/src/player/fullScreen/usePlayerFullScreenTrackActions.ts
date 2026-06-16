@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useT } from "@asmusic/i18n";
+import { libraryCacheScope, localPlaylistTrackRefFromChild } from "@asmusic/core";
 import { useLibraryBrowseCache } from "../../contexts";
 import type { PlaylistCatalogRow } from "../../contexts/LibraryBrowseCacheContext";
 import { usePlayerActions } from "../../contexts/PlayerContext";
@@ -42,31 +43,33 @@ export function usePlayerFullScreenTrackActions(
     setTrackStarred,
     playlistCatalogRows,
     addTrackToPlaylist,
-    singleSlice,
+    addTrackToLocalPlaylist,
     notifyArtworkCached,
     artworkVersionKey,
   } = useLibraryBrowseCache();
-  const canAddToPlaylist = singleSlice != null;
 
   const [starBusy, setStarBusy] = useState(false);
   const [starError, setStarError] = useState<string | null>(null);
   const [addToPlaylistOpen, setAddToPlaylistOpen] = useState(false);
-  const [addToPlaylistError, setAddToPlaylistError] = useState<string | null>(
-    null,
-  );
+  const [addToPlaylistError, setAddToPlaylistError] = useState<string | null>(null);
   const [addToPlaylistBusy, setAddToPlaylistBusy] = useState(false);
   const [refreshCoverArtBusy, setRefreshCoverArtBusy] = useState(false);
-  const [refreshCoverArtError, setRefreshCoverArtError] = useState<string | null>(
-    null,
-  );
+  const [refreshCoverArtError, setRefreshCoverArtError] = useState<string | null>(null);
 
   const isStarred = Boolean(item?.starred);
 
-  const playlistsForCurrentTrack = item
+  const serverPlaylistsForTrack = item
     ? playlistCatalogRows.filter(
-        (r) => r.serverId === item.serverId && r.libraryId === item.libraryId,
+        (r) =>
+          r.kind === "server" &&
+          r.serverId === item.serverId &&
+          r.libraryId === item.libraryId,
       )
     : [];
+  const localPlaylists = playlistCatalogRows.filter((r) => r.kind === "local");
+  const playlistsForCurrentTrack = [...localPlaylists, ...serverPlaylistsForTrack];
+  const canAddToPlaylist =
+    playlistsForCurrentTrack.length > 0 && Boolean(item?.serverId && item.trackId);
 
   const canRefreshCoverArt = Boolean(item?.coverArtId?.trim());
 
@@ -92,9 +95,7 @@ export function usePlayerFullScreenTrackActions(
       })
       .catch((e: unknown) => {
         setStarError(
-          e instanceof Error
-            ? e.message
-            : t("player.favorite.couldNotUpdate"),
+          e instanceof Error ? e.message : t("player.favorite.couldNotUpdate"),
         );
       })
       .finally(() => setStarBusy(false));
@@ -110,9 +111,7 @@ export function usePlayerFullScreenTrackActions(
       try {
         const api = await getApiForServer(item.serverId);
         if (!api) {
-          throw new Error(
-            t("servers.error.noSession", { url: item.serverUrl }),
-          );
+          throw new Error(t("servers.error.noSession", { url: item.serverUrl }));
         }
         const res = await api.getCoverArt({
           id: coverArtId,
@@ -126,8 +125,7 @@ export function usePlayerFullScreenTrackActions(
           throw new Error(t("player.coverArt.couldNotRefresh"));
         }
         const mimeType =
-          res.headers.get("content-type")?.split(";")[0]?.trim() ||
-          "image/jpeg";
+          res.headers.get("content-type")?.split(";")[0]?.trim() || "image/jpeg";
         await host.libraryCache.putArtworkBlob(scope, {
           coverArtId,
           data: buf,
@@ -136,9 +134,7 @@ export function usePlayerFullScreenTrackActions(
         notifyArtworkCached(artworkVersionKey(coverArtId, scope));
       } catch (e: unknown) {
         setRefreshCoverArtError(
-          e instanceof Error
-            ? e.message
-            : t("player.coverArt.couldNotRefresh"),
+          e instanceof Error ? e.message : t("player.coverArt.couldNotRefresh"),
         );
       } finally {
         setRefreshCoverArtBusy(false);
@@ -150,12 +146,29 @@ export function usePlayerFullScreenTrackActions(
     if (!item || !canAddToPlaylist) return;
     setAddToPlaylistBusy(true);
     setAddToPlaylistError(null);
-    void addTrackToPlaylist({
-      serverId: item.serverId,
-      libraryId: item.libraryId,
-      playlistId: row.playlist.id,
-      trackId: item.trackId,
-    })
+    const task =
+      row.kind === "local"
+        ? addTrackToLocalPlaylist({
+            playlistId: row.playlist.id,
+            ref: localPlaylistTrackRefFromChild(
+              libraryCacheScope(item.serverUrl, item.username, item.libraryId),
+              {
+                id: item.trackId,
+                isDir: false,
+                title: item.title,
+                artist: item.artist,
+                album: item.album,
+                coverArt: item.coverArtId,
+              },
+            ),
+          })
+        : addTrackToPlaylist({
+            serverId: item.serverId,
+            libraryId: item.libraryId,
+            playlistId: row.playlist.id,
+            trackId: item.trackId,
+          });
+    void task
       .catch((e: unknown) => {
         setAddToPlaylistError(
           e instanceof Error ? e.message : t("player.addToPlaylist.couldNotAdd"),

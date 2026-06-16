@@ -120,6 +120,34 @@ export class AsmusicNativeWeb extends WebPlugin implements AsmusicNativePlugin {
     throwNativeOnly('offlineMediaTotalBytes');
   }
 
+  async localPlaylistListSummaries(): Promise<{ summariesJson: string }> {
+    throwNativeOnly('localPlaylistListSummaries');
+  }
+
+  async localPlaylistReadEntries(): Promise<{ entriesJson: string }> {
+    throwNativeOnly('localPlaylistReadEntries');
+  }
+
+  async localPlaylistCreate(): Promise<{ summaryJson: string }> {
+    throwNativeOnly('localPlaylistCreate');
+  }
+
+  async localPlaylistRename(): Promise<void> {
+    throwNativeOnly('localPlaylistRename');
+  }
+
+  async localPlaylistDelete(): Promise<void> {
+    throwNativeOnly('localPlaylistDelete');
+  }
+
+  async localPlaylistReplaceEntries(): Promise<void> {
+    throwNativeOnly('localPlaylistReplaceEntries');
+  }
+
+  async localPlaylistAppendEntry(): Promise<void> {
+    throwNativeOnly('localPlaylistAppendEntry');
+  }
+
   async playerDebugLogGet(): Promise<{ log: string }> {
     return { log: '' };
   }

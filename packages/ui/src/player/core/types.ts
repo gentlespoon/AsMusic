@@ -40,8 +40,14 @@ export type PlayerViewState = {
 };
 
 /** Ephemeral toast shown when playback fails and the queue advances. */
-export type PlayerToastEvent = {
-  id: number;
-  messageKey: 'player.playback.skippedOnFailure';
-  params: { title: string; error: string };
-};
+export type PlayerToastEvent =
+  | {
+      id: number;
+      messageKey: 'player.playback.skippedOnFailure';
+      params: { title: string; error: string };
+    }
+  | {
+      id: number;
+      messageKey: 'player.playback.skippedLibraryDisabled';
+      params: { serverName: string; libraryName: string };
+    };

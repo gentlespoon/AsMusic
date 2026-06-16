@@ -355,6 +355,338 @@ enum LibraryCacheSQLiteStore {
         }
     }
 
+    // MARK: - Local playlists (device-only)
+
+    static func readLocalPlaylistSummariesJson() throws -> String {
+        try queue.sync {
+            try openIfNeeded()
+            guard let db else { throw StoreError.databaseUnavailable }
+
+            let sql = """
+                SELECT playlist_id, name, track_count, created_at, updated_at
+                FROM local_playlists
+                ORDER BY sort_index ASC;
+                """
+            var stmt: OpaquePointer?
+            defer { sqlite3_finalize(stmt) }
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+                throw StoreError.prepareFailed
+            }
+
+            var parts: [String] = []
+            parts.append("[")
+            var first = true
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                guard let pidC = sqlite3_column_text(stmt, 0),
+                      let nameC = sqlite3_column_text(stmt, 1) else { continue }
+                let pid = String(cString: pidC)
+                let name = String(cString: nameC)
+                let tc = Int(sqlite3_column_int64(stmt, 2))
+                let created = sqlite3_column_double(stmt, 3)
+                let updated = sqlite3_column_double(stmt, 4)
+                let pidStr = try jsonQuotedString(pid)
+                let nameStr = try jsonQuotedString(name)
+                if !first { parts.append(",") }
+                first = false
+                parts.append(
+                    "{\"id\":\(pidStr),\"name\":\(nameStr),\"trackCount\":\(tc),\"createdAt\":\(created),\"updatedAt\":\(updated)}"
+                )
+            }
+            parts.append("]")
+            return parts.joined()
+        }
+    }
+
+    static func readLocalPlaylistEntriesJson(playlistId: String) throws -> String {
+        try queue.sync {
+            try openIfNeeded()
+            guard let db else { throw StoreError.databaseUnavailable }
+
+            let sql = """
+                SELECT sort_index, server_key, library_id, track_id, title, artist, album, cover_art_id
+                FROM local_playlist_entries
+                WHERE playlist_id = ?
+                ORDER BY sort_index ASC;
+                """
+            var stmt: OpaquePointer?
+            defer { sqlite3_finalize(stmt) }
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+                throw StoreError.prepareFailed
+            }
+            sqlite3_bind_text(stmt, 1, playlistId, -1, transientDestructor)
+
+            var parts: [String] = []
+            parts.append("[")
+            var first = true
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                guard let skC = sqlite3_column_text(stmt, 1),
+                      let libC = sqlite3_column_text(stmt, 2),
+                      let tidC = sqlite3_column_text(stmt, 3) else { continue }
+                let sortIndex = Int(sqlite3_column_int64(stmt, 0))
+                let sk = String(cString: skC)
+                let lib = String(cString: libC)
+                let tid = String(cString: tidC)
+                let title = sqlite3_column_text(stmt, 4).map { String(cString: $0) }
+                let artist = sqlite3_column_text(stmt, 5).map { String(cString: $0) }
+                let album = sqlite3_column_text(stmt, 6).map { String(cString: $0) }
+                let cover = sqlite3_column_text(stmt, 7).map { String(cString: $0) }
+
+                if !first { parts.append(",") }
+                first = false
+                var obj = "{\"sortIndex\":\(sortIndex),\"serverKey\":\(try jsonQuotedString(sk)),\"libraryId\":\(try jsonQuotedString(lib)),\"trackId\":\(try jsonQuotedString(tid))"
+                if let title, !title.isEmpty {
+                    obj += ",\"title\":\(try jsonQuotedString(title))"
+                }
+                if let artist, !artist.isEmpty {
+                    obj += ",\"artist\":\(try jsonQuotedString(artist))"
+                }
+                if let album, !album.isEmpty {
+                    obj += ",\"album\":\(try jsonQuotedString(album))"
+                }
+                if let cover, !cover.isEmpty {
+                    obj += ",\"coverArtId\":\(try jsonQuotedString(cover))"
+                }
+                obj += "}"
+                parts.append(obj)
+            }
+            parts.append("]")
+            return parts.joined()
+        }
+    }
+
+    static func createLocalPlaylist(name: String, playlistId: String, createdAt: Double) throws -> String {
+        try queue.sync {
+            try openIfNeeded()
+            guard let db else { throw StoreError.databaseUnavailable }
+            let sortIndex = try localPlaylistCountLocked()
+            let sql = """
+                INSERT INTO local_playlists(playlist_id, name, track_count, created_at, updated_at, sort_index)
+                VALUES(?, ?, 0, ?, ?, ?);
+                """
+            var stmt: OpaquePointer?
+            defer { sqlite3_finalize(stmt) }
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+                throw StoreError.prepareFailed
+            }
+            sqlite3_bind_text(stmt, 1, playlistId, -1, transientDestructor)
+            sqlite3_bind_text(stmt, 2, name, -1, transientDestructor)
+            sqlite3_bind_double(stmt, 3, createdAt)
+            sqlite3_bind_double(stmt, 4, createdAt)
+            sqlite3_bind_int64(stmt, 5, Int64(sortIndex))
+            guard sqlite3_step(stmt) == SQLITE_DONE else { throw StoreError.transactionFailed }
+            let pidStr = try jsonQuotedString(playlistId)
+            let nameStr = try jsonQuotedString(name)
+            return "{\"id\":\(pidStr),\"name\":\(nameStr),\"trackCount\":0,\"createdAt\":\(createdAt),\"updatedAt\":\(createdAt)}"
+        }
+    }
+
+    static func renameLocalPlaylist(playlistId: String, name: String, updatedAt: Double) throws {
+        try queue.sync {
+            try openIfNeeded()
+            guard let db else { throw StoreError.databaseUnavailable }
+            let sql = "UPDATE local_playlists SET name = ?, updated_at = ? WHERE playlist_id = ?;"
+            var stmt: OpaquePointer?
+            defer { sqlite3_finalize(stmt) }
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+                throw StoreError.prepareFailed
+            }
+            sqlite3_bind_text(stmt, 1, name, -1, transientDestructor)
+            sqlite3_bind_double(stmt, 2, updatedAt)
+            sqlite3_bind_text(stmt, 3, playlistId, -1, transientDestructor)
+            guard sqlite3_step(stmt) == SQLITE_DONE else { throw StoreError.transactionFailed }
+            if sqlite3_changes(db) == 0 { throw StoreError.songNotFound }
+        }
+    }
+
+    static func deleteLocalPlaylist(playlistId: String) throws {
+        try queue.sync {
+            try openIfNeeded()
+            guard let db else { throw StoreError.databaseUnavailable }
+            guard execute(db, "BEGIN IMMEDIATE;") else { throw StoreError.transactionFailed }
+            var shouldCommit = false
+            defer { _ = execute(db, shouldCommit ? "COMMIT;" : "ROLLBACK;") }
+
+            var delEntries: OpaquePointer?
+            defer { sqlite3_finalize(delEntries) }
+            guard sqlite3_prepare_v2(db, "DELETE FROM local_playlist_entries WHERE playlist_id = ?;", -1, &delEntries, nil) == SQLITE_OK else {
+                return
+            }
+            sqlite3_bind_text(delEntries, 1, playlistId, -1, transientDestructor)
+            guard sqlite3_step(delEntries) == SQLITE_DONE else { return }
+
+            var delPl: OpaquePointer?
+            defer { sqlite3_finalize(delPl) }
+            guard sqlite3_prepare_v2(db, "DELETE FROM local_playlists WHERE playlist_id = ?;", -1, &delPl, nil) == SQLITE_OK else {
+                return
+            }
+            sqlite3_bind_text(delPl, 1, playlistId, -1, transientDestructor)
+            guard sqlite3_step(delPl) == SQLITE_DONE else { return }
+            shouldCommit = true
+        }
+    }
+
+    static func replaceLocalPlaylistEntries(playlistId: String, entriesJson: String, updatedAt: Double) throws {
+        try queue.sync {
+            try openIfNeeded()
+            guard let db else { throw StoreError.databaseUnavailable }
+
+            guard let data = entriesJson.data(using: .utf8) else { throw StoreError.invalidJson }
+            let raw = try JSONSerialization.jsonObject(with: data, options: [])
+            guard let entries = raw as? [[String: Any]] else { throw StoreError.invalidJson }
+
+            guard execute(db, "BEGIN IMMEDIATE;") else { throw StoreError.transactionFailed }
+            var shouldCommit = false
+            defer { _ = execute(db, shouldCommit ? "COMMIT;" : "ROLLBACK;") }
+
+            var del: OpaquePointer?
+            defer { sqlite3_finalize(del) }
+            guard sqlite3_prepare_v2(db, "DELETE FROM local_playlist_entries WHERE playlist_id = ?;", -1, &del, nil) == SQLITE_OK else {
+                return
+            }
+            sqlite3_bind_text(del, 1, playlistId, -1, transientDestructor)
+            guard sqlite3_step(del) == SQLITE_DONE else { return }
+
+            let insSql = """
+                INSERT INTO local_playlist_entries(
+                  playlist_id, sort_index, server_key, library_id, track_id, title, artist, album, cover_art_id
+                ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?);
+                """
+            var ins: OpaquePointer?
+            defer { sqlite3_finalize(ins) }
+            guard sqlite3_prepare_v2(db, insSql, -1, &ins, nil) == SQLITE_OK else { return }
+
+            for (index, entry) in entries.enumerated() {
+                let sk = (entry["serverKey"] as? String) ?? ""
+                let lib = (entry["libraryId"] as? String) ?? ""
+                let tid = Self.jsonStringId(entry["trackId"]) ?? ""
+                if sk.isEmpty || lib.isEmpty || tid.isEmpty { continue }
+                let title = entry["title"] as? String
+                let artist = entry["artist"] as? String
+                let album = entry["album"] as? String
+                let cover = entry["coverArtId"] as? String
+
+                sqlite3_reset(ins)
+                sqlite3_clear_bindings(ins)
+                sqlite3_bind_text(ins, 1, playlistId, -1, transientDestructor)
+                sqlite3_bind_int64(ins, 2, Int64(index))
+                sqlite3_bind_text(ins, 3, sk, -1, transientDestructor)
+                sqlite3_bind_text(ins, 4, lib, -1, transientDestructor)
+                sqlite3_bind_text(ins, 5, tid, -1, transientDestructor)
+                sqlite3_bind_text(ins, 6, title, -1, transientDestructor)
+                sqlite3_bind_text(ins, 7, artist, -1, transientDestructor)
+                sqlite3_bind_text(ins, 8, album, -1, transientDestructor)
+                sqlite3_bind_text(ins, 9, cover, -1, transientDestructor)
+                guard sqlite3_step(ins) == SQLITE_DONE else { return }
+            }
+
+            var upd: OpaquePointer?
+            defer { sqlite3_finalize(upd) }
+            let updSql = "UPDATE local_playlists SET track_count = ?, updated_at = ? WHERE playlist_id = ?;"
+            guard sqlite3_prepare_v2(db, updSql, -1, &upd, nil) == SQLITE_OK else { return }
+            sqlite3_bind_int64(upd, 1, Int64(entries.count))
+            sqlite3_bind_double(upd, 2, updatedAt)
+            sqlite3_bind_text(upd, 3, playlistId, -1, transientDestructor)
+            guard sqlite3_step(upd) == SQLITE_DONE else { return }
+            shouldCommit = true
+        }
+    }
+
+    static func appendLocalPlaylistEntry(playlistId: String, entryJson: String, updatedAt: Double) throws {
+        try queue.sync {
+            try openIfNeeded()
+            guard let db else { throw StoreError.databaseUnavailable }
+
+            guard let data = entryJson.data(using: .utf8) else { throw StoreError.invalidJson }
+            let raw = try JSONSerialization.jsonObject(with: data, options: [])
+            guard let entry = raw as? [String: Any] else { throw StoreError.invalidJson }
+
+            let sk = (entry["serverKey"] as? String) ?? ""
+            let lib = (entry["libraryId"] as? String) ?? ""
+            let tid = Self.jsonStringId(entry["trackId"]) ?? ""
+            if sk.isEmpty || lib.isEmpty || tid.isEmpty { throw StoreError.invalidJson }
+
+            let title = entry["title"] as? String
+            let artist = entry["artist"] as? String
+            let album = entry["album"] as? String
+            let cover = entry["coverArtId"] as? String
+
+            var dupStmt: OpaquePointer?
+            defer { sqlite3_finalize(dupStmt) }
+            let dupSql = """
+                SELECT 1 FROM local_playlist_entries
+                WHERE playlist_id = ? AND server_key = ? AND library_id = ? AND track_id = ?
+                LIMIT 1;
+                """
+            guard sqlite3_prepare_v2(db, dupSql, -1, &dupStmt, nil) == SQLITE_OK else {
+                throw StoreError.prepareFailed
+            }
+            sqlite3_bind_text(dupStmt, 1, playlistId, -1, transientDestructor)
+            sqlite3_bind_text(dupStmt, 2, sk, -1, transientDestructor)
+            sqlite3_bind_text(dupStmt, 3, lib, -1, transientDestructor)
+            sqlite3_bind_text(dupStmt, 4, tid, -1, transientDestructor)
+            if sqlite3_step(dupStmt) == SQLITE_ROW { return }
+
+            var countStmt: OpaquePointer?
+            defer { sqlite3_finalize(countStmt) }
+            guard sqlite3_prepare_v2(db, "SELECT COUNT(*) FROM local_playlist_entries WHERE playlist_id = ?;", -1, &countStmt, nil) == SQLITE_OK else {
+                throw StoreError.prepareFailed
+            }
+            sqlite3_bind_text(countStmt, 1, playlistId, -1, transientDestructor)
+            guard sqlite3_step(countStmt) == SQLITE_ROW else { throw StoreError.prepareFailed }
+            let sortIndex = Int(sqlite3_column_int64(countStmt, 0))
+
+            let insSql = """
+                INSERT INTO local_playlist_entries(
+                  playlist_id, sort_index, server_key, library_id, track_id, title, artist, album, cover_art_id
+                ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?);
+                """
+            var ins: OpaquePointer?
+            defer { sqlite3_finalize(ins) }
+            guard sqlite3_prepare_v2(db, insSql, -1, &ins, nil) == SQLITE_OK else {
+                throw StoreError.prepareFailed
+            }
+            sqlite3_bind_text(ins, 1, playlistId, -1, transientDestructor)
+            sqlite3_bind_int64(ins, 2, Int64(sortIndex))
+            sqlite3_bind_text(ins, 3, sk, -1, transientDestructor)
+            sqlite3_bind_text(ins, 4, lib, -1, transientDestructor)
+            sqlite3_bind_text(ins, 5, tid, -1, transientDestructor)
+            sqlite3_bind_text(ins, 6, title, -1, transientDestructor)
+            sqlite3_bind_text(ins, 7, artist, -1, transientDestructor)
+            sqlite3_bind_text(ins, 8, album, -1, transientDestructor)
+            sqlite3_bind_text(ins, 9, cover, -1, transientDestructor)
+            guard sqlite3_step(ins) == SQLITE_DONE else { throw StoreError.transactionFailed }
+
+            var upd: OpaquePointer?
+            defer { sqlite3_finalize(upd) }
+            let updSql = "UPDATE local_playlists SET track_count = track_count + 1, updated_at = ? WHERE playlist_id = ?;"
+            guard sqlite3_prepare_v2(db, updSql, -1, &upd, nil) == SQLITE_OK else {
+                throw StoreError.prepareFailed
+            }
+            sqlite3_bind_double(upd, 1, updatedAt)
+            sqlite3_bind_text(upd, 2, playlistId, -1, transientDestructor)
+            guard sqlite3_step(upd) == SQLITE_DONE else { throw StoreError.transactionFailed }
+        }
+    }
+
+    static func localPlaylistCount() throws -> Int {
+        try queue.sync {
+            try localPlaylistCountLocked()
+        }
+    }
+
+    /// Caller must already hold `queue` (do not call `queue.sync` from inside `queue.sync`).
+    private static func localPlaylistCountLocked() throws -> Int {
+        try openIfNeeded()
+        guard let db else { throw StoreError.databaseUnavailable }
+        var stmt: OpaquePointer?
+        defer { sqlite3_finalize(stmt) }
+        guard sqlite3_prepare_v2(db, "SELECT COUNT(*) FROM local_playlists;", -1, &stmt, nil) == SQLITE_OK else {
+            throw StoreError.prepareFailed
+        }
+        guard sqlite3_step(stmt) == SQLITE_ROW else { return 0 }
+        return Int(sqlite3_column_int64(stmt, 0))
+    }
+
     static func clearArtwork(serverKey: String, libraryId: String) throws {
         try queue.sync {
             try openIfNeeded()
@@ -1542,6 +1874,29 @@ enum LibraryCacheSQLiteStore {
               PRIMARY KEY (server_key, library_id, track_id, variant)
             );
             CREATE INDEX IF NOT EXISTS idx_offline_tracks_scope ON offline_tracks(server_key, library_id);
+
+            CREATE TABLE IF NOT EXISTS local_playlists (
+              playlist_id TEXT PRIMARY KEY,
+              name TEXT NOT NULL,
+              track_count INTEGER NOT NULL,
+              created_at REAL NOT NULL,
+              updated_at REAL NOT NULL,
+              sort_index INTEGER NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS local_playlist_entries (
+              playlist_id TEXT NOT NULL,
+              sort_index INTEGER NOT NULL,
+              server_key TEXT NOT NULL,
+              library_id TEXT NOT NULL,
+              track_id TEXT NOT NULL,
+              title TEXT,
+              artist TEXT,
+              album TEXT,
+              cover_art_id TEXT,
+              PRIMARY KEY (playlist_id, sort_index)
+            );
+            CREATE INDEX IF NOT EXISTS idx_local_playlist_entries_playlist ON local_playlist_entries(playlist_id);
             """
         guard execute(h, ddl) else {
             sqlite3_close(h)

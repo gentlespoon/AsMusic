@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useI18n, useT } from '@asmusic/i18n';
 import { Alert, Box, Typography } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
@@ -9,6 +9,7 @@ import {
   songsInCachedAlbum,
   type LibraryCacheScope,
   type LibraryRefreshProgress,
+  type LocalPlaylistEntry,
 } from '@asmusic/core';
 import { AlbumListView } from './catalog/AlbumListView';
 import { ArtistListView } from './catalog/ArtistListView';
@@ -16,6 +17,8 @@ import { SongListView } from './catalog/SongListView';
 import { AlbumSongListView } from './detail/AlbumSongListView';
 import { ArtistAlbumListView } from './detail/ArtistAlbumListView';
 import { ArtistAllSongListView } from './detail/ArtistAllSongListView';
+import { LocalPlaylistEditorView } from './detail/LocalPlaylistEditorView';
+import { LocalPlaylistSongListView } from './detail/LocalPlaylistSongListView';
 import { PlaylistEditorView } from './detail/PlaylistEditorView';
 import { PlaylistSongListView } from './detail/PlaylistSongListView';
 import { PlaylistListView } from './playlists/PlaylistListView';
@@ -28,6 +31,8 @@ import {
   mergeLibraryBrowserSearchParams,
   parseLibraryBrowserView,
   encodeLibraryBrowserRef,
+  encodeLocalPlaylistRef,
+  decodeLocalPlaylistRef,
 } from './browser/libraryNavigationUrl';
 import { useLibraryBrowserResolvedScopes } from './browser/useLibraryBrowserResolvedScopes';
 import { useLibraryBrowserTabBar } from './browser/useLibraryBrowserTabBar';
@@ -73,6 +78,8 @@ export function LibraryBrowser() {
     songEntriesSorted,
     favoriteSongEntriesSorted,
     playlistCatalogRows,
+    localPlaylistSummaries,
+    readLocalPlaylistEntries,
     initialReady,
     cacheReadError,
     syncing,
@@ -84,6 +91,26 @@ export function LibraryBrowser() {
     notifyArtworkCached,
     setTrackStarred,
   } = useLibraryBrowseCache();
+
+  const [localPlaylistEntriesById, setLocalPlaylistEntriesById] = useState<
+    Record<string, LocalPlaylistEntry[]>
+  >({});
+
+  const songsByScope = useMemo(() => {
+    const map = new Map<string, import('subsonic-api').Child[]>();
+    for (const sl of slices) {
+      map.set(`${sl.scope.serverKey}|${sl.scope.libraryId}`, sl.songs);
+    }
+    return map;
+  }, [slices]);
+
+  const albumsByScope = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof albumsFromCachedSongs>>();
+    for (const sl of slices) {
+      map.set(`${sl.scope.serverKey}|${sl.scope.libraryId}`, albumsFromCachedSongs(sl.songs));
+    }
+    return map;
+  }, [slices]);
 
   const searchKey = searchParams.toString();
   const { tab, album: albumSongScope, artist: artistAlbumScope, playlist: playlistScope } = view;
@@ -136,6 +163,8 @@ export function LibraryBrowser() {
     playlistScope,
     slices,
     singleSlice,
+    localPlaylistSummaries,
+    localPlaylistEntriesById,
   });
 
   const {
@@ -154,7 +183,13 @@ export function LibraryBrowser() {
     appendAllPlaylistTracksToQueue,
     shufflePlayAllPlaylistTracks,
     replaceQueueAndPlayAllPlaylistTracks,
-  } = useLibraryBrowserPlayback({ resolvedAlbum, resolvedArtist, resolvedPlaylist });
+    playLocalResolvedRow,
+    playNextLocalResolvedRow,
+    appendLocalResolvedRowToQueue,
+    replaceQueueAndPlayAllLocalPlaylist,
+    appendAllLocalPlaylistToQueue,
+    shufflePlayAllLocalPlaylist,
+  } = useLibraryBrowserPlayback({ resolvedAlbum, resolvedArtist, resolvedPlaylist, songsByScope });
 
   const openAlbum = useCallback(
     (row: AlbumCatalogRow) => {
@@ -212,13 +247,16 @@ export function LibraryBrowser() {
 
   const openPlaylist = useCallback(
     (row: PlaylistCatalogRow) => {
-      const playlistUrlId = multiLibrary
-        ? encodeLibraryBrowserRef({
-            serverKey: row.artworkScope.serverKey,
-            libraryId: row.artworkScope.libraryId,
-            id: row.playlist.id,
-          })
-        : row.playlist.id;
+      const playlistUrlId =
+        row.kind === 'local'
+          ? encodeLocalPlaylistRef(row.playlist.id)
+          : multiLibrary
+            ? encodeLibraryBrowserRef({
+                serverKey: row.artworkScope.serverKey,
+                libraryId: row.artworkScope.libraryId,
+                id: row.playlist.id,
+              })
+            : row.playlist.id;
       setSearchParams(
         (prev) =>
           mergeLibraryBrowserSearchParams(new URLSearchParams(prev), {
@@ -279,7 +317,8 @@ export function LibraryBrowser() {
 
   const albumDetailApi = resolvedAlbum ? apiForServer(resolvedAlbum.slice.serverId) : null;
   const artistDetailApi = resolvedArtist ? apiForServer(resolvedArtist.slice.serverId) : null;
-  const playlistDetailApi = resolvedPlaylist ? apiForServer(resolvedPlaylist.slice.serverId) : null;
+  const playlistDetailApi =
+    resolvedPlaylist?.kind === 'server' ? apiForServer(resolvedPlaylist.slice.serverId) : null;
 
   const playlistHeaderTitle = useMemo(() => {
     if (!playlistScope) return '';
@@ -290,7 +329,8 @@ export function LibraryBrowser() {
   const {
     playlistEditorTarget,
     playlistDetailReloadToken,
-    canCreatePlaylist,
+    canCreateServerPlaylist,
+    canCreateLocalPlaylist,
     handleCreatePlaylist,
     handleDeletePlaylistRow,
     closePlaylistEditor,
@@ -299,13 +339,29 @@ export function LibraryBrowser() {
     requestDeletePlaylist,
     deletePlaylistDialogProps,
   } = useLibraryBrowserPlaylists({
-    scopesCount: scopesToLoad.length,
+    scopesToLoad,
     singleSlice,
+    songEntries: songEntriesSorted,
     resolvedPlaylist,
     playlistHeaderTitle,
     playlistDetailApi,
     onAfterPlaylistDeleted: popPlaylistView,
   });
+
+  useEffect(() => {
+    if (!playlistScope) return;
+    const local = decodeLocalPlaylistRef(playlistScope.id);
+    if (!local) return;
+    let cancelled = false;
+    void readLocalPlaylistEntries(local.id).then((entries) => {
+      if (!cancelled) {
+        setLocalPlaylistEntriesById((prev) => ({ ...prev, [local.id]: entries }));
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [playlistScope, readLocalPlaylistEntries, playlistDetailReloadToken]);
 
   return (
     <ActiveScopeGate>
@@ -392,15 +448,55 @@ export function LibraryBrowser() {
 
         {tab === 'playlists' &&
           (playlistEditorTarget ? (
-            <PlaylistEditorView
-              playlistId={playlistEditorTarget.playlistId}
-              playlistName={playlistEditorTarget.playlistName}
-              cachedSongs={playlistEditorTarget.cachedSongs}
-              api={playlistEditorTarget.api}
-              onBack={closePlaylistEditor}
-              onSave={savePlaylistEditor}
+            playlistEditorTarget.kind === 'local' ? (
+              <LocalPlaylistEditorView
+                playlistId={playlistEditorTarget.playlistId}
+                playlistName={playlistEditorTarget.playlistName}
+                songEntries={playlistEditorTarget.songEntries}
+                entries={
+                  resolvedPlaylist?.kind === 'local' ? resolvedPlaylist.entries : []
+                }
+                onBack={closePlaylistEditor}
+                onSave={savePlaylistEditor}
+              />
+            ) : (
+              <PlaylistEditorView
+                playlistId={playlistEditorTarget.playlistId}
+                playlistName={playlistEditorTarget.playlistName}
+                cachedSongs={playlistEditorTarget.cachedSongs}
+                api={playlistEditorTarget.api}
+                onBack={closePlaylistEditor}
+                onSave={savePlaylistEditor}
+              />
+            )
+          ) : playlistScope && resolvedPlaylist?.kind === 'local' ? (
+            <LocalPlaylistSongListView
+              playlistId={resolvedPlaylist.localId}
+              scrollRestorationKey={playlistScope.id}
+              playlistTitle={playlistHeaderTitle}
+              entries={resolvedPlaylist.entries}
+              songsByScope={songsByScope}
+              albumsByScope={albumsByScope}
+              apiForServer={apiForServer}
+              initialReady={initialReady}
+              syncing={syncing}
+              resolveCachedArtworkForScope={resolveCachedArtworkForScope}
+              persistCachedArtworkForScope={persistCachedArtworkForScope}
+              artworkVersionById={artworkVersionById}
+              artworkVersionKey={artworkVersionKey}
+              onBack={popPlaylistView}
+              onPlayResolvedRow={playLocalResolvedRow}
+              onPlayNextResolvedRow={playNextLocalResolvedRow}
+              onAppendResolvedRowToQueue={appendLocalResolvedRowToQueue}
+              onAppendAllToQueue={appendAllLocalPlaylistToQueue}
+              onShufflePlayAll={shufflePlayAllLocalPlaylist}
+              onReplaceQueueAndPlayAll={replaceQueueAndPlayAllLocalPlaylist}
+              reloadToken={playlistDetailReloadToken}
+              onEditPlaylist={openPlaylistEditor}
+              onDeletePlaylist={requestDeletePlaylist}
+              setTrackStarred={setTrackStarred}
             />
-          ) : playlistScope && resolvedPlaylist && playlistDetailApi ? (
+          ) : playlistScope && resolvedPlaylist?.kind === 'server' && playlistDetailApi ? (
             <PlaylistSongListView
               playlistId={resolvedPlaylist.subsonicPlaylistId}
               scrollRestorationKey={playlistScope.id}
@@ -419,15 +515,21 @@ export function LibraryBrowser() {
               serverId={resolvedPlaylist.slice.serverId}
               libraryId={resolvedPlaylist.slice.libraryId}
               onBack={popPlaylistView}
-              onPlayTrack={(t) => playTrackNow(resolvedPlaylist.slice.serverId, resolvedPlaylist.slice.libraryId, t)}
-              onPlayNextTrack={(t) => playNextForTrack(resolvedPlaylist.slice.serverId, resolvedPlaylist.slice.libraryId, t)}
-              onAppendTrackToQueue={(t) => appendForTrack(resolvedPlaylist.slice.serverId, resolvedPlaylist.slice.libraryId, t)}
+              onPlayTrack={(track) =>
+                playTrackNow(resolvedPlaylist.slice.serverId, resolvedPlaylist.slice.libraryId, track)
+              }
+              onPlayNextTrack={(track) =>
+                playNextForTrack(resolvedPlaylist.slice.serverId, resolvedPlaylist.slice.libraryId, track)
+              }
+              onAppendTrackToQueue={(track) =>
+                appendForTrack(resolvedPlaylist.slice.serverId, resolvedPlaylist.slice.libraryId, track)
+              }
               onAppendAllToQueue={appendAllPlaylistTracksToQueue}
               onShufflePlayAll={shufflePlayAllPlaylistTracks}
               onReplaceQueueAndPlayAll={replaceQueueAndPlayAllPlaylistTracks}
               reloadToken={playlistDetailReloadToken}
               onEditPlaylist={openPlaylistEditor}
-              canEditPlaylist={canCreatePlaylist}
+              canEditPlaylist={Boolean(playlistDetailApi)}
               onDeletePlaylist={requestDeletePlaylist}
               setTrackStarred={setTrackStarred}
             />
@@ -441,7 +543,10 @@ export function LibraryBrowser() {
               multiLibrary={multiLibrary}
               initialReady={initialReady}
               syncing={syncing}
-              canCreatePlaylist={canCreatePlaylist}
+              canCreateServerPlaylist={canCreateServerPlaylist}
+              canCreateLocalPlaylist={canCreateLocalPlaylist}
+              scopesToLoad={scopesToLoad}
+              singleSlice={singleSlice}
               onCreatePlaylist={handleCreatePlaylist}
               onDeletePlaylist={handleDeletePlaylistRow}
               onPlaylistOpen={openPlaylist}

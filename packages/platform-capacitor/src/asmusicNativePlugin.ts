@@ -130,6 +130,25 @@ export interface AsmusicNativePlugin {
   offlineMediaDeleteScope(options: { serverKey: string; libraryId: string }): Promise<void>;
   offlineMediaPurgeServerKey(options: { serverKey: string }): Promise<void>;
   offlineMediaTotalBytes(options: { serverKey?: string; libraryId?: string }): Promise<{ totalBytes: number }>;
+  localPlaylistListSummaries(): Promise<{ summariesJson: string }>;
+  localPlaylistReadEntries(options: { playlistId: string }): Promise<{ entriesJson: string }>;
+  localPlaylistCreate(options: {
+    playlistId: string;
+    name: string;
+    createdAt: number;
+  }): Promise<{ summaryJson: string }>;
+  localPlaylistRename(options: { playlistId: string; name: string; updatedAt: number }): Promise<void>;
+  localPlaylistDelete(options: { playlistId: string }): Promise<void>;
+  localPlaylistReplaceEntries(options: {
+    playlistId: string;
+    entriesJson: string;
+    updatedAt: number;
+  }): Promise<void>;
+  localPlaylistAppendEntry(options: {
+    playlistId: string;
+    entryJson: string;
+    updatedAt: number;
+  }): Promise<void>;
   playerDebugLogGet(): Promise<{ log: string }>;
   playerDebugLogClear(): Promise<void>;
   playerDebugLogAppend(options: { message: string }): Promise<void>;

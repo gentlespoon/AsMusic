@@ -61,10 +61,17 @@ export function AddToPlaylistDialog({
               >
                 <ListItemText
                   primary={row.playlist.name}
-                  secondary={format.count(row.playlist.songCount, {
-                    one: t('word.song'),
-                    other: t('word.songs'),
-                  })}
+                  secondary={
+                    row.kind === 'local'
+                      ? `${format.count(row.playlist.songCount, {
+                          one: t('word.song'),
+                          other: t('word.songs'),
+                        })} · ${t('library.playlist.onDevice')}`
+                      : format.count(row.playlist.songCount, {
+                          one: t('word.song'),
+                          other: t('word.songs'),
+                        })
+                  }
                 />
               </ListItemButton>
             ))}

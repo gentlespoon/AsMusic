@@ -100,6 +100,16 @@ export const jaJPMessages = {
   "library.playlist.createDialogHint":
     "新しいプレイリストの名前を入力してください。",
   "library.playlist.createDialogTitle": "プレイリストを作成",
+  "library.playlist.createTypeServer": "サーバー上",
+  "library.playlist.createTypeLocal": "このデバイス上",
+  "library.playlist.createTypeLocalHint": "有効なライブラリの曲を組み合わせられます。このデバイスにのみ保存されます。",
+  "library.playlist.createLibraryLabel": "ライブラリ",
+  "library.playlist.createServerPickLibraryHint": "サーバープレイリストを作成するライブラリを選んでください。",
+  "library.playlist.onDevice": "このデバイス",
+  "library.playlist.trackUnavailable": "曲を利用できません",
+  "library.playlist.enableLibraryToPlay":
+    "設定でライブラリを有効にすると、この曲を再生できます",
+  "library.playlist.emptyLocal": "このプレイリストにはまだ曲がありません。",
   "library.playlist.createDisabledMulti":
     "プレイリストを作成するには、設定で 1 つのライブラリを選択してください",
   "library.playlist.createDisabledNoServer":
@@ -287,6 +297,8 @@ export const jaJPMessages = {
   "player.offline.removeDownload": "ダウンロード済みのコピーを削除",
   "player.playback.skippedOnFailure":
     "「{title}」を再生できませんでした：{error}。次の曲にスキップします。",
+  "player.playback.skippedLibraryDisabledTitle":
+    "スキップしました — 設定でライブラリを有効にすると再生できます",
   "player.playback.thisTrack": "この曲",
   "player.trackDetails.title": "曲の詳細",
 

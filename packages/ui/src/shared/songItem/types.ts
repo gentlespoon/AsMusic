@@ -6,6 +6,8 @@ import type { PersistCachedArtwork } from "../libraryArtworkCacheAccess";
 export type SongItemProps = {
   track: Child;
   coverArtId?: string;
+  /** When true, row is grayed out (e.g. track from inactive library). */
+  unavailable?: boolean;
   /** When null (e.g. server removed), cover art falls back to a placeholder. */
   api: SubsonicAPI | null;
   resolveCachedArtwork: (

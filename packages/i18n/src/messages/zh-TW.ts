@@ -276,6 +276,8 @@ export const zhTWMessages = {
   "player.meta.title": "標題",
   "player.meta.trackId": "曲目 ID",
   "player.offline.removeDownload": "移除已下載副本",
+  "player.playback.skippedOnFailure": "無法播放「{title}」：{error}。正在跳到下一曲。",
+  "player.playback.thisTrack": "此曲目",
   "player.trackDetails.title": "曲目詳情",
 
   "queue.action.clearExceptCurrent": "清空佇列（保留目前）",

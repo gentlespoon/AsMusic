@@ -8,7 +8,7 @@ import {
   type PlaybackStatePayload,
 } from '@asmusic/core';
 import { ensureQueueRowIds, newQueueRowId } from './playerQueueItemFromChild';
-import type { PlayerQueueItem, PlayerViewState } from './types';
+import type { PlayerQueueItem, PlayerToastEvent, PlayerViewState } from './types';
 import {
   PLAYBACK_QUEUE_STATE_KEY,
   parsePersistedQueue,
@@ -122,6 +122,11 @@ export class PlayerManager {
   private lastIosRemoteSession: PlaybackRemoteSessionPayload | null = null;
   private loadTrackSeq = 0;
   private handlingPlaybackEnded = false;
+  private handlingPlaybackFailure = false;
+
+  private toastSeq = 0;
+  private toastSnapshot: PlayerToastEvent | null = null;
+  private toastListeners = new Set<() => void>();
 
   constructor(host: PlatformHost, deps: PlayerManagerDeps) {
     this.host = host;
@@ -134,8 +139,7 @@ export class PlayerManager {
       const seqAtError = this.loadTrackSeq;
       queueMicrotask(() => {
         if (seqAtError !== this.loadTrackSeq) return;
-        this.loadError = e.message;
-        this.emit();
+        void this.handlePlaybackFailure(e.message);
       });
     });
     this.unsubSleepTimer = host.sleepTimer.onElapsed(() => {
@@ -165,6 +169,7 @@ export class PlayerManager {
     this.revokePlayback?.();
     this.revokePlayback = null;
     this.listeners.clear();
+    this.toastListeners.clear();
   }
 
   private clearPlaybackThrottleTimer(): void {
@@ -250,6 +255,30 @@ export class PlayerManager {
     return () => {
       this.sleepListeners.delete(listener);
     };
+  }
+
+  getToastSnapshot(): PlayerToastEvent | null {
+    return this.toastSnapshot;
+  }
+
+  subscribeToast(listener: () => void): () => void {
+    this.toastListeners.add(listener);
+    return () => {
+      this.toastListeners.delete(listener);
+    };
+  }
+
+  private emitToast(event: PlayerToastEvent): void {
+    this.toastSnapshot = event;
+    this.toastListeners.forEach((l) => l());
+  }
+
+  private emitPlaybackSkippedToast(failedTitle: string, error: string): void {
+    this.emitToast({
+      id: ++this.toastSeq,
+      messageKey: 'player.playback.skippedOnFailure',
+      params: { title: failedTitle, error },
+    });
   }
 
   private emitSleep(): void {
@@ -548,10 +577,57 @@ export class PlayerManager {
     }
   }
 
-  private async loadCurrentTrack(options: { autoplay: boolean }): Promise<void> {
+  /** On load/transport failure, skip forward through the queue until a track plays or the queue ends. */
+  private async handlePlaybackFailure(errorMessage: string): Promise<void> {
+    if (this.handlingPlaybackFailure || this.handlingPlaybackEnded) {
+      return;
+    }
+    this.handlingPlaybackFailure = true;
+    try {
+      let lastError = errorMessage;
+      while (true) {
+        const idx = this.currentIndex;
+        if (idx === null || this.queue.length === 0) {
+          this.loadError = lastError;
+          this.emit();
+          return;
+        }
+        if (idx + 1 >= this.queue.length) {
+          this.loadError = lastError;
+          this.isPlaying = false;
+          try {
+            await this.host.playback.pause();
+          } catch {
+            /* ignore */
+          }
+          this.emit();
+          this.schedulePersist();
+          return;
+        }
+        const failedItem = this.queue[idx];
+        this.emitPlaybackSkippedToast(failedItem?.title ?? '', lastError);
+        this.currentIndex = idx + 1;
+        this.loadError = null;
+        this.emit();
+        const ok = await this.loadCurrentTrack({ autoplay: true, suppressFailureAdvance: true });
+        if (ok) {
+          this.schedulePersist();
+          return;
+        }
+        lastError = this.loadError ?? lastError;
+      }
+    } finally {
+      this.handlingPlaybackFailure = false;
+    }
+  }
+
+  private async loadCurrentTrack(options: {
+    autoplay: boolean;
+    suppressFailureAdvance?: boolean;
+  }): Promise<boolean> {
     const idx = this.currentIndex;
     if (idx === null || !this.queue[idx]) {
-      return;
+      return false;
     }
     const item = this.queue[idx]!;
     const loadSeq = ++this.loadTrackSeq;
@@ -572,7 +648,7 @@ export class PlayerManager {
         trackId: item.trackId,
         streamUrl: '',
       });
-      if (loadSeq !== this.loadTrackSeq) return;
+      if (loadSeq !== this.loadTrackSeq) return false;
 
       let playUrl = offlineResolved.url;
       let revoke = offlineResolved.revoke;
@@ -581,18 +657,21 @@ export class PlayerManager {
 
       if (!offlineResolved.usedOffline) {
         await this.deps.ensureStreamReady(item.serverId);
-        if (loadSeq !== this.loadTrackSeq) return;
+        if (loadSeq !== this.loadTrackSeq) return false;
         streamUrl = this.deps.getStreamUrl(item.serverId, item.trackId);
         if (!streamUrl) {
           this.loadError = 'Could not build stream URL (sign in or refresh server).';
           this.emit();
-          return;
+          if (!options.suppressFailureAdvance) {
+            void this.handlePlaybackFailure(this.loadError);
+          }
+          return false;
         }
         playUrl = streamUrl;
         revoke = () => {};
         localFilePath = undefined;
       }
-      if (loadSeq !== this.loadTrackSeq) return;
+      if (loadSeq !== this.loadTrackSeq) return false;
 
       this.playingFromLocalFile =
         offlineResolved.usedOffline || Boolean(localFilePath);
@@ -632,7 +711,7 @@ export class PlayerManager {
         artworkDataBase64,
         localFilePath: offlineResolved.usedOffline ? localFilePath : undefined,
       });
-      if (loadSeq !== this.loadTrackSeq) return;
+      if (loadSeq !== this.loadTrackSeq) return false;
       if (options.autoplay) {
         await this.host.playback.play();
       }
@@ -640,12 +719,17 @@ export class PlayerManager {
         this.loadError = null;
         this.emit();
       }
+      this.schedulePersist();
+      return loadSeq === this.loadTrackSeq;
     } catch (e) {
-      if (loadSeq !== this.loadTrackSeq) return;
+      if (loadSeq !== this.loadTrackSeq) return false;
       this.loadError = e instanceof Error ? e.message : 'Failed to load track';
       this.emit();
+      if (!options.suppressFailureAdvance) {
+        void this.handlePlaybackFailure(this.loadError);
+      }
+      return false;
     }
-    this.schedulePersist();
   }
 
   async replaceQueueAndPlay(items: PlayerQueueItem[], startIndex: number): Promise<void> {

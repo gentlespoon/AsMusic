@@ -288,6 +288,9 @@ export const esESMessages = {
   "player.meta.title": "Título",
   "player.meta.trackId": "ID de pista",
   "player.offline.removeDownload": "Eliminar copia descargada",
+  "player.playback.skippedOnFailure":
+    "No se pudo reproducir «{title}»: {error}. Pasando a la siguiente pista.",
+  "player.playback.thisTrack": "esta pista",
   "player.trackDetails.title": "Detalles de la pista",
 
   "queue.action.clearExceptCurrent": "Vaciar cola excepto la actual",

@@ -26,6 +26,7 @@ export function SongItem({
   onAppendToQueue,
   isStarred,
   onToggleStar,
+  unavailable = false,
 }: SongItemProps) {
   const t = useT();
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
@@ -86,6 +87,7 @@ export function SongItem({
         actions={actions}
         onClick={onClick}
         hasActions={hasActions}
+        unavailable={unavailable}
       />
       {showActionsMenu ? (
         <SongItemQueueMenu

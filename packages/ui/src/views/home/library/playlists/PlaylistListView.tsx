@@ -1,21 +1,31 @@
 import { useMemo, useState } from 'react';
 import { Box } from '@mui/material';
-import type { PlaylistCatalogRow } from '../../../../contexts/LibraryBrowseCacheContext';
+import {
+  useLibraryBrowseCache,
+  type LibraryBrowseScopeRow,
+  type PlaylistCatalogRow,
+} from '../../../../contexts/LibraryBrowseCacheContext';
 import { libraryFlexFillSx } from '../../../../shared/LibraryVirtuosoFill';
-import { PlaylistSingleLibraryRequiredDialog } from './PlaylistSingleLibraryRequiredDialog';
 import { playlistMatchesQuery } from './playlistListFilter';
-import { PlaylistListViewCreateDialog } from './PlaylistListViewCreateDialog';
+import {
+  PlaylistListViewCreateDialog,
+  type CreatePlaylistType,
+} from './PlaylistListViewCreateDialog';
 import { PlaylistListViewDeleteDialog } from './PlaylistListViewDeleteDialog';
 import { PlaylistListViewList } from './PlaylistListViewList';
 import { PlaylistListViewStatus } from './PlaylistListViewStatus';
 import { PlaylistListViewToolbar } from './PlaylistListViewToolbar';
+import type { CreatePlaylistRequest } from '../browser/useLibraryBrowserPlaylists';
 
 export function PlaylistListView({
   rows,
   multiLibrary,
   initialReady,
   syncing,
-  canCreatePlaylist,
+  canCreateServerPlaylist,
+  canCreateLocalPlaylist,
+  scopesToLoad,
+  singleSlice,
   onPlaylistOpen,
   onCreatePlaylist,
   onDeletePlaylist,
@@ -24,20 +34,31 @@ export function PlaylistListView({
   multiLibrary: boolean;
   initialReady: boolean;
   syncing: boolean;
-  canCreatePlaylist: boolean;
+  canCreateServerPlaylist: boolean;
+  canCreateLocalPlaylist: boolean;
+  scopesToLoad: LibraryBrowseScopeRow[];
+  singleSlice: LibraryBrowseScopeRow | null;
   onPlaylistOpen: (row: PlaylistCatalogRow) => void;
-  onCreatePlaylist: (name: string) => Promise<void>;
+  onCreatePlaylist: (request: CreatePlaylistRequest) => Promise<void>;
   onDeletePlaylist: (row: PlaylistCatalogRow) => Promise<void>;
 }) {
+  const { libraryDisplayName } = useLibraryBrowseCache();
   const [search, setSearch] = useState('');
-  const [singleLibraryRequiredOpen, setSingleLibraryRequiredOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [newName, setNewName] = useState('');
   const [createBusy, setCreateBusy] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [createType, setCreateType] = useState<CreatePlaylistType>(
+    multiLibrary ? 'local' : 'server'
+  );
+  const [selectedServerScope, setSelectedServerScope] = useState<LibraryBrowseScopeRow | null>(
+    singleSlice ?? scopesToLoad[0] ?? null
+  );
   const [pendingDelete, setPendingDelete] = useState<PlaylistCatalogRow | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const canCreateAny = canCreateServerPlaylist || canCreateLocalPlaylist;
 
   const filteredRows = useMemo(
     () => rows.filter((r) => playlistMatchesQuery(r, search)),
@@ -48,12 +69,11 @@ export function PlaylistListView({
   const showList = initialReady && filteredRows.length > 0;
 
   const handleCreateClick = () => {
-    if (!canCreatePlaylist) {
-      setSingleLibraryRequiredOpen(true);
-      return;
-    }
+    if (!canCreateAny) return;
     setCreateError(null);
     setNewName('');
+    setCreateType(multiLibrary ? 'local' : canCreateServerPlaylist ? 'server' : 'local');
+    setSelectedServerScope(singleSlice ?? scopesToLoad[0] ?? null);
     setCreateOpen(true);
   };
 
@@ -66,7 +86,18 @@ export function PlaylistListView({
     setCreateBusy(true);
     setCreateError(null);
     try {
-      await onCreatePlaylist(name);
+      if (createType === 'local') {
+        await onCreatePlaylist({ kind: 'local', name });
+      } else {
+        const scope = multiLibrary ? selectedServerScope : singleSlice;
+        if (!scope) throw new Error('Select a library for the server playlist');
+        await onCreatePlaylist({
+          kind: 'server',
+          name,
+          serverId: scope.serverId,
+          libraryId: scope.libraryId,
+        });
+      }
       setCreateOpen(false);
       setNewName('');
     } catch (e) {
@@ -100,18 +131,9 @@ export function PlaylistListView({
       role="tabpanel"
       id="library-panel-playlists"
       aria-labelledby="library-tab-playlists"
-      sx={{
-        ...libraryFlexFillSx,
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
-      }}
+      sx={{ ...libraryFlexFillSx, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
     >
-      <PlaylistListViewToolbar
-        search={search}
-        onSearchChange={setSearch}
-        onCreateClick={handleCreateClick}
-      />
+      <PlaylistListViewToolbar search={search} onSearchChange={setSearch} onCreateClick={handleCreateClick} />
 
       <Box sx={{ ...libraryFlexFillSx, display: 'flex', flexDirection: 'column' }}>
         <PlaylistListViewStatus
@@ -132,19 +154,22 @@ export function PlaylistListView({
         )}
       </Box>
 
-      <PlaylistSingleLibraryRequiredDialog
-        open={singleLibraryRequiredOpen}
-        onClose={() => setSingleLibraryRequiredOpen(false)}
-        multiLibrary={multiLibrary}
-      />
-
       <PlaylistListViewCreateDialog
         open={createOpen}
         name={newName}
         busy={createBusy}
         error={createError}
+        createType={createType}
+        selectedServerScope={selectedServerScope}
+        multiLibrary={multiLibrary}
+        canCreateServer={canCreateServerPlaylist}
+        canCreateLocal={canCreateLocalPlaylist}
+        scopesToLoad={scopesToLoad}
+        libraryDisplayName={libraryDisplayName}
         onClose={() => setCreateOpen(false)}
         onNameChange={setNewName}
+        onCreateTypeChange={setCreateType}
+        onServerScopeChange={setSelectedServerScope}
         onSubmit={() => void handleCreate()}
       />
 

@@ -8,19 +8,14 @@ Global EQ for streaming and offline downloads — one global preset/band setting
 
 Subsonic playlists are **per server account**, not per music-folder (`libraryId`). The app still caches playlist summaries under each active library scope (`serverUrl` + `username` + `libraryId`), so a full library browse can load several scopes at once (multiple servers, or multiple folders on one server).
 
-**Current product rule (v1):** mutating server playlists (create, edit membership, add track from player) is only allowed when **exactly one library** is active in Settings → Servers & libraries. **Delete** is allowed with multiple libraries active when the playlist view only contains songs from one library scope.
+**Server playlists:** create (with library picker when multiple libraries are active), edit membership, and add-from-player for server playlists still require **exactly one active library** for edit/add mutations. **Delete** is allowed with multiple libraries active.
 
-**Why not auto-pick a scope?** With multiple active libraries we would need to choose which `libraryId` to pass into cache refresh, and whether to refresh every scope on that server. Same-server multi-folder and multi-server cases behave differently; doing it wrong would show stale or duplicated playlist rows.
+**Local playlists (on device):** cross-library playlists stored in `LocalPlaylistStore`. Create, edit, delete, and add-from-player work with any number of active libraries. See [`doc/features/playlist.md`](doc/features/playlist.md).
 
-**UI today:**
+**UI:**
 
-- Playlists tab **+** stays enabled; multiple libraries → explanatory dialog (includes a note about future server-playlist and local cross-library support). One library → create name dialog.
-- Playlist detail **Edit** and player **Add to playlist** are disabled with a tooltip when multiple libraries are active.
-- **Delete playlist** is not gated on library count.
+- Playlists tab **+** opens create dialog: **On server** vs **On this device**.
+- Server playlist detail **Edit** and player add-to-**server**-playlist are disabled when multiple libraries are active.
+- Local playlists are always editable; player add-to-playlist includes all local playlists plus server playlists for the current track's library.
 
-**Planned (not implemented):**
-
-- Create/edit server playlists with multiple libraries active (with correct cache refresh).
-- **Local cross-library playlists** stored on device, combining tracks from any active library without Subsonic scope ambiguity.
-
-Relevant code: `PlaylistListView.tsx`, `PlaylistSingleLibraryRequiredDialog.tsx`, `PlaylistSongListView.tsx`, `useLibraryBrowserPlaylists.tsx`, `usePlayerFullScreenTrackActions.ts`, `LibraryBrowseCacheContext.tsx`.
+Relevant code: `PlaylistListView.tsx`, `PlaylistListViewCreateDialog.tsx`, `LocalPlaylistSongListView.tsx`, `useLibraryBrowserPlaylists.tsx`, `usePlayerFullScreenTrackActions.ts`, `LibraryBrowseCacheContext.tsx`, `packages/core/src/localPlaylists/*`.

@@ -1,7 +1,12 @@
 import { useCallback, useMemo } from 'react';
 import type { Child } from 'subsonic-api';
+import { useT } from '@asmusic/i18n';
 import { usePlayerActions, useServerAndLibrary } from '../../../../contexts';
 import { playerQueueItemFromChild } from '../../../../player/core/playerQueueItemFromChild';
+import {
+  playerQueueItemsFromLocalResolvedEntries,
+  localPlaylistEntriesToResolvedSync,
+} from '../../../../player/core/playerQueueItemFromLocalEntry';
 import type { PlayerQueueItem } from '../../../../player/core/types';
 import type { SongListEntry } from '../catalog/SongListView';
 import type {
@@ -29,10 +34,19 @@ export function useLibraryBrowserPlayback(options: {
   resolvedAlbum: LibraryBrowserResolvedAlbum | null;
   resolvedArtist: LibraryBrowserResolvedArtist | null;
   resolvedPlaylist: LibraryBrowserResolvedPlaylist | null;
+  songsByScope: ReadonlyMap<string, Child[]>;
 }) {
-  const { resolvedAlbum, resolvedArtist, resolvedPlaylist } = options;
+  const { resolvedAlbum, resolvedArtist, resolvedPlaylist, songsByScope } = options;
+  const t = useT();
   const { servers } = useServerAndLibrary();
   const { insertAfterCurrent, appendToQueue, replaceQueueAndPlay } = usePlayerActions();
+
+  const serverConfigs = useMemo(
+    () => servers.map((s) => ({ id: s.id, serverUrl: s.serverUrl, username: s.username })),
+    [servers]
+  );
+
+  const unavailableLabel = t('library.playlist.trackUnavailable');
 
   const serverMetaById = useMemo(
     () =>
@@ -191,12 +205,25 @@ export function useLibraryBrowserPlayback(options: {
   const queueItemsForPlaylistTracks = useCallback(
     (tracks: Child[]) => {
       if (!resolvedPlaylist) return [];
+      if (resolvedPlaylist.kind === 'local') {
+        const resolved = localPlaylistEntriesToResolvedSync({
+          entries: resolvedPlaylist.entries,
+          songsByScope,
+          servers: serverConfigs,
+          unavailableLabel,
+        });
+        return playerQueueItemsFromLocalResolvedEntries({
+          resolved,
+          servers: serverConfigs,
+          unavailableLabel,
+        });
+      }
       const meta = serverMetaById[resolvedPlaylist.slice.serverId];
       if (!meta) return [];
       const items: PlayerQueueItem[] = [];
-      for (const t of tracks) {
+      for (const track of tracks) {
         const it = playerQueueItemFromChild({
-          song: t,
+          song: track,
           serverId: resolvedPlaylist.slice.serverId,
           libraryId: resolvedPlaylist.slice.libraryId,
           serverUrl: meta.serverUrl,
@@ -206,7 +233,7 @@ export function useLibraryBrowserPlayback(options: {
       }
       return items;
     },
-    [resolvedPlaylist, serverMetaById]
+    [resolvedPlaylist, serverMetaById, songsByScope, serverConfigs, unavailableLabel]
   );
 
   const appendAllPlaylistTracksToQueue = useCallback(
@@ -235,6 +262,61 @@ export function useLibraryBrowserPlayback(options: {
     [queueItemsForPlaylistTracks, replaceQueueAndPlay]
   );
 
+  const replaceQueueAndPlayAllLocalPlaylist = useCallback(() => {
+    if (!resolvedPlaylist || resolvedPlaylist.kind !== 'local') return;
+    const items = queueItemsForPlaylistTracks([]);
+    if (items.length > 0) void replaceQueueAndPlay(items, 0);
+  }, [resolvedPlaylist, queueItemsForPlaylistTracks, replaceQueueAndPlay]);
+
+  const appendAllLocalPlaylistToQueue = useCallback(() => {
+    if (!resolvedPlaylist || resolvedPlaylist.kind !== 'local') return;
+    const items = queueItemsForPlaylistTracks([]);
+    if (items.length > 0) void appendToQueue(items);
+  }, [resolvedPlaylist, queueItemsForPlaylistTracks, appendToQueue]);
+
+  const shufflePlayAllLocalPlaylist = useCallback(() => {
+    if (!resolvedPlaylist || resolvedPlaylist.kind !== 'local') return;
+    const items = queueItemsForPlaylistTracks([]);
+    if (items.length === 0) return;
+    void replaceQueueAndPlay(shuffleCopy(items), 0);
+  }, [resolvedPlaylist, queueItemsForPlaylistTracks, replaceQueueAndPlay]);
+
+  const queueItemForLocalResolvedRow = useCallback(
+    (row: import('@asmusic/core').LocalPlaylistResolvedEntry) => {
+      const items = playerQueueItemsFromLocalResolvedEntries({
+        resolved: [row],
+        servers: serverConfigs,
+        unavailableLabel,
+      });
+      return items[0] ?? null;
+    },
+    [serverConfigs, unavailableLabel]
+  );
+
+  const playLocalResolvedRow = useCallback(
+    (row: import('@asmusic/core').LocalPlaylistResolvedEntry) => {
+      const item = queueItemForLocalResolvedRow(row);
+      if (item) void insertAfterCurrent([item], { playFirst: true });
+    },
+    [queueItemForLocalResolvedRow, insertAfterCurrent]
+  );
+
+  const playNextLocalResolvedRow = useCallback(
+    (row: import('@asmusic/core').LocalPlaylistResolvedEntry) => {
+      const item = queueItemForLocalResolvedRow(row);
+      if (item) void insertAfterCurrent([item], { playFirst: false });
+    },
+    [queueItemForLocalResolvedRow, insertAfterCurrent]
+  );
+
+  const appendLocalResolvedRowToQueue = useCallback(
+    (row: import('@asmusic/core').LocalPlaylistResolvedEntry) => {
+      const item = queueItemForLocalResolvedRow(row);
+      if (item) void appendToQueue([item]);
+    },
+    [queueItemForLocalResolvedRow, appendToQueue]
+  );
+
   return {
     playSongEntryNow,
     playTrackNow,
@@ -251,5 +333,11 @@ export function useLibraryBrowserPlayback(options: {
     appendAllPlaylistTracksToQueue,
     shufflePlayAllPlaylistTracks,
     replaceQueueAndPlayAllPlaylistTracks,
+    playLocalResolvedRow,
+    playNextLocalResolvedRow,
+    appendLocalResolvedRowToQueue,
+    replaceQueueAndPlayAllLocalPlaylist,
+    appendAllLocalPlaylistToQueue,
+    shufflePlayAllLocalPlaylist,
   };
 }

@@ -16,6 +16,11 @@
  */
 
 const LIBRARY_BROWSER_REF_PREFIX = 'lb1.';
+const LOCAL_PLAYLIST_REF_PREFIX = 'lpl1.';
+
+export type LocalPlaylistEncodedRef = {
+  id: string;
+};
 
 export type LibraryBrowserEncodedRef = {
   serverKey: string;
@@ -38,6 +43,28 @@ function b64UrlToUtf8(s: string): string {
   const bytes = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
   return new TextDecoder().decode(bytes);
+}
+
+export function encodeLocalPlaylistRef(id: string): string {
+  return LOCAL_PLAYLIST_REF_PREFIX + utf8ToB64Url(JSON.stringify({ id }));
+}
+
+export function decodeLocalPlaylistRef(param: string): LocalPlaylistEncodedRef | null {
+  if (!param.startsWith(LOCAL_PLAYLIST_REF_PREFIX)) return null;
+  try {
+    const raw = b64UrlToUtf8(param.slice(LOCAL_PLAYLIST_REF_PREFIX.length));
+    const o = JSON.parse(raw) as Partial<LocalPlaylistEncodedRef>;
+    if (typeof o.id === 'string' && o.id.length > 0) {
+      return { id: o.id };
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
+export function isLocalPlaylistRef(param: string): boolean {
+  return param.startsWith(LOCAL_PLAYLIST_REF_PREFIX);
 }
 
 /** Encode scope + entity id for multi-library deep links (single opaque query value). */

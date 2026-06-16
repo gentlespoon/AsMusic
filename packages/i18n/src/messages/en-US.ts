@@ -100,14 +100,23 @@ export const enUSMessages = {
   "library.playlist.create": "Create playlist",
   "library.playlist.createDialogHint": "Enter a name for the new playlist.",
   "library.playlist.createDialogTitle": "Create playlist",
+
+  "library.playlist.createTypeServer": "On server",
+  "library.playlist.createTypeLocal": "On this device",
+  "library.playlist.createTypeLocalHint": "Combines tracks from any of your active libraries. Stored only on this device.",
+  "library.playlist.createLibraryLabel": "Library",
+  "library.playlist.createServerPickLibraryHint": "Choose which library should own the server playlist.",
+  "library.playlist.onDevice": "On this device",
+  "library.playlist.trackUnavailable": "Track unavailable",
+  "library.playlist.emptyLocal": "This playlist has no tracks yet.",
   "library.playlist.createDisabledMulti":
-    "Select a single library in Settings to create playlists",
+    "Select a single library in Settings to create server playlists",
   "library.playlist.createDisabledNoServer": "Add a server to create playlists",
   "library.playlist.createSingleLibraryTitle": "One library at a time",
   "library.playlist.createSingleLibraryBodyMulti":
     "Creating a server playlist requires exactly one active library. Open Settings → Servers & libraries, enable only the library where you want the new playlist, then try again. After it is created, you can turn your other libraries back on.",
   "library.playlist.createSingleLibraryBodyFuture":
-    "In a future release we plan to support creating server playlists with multiple libraries active, and local cross-library playlists that combine tracks from any of your libraries.",
+    "You can create local cross-library playlists on this device while multiple libraries are active.",
   "library.playlist.createSingleLibraryBodyNoServer":
     "Add a server and activate a library in Settings before creating playlists.",
   "library.playlist.delete": "Delete playlist",

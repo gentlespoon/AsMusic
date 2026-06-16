@@ -1,7 +1,17 @@
 import { useMemo } from 'react';
-import { albumsFromCachedSongsForArtist, songsInCachedAlbum, type LibraryPlaylistSummary } from '@asmusic/core';
+import {
+  albumsFromCachedSongsForArtist,
+  songsInCachedAlbum,
+  type LibraryPlaylistSummary,
+  type LocalPlaylistEntry,
+  type LocalPlaylistSummary,
+} from '@asmusic/core';
 import type { LibraryBrowseScopeRow, LibraryBrowseSlice } from '../../../../contexts/LibraryBrowseCacheContext';
-import { decodeLibraryBrowserRef, type LibraryBrowserEncodedRef } from './libraryNavigationUrl';
+import {
+  decodeLibraryBrowserRef,
+  decodeLocalPlaylistRef,
+  type LibraryBrowserEncodedRef,
+} from './libraryNavigationUrl';
 
 export type LibraryBrowserResolvedAlbum = {
   slice: LibraryBrowseSlice;
@@ -13,11 +23,19 @@ export type LibraryBrowserResolvedArtist = {
   subsonicArtistId: string;
 };
 
-export type LibraryBrowserResolvedPlaylist = {
-  slice: LibraryBrowseSlice;
-  subsonicPlaylistId: string;
-  summary: LibraryPlaylistSummary | undefined;
-};
+export type LibraryBrowserResolvedPlaylist =
+  | {
+      kind: 'server';
+      slice: LibraryBrowseSlice;
+      subsonicPlaylistId: string;
+      summary: LibraryPlaylistSummary | undefined;
+    }
+  | {
+      kind: 'local';
+      localId: string;
+      summary: LocalPlaylistSummary | undefined;
+      entries: LocalPlaylistEntry[];
+    };
 
 function findSliceByDecodedRef(
   slices: LibraryBrowseSlice[],
@@ -46,8 +64,18 @@ export function useLibraryBrowserResolvedScopes(options: {
   playlistScope: { id: string } | null;
   slices: LibraryBrowseSlice[];
   singleSlice: LibraryBrowseScopeRow | null;
+  localPlaylistSummaries: LocalPlaylistSummary[];
+  localPlaylistEntriesById: Record<string, LocalPlaylistEntry[]>;
 }) {
-  const { albumScope, artistScope, playlistScope, slices, singleSlice } = options;
+  const {
+    albumScope,
+    artistScope,
+    playlistScope,
+    slices,
+    singleSlice,
+    localPlaylistSummaries,
+    localPlaylistEntriesById,
+  } = options;
 
   const resolvedAlbum = useMemo((): LibraryBrowserResolvedAlbum | null => {
     if (!albumScope) return null;
@@ -90,24 +118,35 @@ export function useLibraryBrowserResolvedScopes(options: {
   const resolvedPlaylist = useMemo((): LibraryBrowserResolvedPlaylist | null => {
     if (!playlistScope) return null;
     const raw = playlistScope.id;
+    const localDecoded = decodeLocalPlaylistRef(raw);
+    if (localDecoded) {
+      const summary = localPlaylistSummaries.find((p) => p.id === localDecoded.id);
+      if (!summary) return null;
+      return {
+        kind: 'local',
+        localId: localDecoded.id,
+        summary,
+        entries: localPlaylistEntriesById[localDecoded.id] ?? [],
+      };
+    }
     const decoded = decodeLibraryBrowserRef(raw);
     if (decoded) {
       const sl = findSliceByDecodedRef(slices, decoded);
       if (!sl) return null;
       const summary = sl.playlists.find((p) => p.id === decoded.id);
-      return { slice: sl, subsonicPlaylistId: decoded.id, summary };
+      return { kind: 'server', slice: sl, subsonicPlaylistId: decoded.id, summary };
     }
     if (singleSlice) {
       const sl = findSliceForSingleLibrary(slices, singleSlice);
       if (!sl) return null;
       const summary = sl.playlists.find((p) => p.id === raw);
-      return { slice: sl, subsonicPlaylistId: raw, summary };
+      return { kind: 'server', slice: sl, subsonicPlaylistId: raw, summary };
     }
     const hit = slices.find((sl) => sl.playlists.some((p) => p.id === raw));
     if (!hit) return null;
     const summary = hit.playlists.find((p) => p.id === raw);
-    return { slice: hit, subsonicPlaylistId: raw, summary };
-  }, [playlistScope, slices, singleSlice]);
+    return { kind: 'server', slice: hit, subsonicPlaylistId: raw, summary };
+  }, [playlistScope, slices, singleSlice, localPlaylistSummaries, localPlaylistEntriesById]);
 
   return { resolvedAlbum, resolvedArtist, resolvedPlaylist };
 }

@@ -1,5 +1,6 @@
 import { Capacitor, type PluginListenerHandle } from '@capacitor/core';
 import { createCapacitorIosSqliteLibraryCacheStorage } from './capacitorIosSqliteLibraryCacheStorage';
+import { createCapacitorIosLocalPlaylistStorage } from './capacitorIosLocalPlaylistStorage';
 import { createCapacitorIosOfflineMediaStorage } from './capacitorIosOfflineMediaStorage';
 import type {
   PlatformHost,
@@ -18,6 +19,7 @@ installCapacitorOfflineMediaEventBridge();
 
 const libraryCache = createCapacitorIosSqliteLibraryCacheStorage();
 const offlineMedia = createCapacitorIosOfflineMediaStorage();
+const localPlaylists = createCapacitorIosLocalPlaylistStorage();
 
 const secureStorage: SecureStorageHost = {
   async get(key: string) {
@@ -180,6 +182,7 @@ export const iosCapacitorHost: PlatformHost = {
   clipboard: capacitorClipboard,
   libraryCache,
   offlineMedia,
+  localPlaylists,
 };
 
 export function isIosCapacitorShell(): boolean {

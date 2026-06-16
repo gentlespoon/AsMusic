@@ -37,9 +37,12 @@ export function PlaylistListViewRow({
     one: t('word.song'),
     other: t('word.songs'),
   });
-  const secondary = multiLibrary
-    ? `${songCountLabel} · ${libraryDisplayName(row.serverId, row.libraryId)}`
-    : songCountLabel;
+  const secondary =
+    row.kind === 'local'
+      ? `${songCountLabel} · ${t('library.playlist.onDevice')}`
+      : multiLibrary
+        ? `${songCountLabel} · ${libraryDisplayName(row.serverId, row.libraryId)}`
+        : songCountLabel;
 
   return (
     <ListItem divider disablePadding sx={{ alignItems: 'center' }}>

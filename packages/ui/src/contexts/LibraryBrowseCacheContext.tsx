@@ -95,6 +95,7 @@ type LibraryBrowseCacheContextValue = {
   apiForServer: (serverId: string) => SubsonicAPI | null;
   artworkVersionById: Record<string, number>;
   artworkVersionKey: (coverArtId: string, sc: LibraryCacheScope) => string;
+  notifyArtworkCached: (key: string) => void;
   libraryDisplayName: (serverId: string, libraryId: string) => string;
   setTrackStarred: (args: {
     serverId: string;
@@ -666,6 +667,7 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
       apiForServer,
       artworkVersionById,
       artworkVersionKey,
+      notifyArtworkCached,
       libraryDisplayName,
       setTrackStarred,
       refreshPlaylistSummariesForScope,
@@ -698,6 +700,7 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
       apiForServer,
       artworkVersionById,
       artworkVersionKey,
+      notifyArtworkCached,
       libraryDisplayName,
       setTrackStarred,
       refreshPlaylistSummariesForScope,

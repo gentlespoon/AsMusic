@@ -13,6 +13,7 @@ import {
 } from "@asmusic/core";
 import type { AlbumID3, Child } from "subsonic-api";
 import { SongItem } from "../../../../shared/SongItem";
+import type { PersistCachedArtwork } from "../../../../shared/libraryArtworkCacheAccess";
 import { songMatchesQuery } from "../../../../shared/songSearch";
 import { LibraryVirtuosoFill, libraryFlexFillSx } from "../../../../shared/LibraryVirtuosoFill";
 import { useLibraryScrollRestoration } from "../../../../shared/useLibraryScrollRestoration";
@@ -33,6 +34,7 @@ export function SongListView({
   initialReady,
   syncing,
   resolveCachedArtwork,
+  persistCachedArtworkForScope,
   artworkVersionKey,
   artworkVersionById,
   includeAlbumInSecondary = true,
@@ -58,6 +60,7 @@ export function SongListView({
     coverArtId: string,
     scope: LibraryCacheScope,
   ) => Promise<LibraryArtworkCacheRow | null>;
+  persistCachedArtworkForScope: (scope: LibraryCacheScope) => PersistCachedArtwork;
   /** Stable key into `artworkVersionById` for this cover id (default: cover id only). */
   artworkVersionKey?: (coverArtId: string, scope: LibraryCacheScope) => string;
   artworkVersionById: Record<string, number>;
@@ -213,9 +216,6 @@ export function SongListView({
                     : coverId
                   : undefined;
                 const api = apiForServer(entry.serverId);
-                if (!api) {
-                  return <Box sx={{ minHeight: 56 }} aria-hidden />;
-                }
                 const starred = isChildStarred(entry.song);
                 return (
                   <SongItem
@@ -225,6 +225,7 @@ export function SongListView({
                     resolveCachedArtwork={(id) =>
                       resolveCachedArtwork(id, entry.artworkScope)
                     }
+                    persistCachedArtwork={persistCachedArtworkForScope(entry.artworkScope)}
                     artworkCacheBump={versionFor(coverId, entry.artworkScope)}
                     artworkCacheKey={artworkKey}
                     includeAlbumInSecondary={includeAlbumInSecondary}

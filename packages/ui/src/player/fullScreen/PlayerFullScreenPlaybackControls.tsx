@@ -25,7 +25,7 @@ export function PlayerFullScreenPlaybackControls() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        gap: 0.5,
+        gap: 1,
         mt: 2,
         flexWrap: "wrap",
       }}
@@ -35,26 +35,28 @@ export function PlayerFullScreenPlaybackControls() {
         disabled={!busy}
         onClick={() => void seekBy(-10)}
       >
-        <Replay10 />
+        <Replay10 sx={{ fontSize: 32 }} />
       </IconButton>
       <IconButton
         aria-label={t("player.action.previous")}
         disabled={!busy}
         onClick={() => void skipPrevious()}
       >
-        <SkipPrevious fontSize="large" />
+        <SkipPrevious sx={{ fontSize: 44 }} />
       </IconButton>
       <IconButton
-        aria-label={state.isPlaying ? t("player.action.pause") : t("player.action.play")}
+        aria-label={
+          state.isPlaying ? t("player.action.pause") : t("player.action.play")
+        }
         disabled={!busy}
         color="primary"
         sx={{ p: 1.5 }}
         onClick={() => void togglePlayPause()}
       >
         {state.isPlaying ? (
-          <Pause sx={{ fontSize: 40 }} />
+          <Pause sx={{ fontSize: 56 }} />
         ) : (
-          <PlayArrow sx={{ fontSize: 40 }} />
+          <PlayArrow sx={{ fontSize: 56 }} />
         )}
       </IconButton>
       <IconButton
@@ -62,14 +64,14 @@ export function PlayerFullScreenPlaybackControls() {
         disabled={!busy || !state.hasNext}
         onClick={() => void skipNext()}
       >
-        <SkipNext fontSize="large" />
+        <SkipNext sx={{ fontSize: 44 }} />
       </IconButton>
       <IconButton
         aria-label={t("player.action.forward10")}
         disabled={!busy}
         onClick={() => void seekBy(10)}
       >
-        <Forward10 />
+        <Forward10 sx={{ fontSize: 32 }} />
       </IconButton>
     </Box>
   );

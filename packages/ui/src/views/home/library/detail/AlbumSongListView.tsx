@@ -26,6 +26,7 @@ import {
 } from "@asmusic/core";
 import { useOfflineDownload } from "../../../../contexts/OfflineDownloadContext";
 import { SongItem } from "../../../../shared/SongItem";
+import type { PersistCachedArtwork } from "../../../../shared/libraryArtworkCacheAccess";
 import { songMatchesQuery } from "../../../../shared/songSearch";
 import { LibraryVirtuosoFill, libraryFlexFillSx } from "../../../../shared/LibraryVirtuosoFill";
 import { useLibraryScrollRestoration } from "../../../../shared/useLibraryScrollRestoration";
@@ -42,6 +43,7 @@ export function AlbumSongListView({
   initialReady,
   syncing,
   resolveCachedArtwork,
+  persistCachedArtwork,
   artworkVersionById,
   coverArtCacheBump,
   scrollRestorationKey,
@@ -67,6 +69,7 @@ export function AlbumSongListView({
   resolveCachedArtwork: (
     coverArtId: string,
   ) => Promise<LibraryArtworkCacheRow | null>;
+  persistCachedArtwork?: PersistCachedArtwork;
   artworkVersionById: Record<string, number>;
   coverArtCacheBump?: (coverArtId: string | undefined) => number;
   serverId: string;
@@ -247,6 +250,7 @@ export function AlbumSongListView({
                     coverArtId={coverId}
                     api={api}
                     resolveCachedArtwork={resolveCachedArtwork}
+                    persistCachedArtwork={persistCachedArtwork}
                     artworkCacheBump={bumpFor(coverId)}
                     includeAlbumInSecondary={false}
                     onClick={onPlayTrack ? () => onPlayTrack(track) : undefined}

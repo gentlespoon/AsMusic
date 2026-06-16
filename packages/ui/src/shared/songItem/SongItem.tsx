@@ -14,6 +14,7 @@ export function SongItem({
   coverArtId,
   api,
   resolveCachedArtwork,
+  persistCachedArtwork,
   artworkCacheBump,
   artworkCacheKey,
   includeAlbumInSecondary,
@@ -54,6 +55,7 @@ export function SongItem({
       api={api}
       coverArtId={coverArtId}
       resolveCachedArtwork={resolveCachedArtwork}
+      persistCachedArtwork={persistCachedArtwork}
       artworkCacheBump={artworkCacheBump}
       artworkCacheKey={artworkCacheKey}
     />

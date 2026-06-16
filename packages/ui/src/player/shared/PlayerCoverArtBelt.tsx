@@ -1,8 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
-import type { SubsonicAPI } from '@asmusic/core';
+import type { SubsonicAPI, LibraryCacheStorage } from '@asmusic/core';
 import type { PlayerQueueItem } from '../core/types';
 import { CoverArtThumb } from '../../shared/CoverArtThumb';
+import { useHost } from '../../host/HostContext';
+import {
+  playerQueueItemArtworkCacheKey,
+  persistPlayerCachedArtwork,
+  resolvePlayerCachedArtwork,
+} from './resolvePlayerCachedArtwork';
+import { usePlayerCoverArtCacheBump } from './usePlayerCoverArtCacheBump';
 
 export type PlayerCoverArtBeltProps = {
   slots: PlayerQueueItem[];
@@ -13,6 +20,38 @@ export type PlayerCoverArtBeltProps = {
   getApiForServer: (serverId: string) => Promise<SubsonicAPI | null>;
 };
 
+function PlayerCoverArtThumb({
+  slot,
+  api,
+  coverSizePx,
+  libraryCache,
+}: {
+  slot: PlayerQueueItem;
+  api: SubsonicAPI | undefined;
+  coverSizePx: number;
+  libraryCache: LibraryCacheStorage;
+}) {
+  const artworkCacheBump = usePlayerCoverArtCacheBump(slot);
+
+  if (!slot.coverArtId) {
+    return null;
+  }
+
+  return (
+    <CoverArtThumb
+      api={api}
+      coverArtId={slot.coverArtId}
+      resolveCachedArtwork={resolvePlayerCachedArtwork(libraryCache, slot)}
+      persistCachedArtwork={persistPlayerCachedArtwork(libraryCache, slot)}
+      artworkCacheKey={playerQueueItemArtworkCacheKey(slot)}
+      artworkCacheBump={artworkCacheBump}
+      size={coverSizePx}
+      label=""
+      sx={{ width: '100%', height: '100%', objectFit: 'contain' }}
+    />
+  );
+}
+
 export function PlayerCoverArtBelt({
   slots,
   activeIndex,
@@ -21,6 +60,7 @@ export function PlayerCoverArtBelt({
   coverSizePx,
   getApiForServer,
 }: PlayerCoverArtBeltProps) {
+  const host = useHost();
   const serverIds = useMemo(
     () => [...new Set(slots.map((s) => s.serverId))],
     [slots],
@@ -65,15 +105,12 @@ export function PlayerCoverArtBelt({
           justifyContent: 'center',
         }}
       >
-        {api ? (
-          <CoverArtThumb
-            api={api}
-            coverArtId={slot.coverArtId}
-            size={coverSizePx}
-            label=""
-            sx={{ width: '100%', height: '100%', objectFit: 'contain' }}
-          />
-        ) : null}
+        <PlayerCoverArtThumb
+          slot={slot}
+          api={api}
+          coverSizePx={coverSizePx}
+          libraryCache={host.libraryCache}
+        />
       </Box>
     );
   }
@@ -107,15 +144,12 @@ export function PlayerCoverArtBelt({
                 boxSizing: 'border-box',
               }}
             >
-              {api ? (
-                <CoverArtThumb
-                  api={api}
-                  coverArtId={slot.coverArtId}
-                  size={coverSizePx}
-                  label=""
-                  sx={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                />
-              ) : null}
+              <PlayerCoverArtThumb
+                slot={slot}
+                api={api}
+                coverSizePx={coverSizePx}
+                libraryCache={host.libraryCache}
+              />
             </Box>
           );
         })}

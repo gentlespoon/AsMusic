@@ -249,7 +249,13 @@ public class AsmusicNativePlugin: CAPPlugin, CAPBridgedPlugin {
         let album = call.getString("album") ?? ""
         updateNowPlaying(title: title, artist: artist, album: album, duration: 0)
 
-        if let artStr = call.getString("artworkUrl"), !artStr.isEmpty, let artUrl = URL(string: artStr) {
+        cancelArtworkLoad()
+        let epoch = artworkEpoch
+        if let b64 = call.getString("artworkDataBase64")?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !b64.isEmpty,
+           let data = Data(base64Encoded: b64) {
+            applyArtworkData(data, epoch: epoch)
+        } else if let artStr = call.getString("artworkUrl"), !artStr.isEmpty, let artUrl = URL(string: artStr) {
             startArtworkLoad(url: artUrl)
         }
 
@@ -756,7 +762,7 @@ public class AsmusicNativePlugin: CAPPlugin, CAPBridgedPlugin {
     private func configureAudioSession() {
         let session = AVAudioSession.sharedInstance()
         do {
-            try session.setCategory(.playback, mode: .default, options: [.allowBluetooth, .allowBluetoothA2DP])
+            try session.setCategory(.playback, mode: .default, options: [.allowBluetoothHFP, .allowBluetoothA2DP])
             try session.setActive(true, options: [])
         } catch {
             print("[AsmusicNative] Audio session error: \(error)")
@@ -1013,18 +1019,25 @@ public class AsmusicNativePlugin: CAPPlugin, CAPBridgedPlugin {
         let task = URLSession.shared.dataTask(with: url) { [weak self] data, _, _ in
             guard let self else { return }
             guard epoch == self.artworkEpoch else { return }
-            guard let data, let image = UIImage(data: data) else { return }
-            let artwork = MPMediaItemArtwork(boundsSize: CGSize(width: 512, height: 512)) { _ in image }
-            DispatchQueue.main.async {
-                guard epoch == self.artworkEpoch else { return }
-                guard MPNowPlayingInfoCenter.default().nowPlayingInfo != nil else { return }
-                var info = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
-                info[MPMediaItemPropertyArtwork] = artwork
-                MPNowPlayingInfoCenter.default().nowPlayingInfo = info
-            }
+            guard let data else { return }
+            self.applyArtworkData(data, epoch: epoch)
         }
         artworkDataTask = task
         task.resume()
+    }
+
+    private func applyArtworkData(_ data: Data, epoch: Int) {
+        guard epoch == artworkEpoch else { return }
+        guard let image = UIImage(data: data) else { return }
+        let artwork = MPMediaItemArtwork(boundsSize: CGSize(width: 512, height: 512)) { _ in image }
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            guard epoch == self.artworkEpoch else { return }
+            guard MPNowPlayingInfoCenter.default().nowPlayingInfo != nil else { return }
+            var info = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
+            info[MPMediaItemPropertyArtwork] = artwork
+            MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+        }
     }
 
     private func notifyPlaybackState() {

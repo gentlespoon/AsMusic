@@ -3,6 +3,14 @@ import Box from "@mui/material/Box";
 import type { SubsonicAPI } from "@asmusic/core";
 import type { PlayerQueueItem } from "../core/types";
 import { CoverArtThumb } from "../../shared/CoverArtThumb";
+import type { PersistCachedArtwork } from "../../shared/libraryArtworkCacheAccess";
+import { useHost } from "../../host/HostContext";
+import {
+  playerQueueItemArtworkCacheKey,
+  persistPlayerCachedArtwork,
+  resolvePlayerCachedArtwork,
+} from "../shared/resolvePlayerCachedArtwork";
+import { usePlayerCoverArtCacheBump } from "../shared/usePlayerCoverArtCacheBump";
 import { PlayerFullScreenTrackInfoSlot } from "./PlayerFullScreenTrackInfoSlot";
 
 const COVER_MAX_PX = 360;
@@ -23,6 +31,10 @@ function DisplaySlot({
   item,
   coverSizePx,
   api,
+  resolveCachedArtwork,
+  persistCachedArtwork,
+  artworkCacheKey,
+  artworkCacheBump,
   onCopyName,
   onOpenAlbum,
   onOpenArtist,
@@ -30,6 +42,10 @@ function DisplaySlot({
   item: PlayerQueueItem;
   coverSizePx: number;
   api: SubsonicAPI | undefined;
+  resolveCachedArtwork: ReturnType<typeof resolvePlayerCachedArtwork>;
+  persistCachedArtwork: PersistCachedArtwork;
+  artworkCacheKey: string;
+  artworkCacheBump: number;
   onCopyName: (text: string) => void;
   onOpenAlbum: (item: PlayerQueueItem) => void;
   onOpenArtist: (item: PlayerQueueItem) => void;
@@ -66,10 +82,14 @@ function DisplaySlot({
           bgcolor: "action.hover",
         }}
       >
-        {api ? (
+        {item.coverArtId ? (
           <CoverArtThumb
             api={api}
             coverArtId={item.coverArtId}
+            resolveCachedArtwork={resolveCachedArtwork}
+            persistCachedArtwork={persistCachedArtwork}
+            artworkCacheKey={artworkCacheKey}
+            artworkCacheBump={artworkCacheBump}
             size={coverSizePx}
             label=""
             sx={{ width: "100%", height: "100%", objectFit: "contain" }}
@@ -77,6 +97,40 @@ function DisplaySlot({
         ) : null}
       </Box>
     </Box>
+  );
+}
+
+function DisplaySlotWithBump({
+  item,
+  coverSizePx,
+  api,
+  onCopyName,
+  onOpenAlbum,
+  onOpenArtist,
+}: {
+  item: PlayerQueueItem;
+  coverSizePx: number;
+  api: SubsonicAPI | undefined;
+  onCopyName: (text: string) => void;
+  onOpenAlbum: (item: PlayerQueueItem) => void;
+  onOpenArtist: (item: PlayerQueueItem) => void;
+}) {
+  const host = useHost();
+  const artworkCacheBump = usePlayerCoverArtCacheBump(item);
+
+  return (
+    <DisplaySlot
+      item={item}
+      coverSizePx={coverSizePx}
+      api={api}
+      resolveCachedArtwork={resolvePlayerCachedArtwork(host.libraryCache, item)}
+      persistCachedArtwork={persistPlayerCachedArtwork(host.libraryCache, item)}
+      artworkCacheKey={playerQueueItemArtworkCacheKey(item)}
+      artworkCacheBump={artworkCacheBump}
+      onCopyName={onCopyName}
+      onOpenAlbum={onOpenAlbum}
+      onOpenArtist={onOpenArtist}
+    />
   );
 }
 
@@ -127,7 +181,7 @@ export function PlayerFullScreenDisplayBelt({
   if (slots.length === 1) {
     const slot = slots[0]!;
     return (
-      <DisplaySlot
+      <DisplaySlotWithBump
         item={slot}
         coverSizePx={coverSizePx}
         api={apisByServer[slot.serverId]}
@@ -161,7 +215,7 @@ export function PlayerFullScreenDisplayBelt({
               boxSizing: "border-box",
             }}
           >
-            <DisplaySlot
+            <DisplaySlotWithBump
               item={slot}
               coverSizePx={coverSizePx}
               api={apisByServer[slot.serverId]}

@@ -1,11 +1,17 @@
+import { useState } from "react";
 import IconButton from "@mui/material/IconButton";
+import ListItemText from "@mui/material/ListItemText";
+import Menu from "@mui/material/Menu";
+import MenuItem from "@mui/material/MenuItem";
 import Tooltip from "@mui/material/Tooltip";
 import InfoOutlined from "@mui/icons-material/InfoOutlined";
+import MoreVert from "@mui/icons-material/MoreVert";
 import PlaylistAddOutlined from "@mui/icons-material/PlaylistAddOutlined";
 import Star from "@mui/icons-material/Star";
 import StarBorder from "@mui/icons-material/StarBorder";
 import { useT } from "@asmusic/i18n";
 import type { PlayerFullScreenTrackActions } from "./usePlayerFullScreenTrackActions";
+import Refresh from "@mui/icons-material/Refresh";
 
 export type PlayerFullScreenToolbarActionsProps = {
   actions: PlayerFullScreenTrackActions;
@@ -17,6 +23,7 @@ export function PlayerFullScreenToolbarActions({
   onTrackInfo,
 }: PlayerFullScreenToolbarActionsProps) {
   const t = useT();
+  const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const {
     isStarred,
     starBusy,
@@ -26,6 +33,9 @@ export function PlayerFullScreenToolbarActions({
     playlistsForCurrentTrack,
     setAddToPlaylistOpen,
     clearAddToPlaylistError,
+    canRefreshCoverArt,
+    refreshCoverArtBusy,
+    refreshCoverArt,
   } = actions;
 
   return (
@@ -74,13 +84,43 @@ export function PlayerFullScreenToolbarActions({
           </IconButton>
         </span>
       </Tooltip>
-      <IconButton
-        color="inherit"
-        onClick={onTrackInfo}
-        aria-label={t("player.action.trackInfo")}
+
+      <Tooltip title={t("player.action.moreActions")}>
+        <span>
+          <IconButton
+            color="inherit"
+            aria-label={t("player.action.moreActions")}
+            aria-haspopup="true"
+            aria-expanded={Boolean(menuAnchor)}
+            onClick={(e) => setMenuAnchor(e.currentTarget)}
+          >
+            <MoreVert />
+          </IconButton>
+        </span>
+      </Tooltip>
+      <Menu
+        anchorEl={menuAnchor}
+        open={Boolean(menuAnchor)}
+        onClose={() => setMenuAnchor(null)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        transformOrigin={{ vertical: "top", horizontal: "right" }}
       >
-        <InfoOutlined />
-      </IconButton>
+        <MenuItem onClick={onTrackInfo} sx={{ gap: 1 }}>
+          <InfoOutlined />
+          <ListItemText>{t("player.action.trackInfo")}</ListItemText>
+        </MenuItem>
+        <MenuItem
+          disabled={!canRefreshCoverArt || refreshCoverArtBusy}
+          onClick={() => {
+            setMenuAnchor(null);
+            refreshCoverArt();
+          }}
+          sx={{ gap: 1 }}
+        >
+          <Refresh />
+          <ListItemText>{t("player.action.refreshCoverArt")}</ListItemText>
+        </MenuItem>
+      </Menu>
     </>
   );
 }

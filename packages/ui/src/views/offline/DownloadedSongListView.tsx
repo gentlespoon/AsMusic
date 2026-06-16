@@ -19,6 +19,7 @@ import { useActiveLibraryScopes, useLibraryBrowseCache, usePlayerActions, useSer
 import { playerQueueItemFromChild } from '../../player/core/playerQueueItemFromChild';
 import type { PlayerQueueItem } from '../../player/core/types';
 import { SongItem } from '../../shared/SongItem';
+import { createPersistCachedArtworkForScope } from '../../shared/libraryArtworkCacheAccess';
 import { songMatchesQuery } from '../../shared/songSearch';
 import { formatBytes } from '../../utils/formatBytes';
 
@@ -342,7 +343,9 @@ export function DownloadedSongListView({ reloadNonce = 0 }: DownloadedSongListVi
                     resolveCachedArtwork={(coverArtIdArg) =>
                       host.libraryCache.readArtworkBlob(r.scope, coverArtIdArg)
                     }
+                    persistCachedArtwork={createPersistCachedArtworkForScope(host.libraryCache, r.scope)}
                     artworkCacheBump={0}
+                    artworkCacheKey={scopeKey(r.scope)}
                     includeAlbumInSecondary
                     secondaryContent={secondaryContent}
                     showRemoveButton

@@ -89,6 +89,7 @@ function buildPlayback(): PlaybackHost {
         artist: meta?.artist,
         album: meta?.album,
         artworkUrl: meta?.artworkUrl ?? undefined,
+        artworkDataBase64: meta?.artworkDataBase64 ?? undefined,
       });
     },
     async play() {

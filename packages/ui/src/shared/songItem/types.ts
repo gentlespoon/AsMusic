@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { Child } from "subsonic-api";
 import type { LibraryArtworkCacheRow, SubsonicAPI } from "@asmusic/core";
+import type { PersistCachedArtwork } from "../libraryArtworkCacheAccess";
 
 export type SongItemProps = {
   track: Child;
@@ -10,6 +11,7 @@ export type SongItemProps = {
   resolveCachedArtwork: (
     coverArtId: string,
   ) => Promise<LibraryArtworkCacheRow | null>;
+  persistCachedArtwork?: PersistCachedArtwork;
   artworkCacheBump: number;
   /** Scope/library disambiguator for shared cover-art object URL cache. */
   artworkCacheKey?: string;
@@ -38,6 +40,7 @@ export type SongItemMainProps = {
   resolveCachedArtwork: (
     coverArtId: string,
   ) => Promise<LibraryArtworkCacheRow | null>;
+  persistCachedArtwork?: PersistCachedArtwork;
   artworkCacheBump: number;
   artworkCacheKey?: string;
 };

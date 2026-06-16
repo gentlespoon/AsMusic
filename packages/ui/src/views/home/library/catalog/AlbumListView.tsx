@@ -21,6 +21,7 @@ import { Virtuoso, VirtuosoGrid, type VirtuosoGridHandle, type VirtuosoHandle } 
 import type { GridItemProps, GridListProps } from 'react-virtuoso';
 import type { LibraryArtworkCacheRow, LibraryCacheScope, SubsonicAPI } from '@asmusic/core';
 import { CoverArtThumb } from '../../../../shared/CoverArtThumb';
+import type { PersistCachedArtwork } from '../../../../shared/libraryArtworkCacheAccess';
 import { LibraryVirtuosoFill, libraryFlexFillSx } from '../../../../shared/LibraryVirtuosoFill';
 import { useLibraryScrollRestoration } from '../../../../shared/useLibraryScrollRestoration';
 import { useLibraryVirtuosoScroller } from '../../../../shared/useLibraryVirtuosoScroller';
@@ -74,6 +75,7 @@ export function AlbumListView({
   initialReady,
   syncing,
   resolveCachedArtworkForScope,
+  persistCachedArtworkForScope,
   artworkVersionKey,
   artworkVersionById,
   onAlbumOpen,
@@ -86,6 +88,7 @@ export function AlbumListView({
     scope: LibraryCacheScope,
     coverArtId: string
   ) => Promise<LibraryArtworkCacheRow | null>;
+  persistCachedArtworkForScope: (scope: LibraryCacheScope) => PersistCachedArtwork;
   artworkVersionKey: (coverArtId: string, scope: LibraryCacheScope) => string;
   artworkVersionById: Record<string, number>;
   onAlbumOpen: (row: AlbumCatalogRow) => void;
@@ -99,10 +102,7 @@ export function AlbumListView({
     [rows, search]
   );
 
-  const virtualRows = useMemo(
-    () => filteredRows.filter((r) => apiForServer(r.serverId)),
-    [filteredRows, apiForServer]
-  );
+  const virtualRows = filteredRows;
 
   const queryTrimmed = search.trim();
 
@@ -196,7 +196,7 @@ export function AlbumListView({
             components={gridComponents}
             computeItemKey={(_, row) => rowKey(row)}
             itemContent={(_, row) => {
-              const api = apiForServer(row.serverId)!;
+              const api = apiForServer(row.serverId);
               const { album } = row;
               const bumpKey = album.coverArt ? artworkVersionKey(album.coverArt, row.artworkScope) : '';
               return (
@@ -214,6 +214,7 @@ export function AlbumListView({
                       api={api}
                       coverArtId={album.coverArt}
                       resolveCachedArtwork={(id) => resolveCachedArtworkForScope(row.artworkScope, id)}
+                      persistCachedArtwork={persistCachedArtworkForScope(row.artworkScope)}
                       artworkCacheBump={album.coverArt ? artworkVersionById[bumpKey] ?? 0 : 0}
                       artworkCacheKey={album.coverArt ? bumpKey : undefined}
                       size={200}
@@ -259,7 +260,7 @@ export function AlbumListView({
             components={{ ...virtuosoScroller, List: VirtuosoMuiList }}
             computeItemKey={(_, row) => rowKey(row)}
             itemContent={(_, row) => {
-              const api = apiForServer(row.serverId)!;
+              const api = apiForServer(row.serverId);
               const { album } = row;
               const bumpKey = album.coverArt ? artworkVersionKey(album.coverArt, row.artworkScope) : '';
               return (
@@ -270,6 +271,7 @@ export function AlbumListView({
                         api={api}
                         coverArtId={album.coverArt}
                         resolveCachedArtwork={(id) => resolveCachedArtworkForScope(row.artworkScope, id)}
+                      persistCachedArtwork={persistCachedArtworkForScope(row.artworkScope)}
                         artworkCacheBump={album.coverArt ? artworkVersionById[bumpKey] ?? 0 : 0}
                         artworkCacheKey={album.coverArt ? bumpKey : undefined}
                         size={48}

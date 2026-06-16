@@ -1,12 +1,14 @@
 import type { LibraryArtworkCacheRow, SubsonicAPI } from "@asmusic/core";
 import { Box, ListItemAvatar } from "@mui/material";
 import { CoverArtThumb } from "../CoverArtThumb";
+import type { PersistCachedArtwork } from "../libraryArtworkCacheAccess";
 import { COVER_SIZE } from "./constants";
 
 export function SongItemCover({
   api,
   coverArtId,
   resolveCachedArtwork,
+  persistCachedArtwork,
   artworkCacheBump,
   artworkCacheKey,
 }: {
@@ -15,6 +17,7 @@ export function SongItemCover({
   resolveCachedArtwork: (
     coverArtId: string,
   ) => Promise<LibraryArtworkCacheRow | null>;
+  persistCachedArtwork?: PersistCachedArtwork;
   artworkCacheBump: number;
   artworkCacheKey?: string;
 }) {
@@ -27,11 +30,12 @@ export function SongItemCover({
 
   return (
     <ListItemAvatar sx={{ minWidth: 48 }}>
-      {api ? (
+      {coverArtId ? (
         <CoverArtThumb
-          api={api}
+          api={api ?? undefined}
           coverArtId={coverArtId}
           resolveCachedArtwork={resolveCachedArtwork}
+          persistCachedArtwork={persistCachedArtwork}
           artworkCacheBump={artworkCacheBump}
           artworkCacheKey={artworkCacheKey}
           size={48}

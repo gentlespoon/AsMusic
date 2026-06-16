@@ -76,6 +76,15 @@ function arrayMoveOne<T>(arr: T[], from: number, to: number): void {
   arr.splice(insert, 0, x!);
 }
 
+function uint8ArrayToBase64(bytes: Uint8Array): string {
+  const chunk = 0x8000;
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+
 export class PlayerManager {
   private readonly host: PlatformHost;
   private readonly deps: PlayerManagerDeps;
@@ -587,7 +596,6 @@ export class PlayerManager {
 
       this.playingFromLocalFile =
         offlineResolved.usedOffline || Boolean(localFilePath);
-      this.revokePlayback = revoke;
       if (this.playingFromLocalFile) {
         this.emit();
       }
@@ -596,9 +604,22 @@ export class PlayerManager {
         this.startPersistWhileStreamingIfNeeded(item, streamUrl, playUrl);
       }
 
-      const artworkUrl = item.coverArtId
-        ? this.deps.getCoverArtUrl(item.serverId, item.coverArtId)
-        : null;
+      let artworkUrl: string | null = null;
+      let artworkDataBase64: string | undefined;
+      if (item.coverArtId) {
+        artworkUrl = this.deps.getCoverArtUrl(item.serverId, item.coverArtId);
+        if (offlineResolved.usedOffline && this.host.kind === 'ios-capacitor') {
+          const scope = libraryCacheScope(item.serverUrl, item.username, item.libraryId);
+          const row = await this.host.libraryCache.readArtworkBlob(scope, item.coverArtId);
+          if (row?.data?.byteLength) {
+            artworkDataBase64 = uint8ArrayToBase64(row.data);
+            artworkUrl = null;
+          }
+        }
+      }
+
+      const playbackRevoke = revoke;
+      this.revokePlayback = playbackRevoke;
 
       // iOS native loads from disk via localFilePath; browser uses blob/object URL from offline store.
       const loadUrlArg = offlineResolved.usedOffline && localFilePath ? '' : playUrl;
@@ -608,6 +629,7 @@ export class PlayerManager {
         artist: item.artist,
         album: item.album,
         artworkUrl: artworkUrl ?? undefined,
+        artworkDataBase64,
         localFilePath: offlineResolved.usedOffline ? localFilePath : undefined,
       });
       if (loadSeq !== this.loadTrackSeq) return;

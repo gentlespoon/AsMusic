@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
+import { Capacitor } from '@capacitor/core';
 import Box from '@mui/material/Box';
 import { keyframes, type SxProps, type Theme } from '@mui/material/styles';
-import type { SubsonicAPI } from '@asmusic/core';
+import { CANONICAL_COVER_ART_SIZE, type SubsonicAPI } from '@asmusic/core';
 import type { LibraryArtworkCacheRow } from '@asmusic/core';
 import type { PersistCachedArtwork } from './libraryArtworkCacheAccess';
 import {
@@ -22,12 +23,17 @@ type Props = {
   coverArtId?: string;
   /** When set, disk/database cache is tried before hitting the network. */
   resolveCachedArtwork?: (coverArtId: string) => Promise<LibraryArtworkCacheRow | null>;
+  /** iOS-native fast path: local file path for cached artwork. */
+  resolveArtworkLocalFile?: (
+    coverArtId: string,
+  ) => Promise<{ localFilePath: string; mimeType: string } | null>;
   /** When set with `resolveCachedArtwork`, successful network fetches are written here. */
   persistCachedArtwork?: PersistCachedArtwork;
   /** Increment when this id was written to local cache so the image reloads from storage. */
   artworkCacheBump?: number;
   /** Scope/library disambiguator for multi-library artwork caches. */
   artworkCacheKey?: string;
+  /** Display-only hint (network always uses {@link CANONICAL_COVER_ART_SIZE}). */
   size?: number;
   sx?: SxProps<Theme>;
   label?: string;
@@ -54,21 +60,23 @@ export function CoverArtThumb({
   api,
   coverArtId,
   resolveCachedArtwork,
+  resolveArtworkLocalFile,
   persistCachedArtwork,
   artworkCacheBump = 0,
   artworkCacheKey,
-  size = 128,
   sx,
   label,
 }: Props) {
   const resolveCachedArtworkRef = useRef(resolveCachedArtwork);
   resolveCachedArtworkRef.current = resolveCachedArtwork;
+  const resolveArtworkLocalFileRef = useRef(resolveArtworkLocalFile);
+  resolveArtworkLocalFileRef.current = resolveArtworkLocalFile;
   const persistCachedArtworkRef = useRef(persistCachedArtwork);
   persistCachedArtworkRef.current = persistCachedArtwork;
 
   const cacheKey =
     coverArtId && (api || artworkCacheKey)
-      ? buildCoverArtCacheKey(coverArtId, size, artworkCacheBump, { api, artworkCacheKey })
+      ? buildCoverArtCacheKey(coverArtId, artworkCacheBump, { api, artworkCacheKey })
       : null;
 
   const [src, setSrc] = useState<string | null>(() =>
@@ -90,13 +98,21 @@ export function CoverArtThumb({
 
     void getOrStartCoverArtLoad(cacheKey, async () => {
       try {
+        const resolveLocal = resolveArtworkLocalFileRef.current;
+        if (resolveLocal) {
+          const local = await resolveLocal(coverArtId);
+          if (local?.localFilePath) {
+            return Capacitor.convertFileSrc(local.localFilePath);
+          }
+        }
+
         let blob: Blob | null = null;
         const resolve = resolveCachedArtworkRef.current;
         const fromDisk = resolve ? await resolve(coverArtId) : null;
         if (fromDisk?.data?.byteLength) {
           blob = new Blob([fromDisk.data], { type: fromDisk.mimeType || 'image/jpeg' });
         } else if (api) {
-          const res = await api.getCoverArt({ id: coverArtId, size });
+          const res = await api.getCoverArt({ id: coverArtId, size: CANONICAL_COVER_ART_SIZE });
           if (!res.ok) return null;
           blob = await res.blob();
           const persist = persistCachedArtworkRef.current;
@@ -114,7 +130,7 @@ export function CoverArtThumb({
         return null;
       }
     }).then((url) => {
-      if (!cancelled) {
+      if (!cancelled && url) {
         srcCacheKeyRef.current = cacheKey;
         setSrc(url);
       }
@@ -124,7 +140,7 @@ export function CoverArtThumb({
       cancelled = true;
       releaseCoverArtUrl(cacheKey);
     };
-  }, [api, cacheKey, coverArtId, size, artworkCacheBump, artworkCacheKey]);
+  }, [api, cacheKey, coverArtId, artworkCacheBump, artworkCacheKey]);
 
   const displaySrc = srcCacheKeyRef.current === cacheKey ? src : null;
 

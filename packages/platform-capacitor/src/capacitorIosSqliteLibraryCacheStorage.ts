@@ -108,17 +108,16 @@ export function createCapacitorIosSqliteLibraryCacheStorage(): LibraryCacheStora
         libraryId: scope.libraryId,
       });
     },
+    async purgeAllArtworkCache() {
+      await AsmusicNative.libraryCachePurgeAllArtwork();
+    },
     async putArtworkBlob(scope, entry) {
-      await AsmusicNative.libraryCachePutArtworkBatch({
+      await AsmusicNative.libraryCachePutArtworkBlob({
         serverKey: scope.serverKey,
         libraryId: scope.libraryId,
-        entriesJson: JSON.stringify([
-          {
-            coverArtId: entry.coverArtId,
-            mimeType: entry.mimeType,
-            base64: uint8ToBase64(entry.data),
-          },
-        ]),
+        coverArtId: entry.coverArtId,
+        mimeType: entry.mimeType,
+        base64: uint8ToBase64(entry.data),
       });
     },
     async readArtworkBlob(scope, coverArtId) {
@@ -133,6 +132,15 @@ export function createCapacitorIosSqliteLibraryCacheStorage(): LibraryCacheStora
         mimeType: r.mimeType,
         data: base64ToUint8(r.base64),
       };
+    },
+    async readArtworkLocalFile(scope, coverArtId) {
+      const r = await AsmusicNative.libraryCacheMaterializeArtworkFile({
+        serverKey: scope.serverKey,
+        libraryId: scope.libraryId,
+        coverArtId,
+      });
+      if (r.localFilePath == null || r.mimeType == null) return null;
+      return { localFilePath: r.localFilePath, mimeType: r.mimeType };
     },
     async deleteScope(scope) {
       await AsmusicNative.libraryCacheDeleteScope({

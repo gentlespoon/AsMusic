@@ -704,6 +704,160 @@ enum LibraryCacheSQLiteStore {
                 throw StoreError.transactionFailed
             }
         }
+        try clearArtworkMaterializedFiles(serverKey: serverKey, libraryId: libraryId)
+    }
+
+    static func purgeAllArtwork() throws {
+        try queue.sync {
+            try openIfNeeded()
+            guard let db else { throw StoreError.databaseUnavailable }
+
+            let sql = "DELETE FROM library_artworks;"
+            var stmt: OpaquePointer?
+            defer { sqlite3_finalize(stmt) }
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+                throw StoreError.prepareFailed
+            }
+            guard sqlite3_step(stmt) == SQLITE_DONE else {
+                throw StoreError.transactionFailed
+            }
+        }
+        try purgeAllArtworkMaterializedFiles()
+    }
+
+    private static func artworkScopeCacheDir(serverKey: String, libraryId: String) -> URL {
+        let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
+        return caches
+            .appendingPathComponent("asmusic-artwork", isDirectory: true)
+            .appendingPathComponent(serverKey, isDirectory: true)
+            .appendingPathComponent(libraryId, isDirectory: true)
+    }
+
+    private static func artworkFileExtension(mimeType: String) -> String {
+        let lower = mimeType.lowercased()
+        if lower.contains("png") { return "png" }
+        if lower.contains("webp") { return "webp" }
+        return "jpg"
+    }
+
+    private static func artworkSafeFileName(coverArtId: String) -> String {
+        let trimmed = coverArtId.trimmingCharacters(in: .whitespacesAndNewlines)
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_"))
+        let encoded = trimmed.addingPercentEncoding(withAllowedCharacters: allowed) ?? trimmed
+        return encoded.isEmpty ? "cover" : encoded
+    }
+
+    private static func artworkFileURL(
+        serverKey: String,
+        libraryId: String,
+        coverArtId: String,
+        mimeType: String
+    ) -> URL {
+        let dir = artworkScopeCacheDir(serverKey: serverKey, libraryId: libraryId)
+        let name = artworkSafeFileName(coverArtId: coverArtId)
+        let ext = artworkFileExtension(mimeType: mimeType)
+        return dir.appendingPathComponent("\(name).\(ext)")
+    }
+
+    static func clearArtworkMaterializedFiles(serverKey: String, libraryId: String) throws {
+        let dir = artworkScopeCacheDir(serverKey: serverKey, libraryId: libraryId)
+        if FileManager.default.fileExists(atPath: dir.path) {
+            try FileManager.default.removeItem(at: dir)
+        }
+    }
+
+    static func purgeAllArtworkMaterializedFiles() throws {
+        let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
+        let dir = caches.appendingPathComponent("asmusic-artwork", isDirectory: true)
+        if FileManager.default.fileExists(atPath: dir.path) {
+            try FileManager.default.removeItem(at: dir)
+        }
+    }
+
+    private static func deleteMaterializedArtworkFile(
+        serverKey: String,
+        libraryId: String,
+        coverArtId: String
+    ) throws {
+        let dir = artworkScopeCacheDir(serverKey: serverKey, libraryId: libraryId)
+        guard FileManager.default.fileExists(atPath: dir.path) else { return }
+        let prefix = artworkSafeFileName(coverArtId: coverArtId) + "."
+        for url in try FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) {
+            if url.lastPathComponent.hasPrefix(prefix) {
+                try? FileManager.default.removeItem(at: url)
+            }
+        }
+    }
+
+    static func putArtworkBlob(
+        serverKey: String,
+        libraryId: String,
+        coverArtId: String,
+        mimeType: String,
+        base64: String
+    ) throws {
+        let payload: [[String: String]] = [[
+            "coverArtId": coverArtId,
+            "mimeType": mimeType,
+            "base64": base64,
+        ]]
+        let data = try JSONSerialization.data(withJSONObject: payload, options: [])
+        guard let json = String(data: data, encoding: .utf8) else { throw StoreError.invalidJson }
+        try putArtworkBatch(serverKey: serverKey, libraryId: libraryId, entriesJson: json)
+        try deleteMaterializedArtworkFile(serverKey: serverKey, libraryId: libraryId, coverArtId: coverArtId)
+    }
+
+    static func materializeArtworkFile(
+        serverKey: String,
+        libraryId: String,
+        coverArtId: String
+    ) throws -> (localFilePath: String, mimeType: String)? {
+        try queue.sync {
+            try openIfNeeded()
+            guard let db else { throw StoreError.databaseUnavailable }
+
+            let sql = """
+                SELECT mime_type, image_bytes, updated_at FROM library_artworks
+                WHERE server_key = ? AND library_id = ? AND cover_art_id = ? LIMIT 1;
+                """
+            var stmt: OpaquePointer?
+            defer { sqlite3_finalize(stmt) }
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+                throw StoreError.prepareFailed
+            }
+            sqlite3_bind_text(stmt, 1, serverKey, -1, transientDestructor)
+            sqlite3_bind_text(stmt, 2, libraryId, -1, transientDestructor)
+            sqlite3_bind_text(stmt, 3, coverArtId, -1, transientDestructor)
+
+            guard sqlite3_step(stmt) == SQLITE_ROW else { return nil }
+            let mimeRaw = sqlite3_column_text(stmt, 0)
+            let mime = mimeRaw.map { String(cString: $0) } ?? "image/jpeg"
+
+            guard let blobPtr = sqlite3_column_blob(stmt, 1) else { return nil }
+            let nbytes = sqlite3_column_bytes(stmt, 1)
+            guard nbytes > 0 else { return nil }
+            let imageData = Data(bytes: blobPtr, count: Int(nbytes))
+            let updatedAt = sqlite3_column_double(stmt, 2)
+
+            let fileURL = artworkFileURL(
+                serverKey: serverKey,
+                libraryId: libraryId,
+                coverArtId: coverArtId,
+                mimeType: mime
+            )
+            let fm = FileManager.default
+            try fm.createDirectory(at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+            if fm.fileExists(atPath: fileURL.path) {
+                let attrs = try fm.attributesOfItem(atPath: fileURL.path)
+                if let modified = attrs[.modificationDate] as? Date,
+                   abs(modified.timeIntervalSince1970 - updatedAt) < 1.0 {
+                    return (localFilePath: fileURL.path, mimeType: mime)
+                }
+            }
+            try imageData.write(to: fileURL, options: .atomic)
+            try fm.setAttributes([.modificationDate: Date(timeIntervalSince1970: updatedAt)], ofItemAtPath: fileURL.path)
+            return (localFilePath: fileURL.path, mimeType: mime)
+        }
     }
 
     /// Inserts or replaces rows parsed from `entriesJson`: `[{ "coverArtId", "mimeType", "base64" }]`.

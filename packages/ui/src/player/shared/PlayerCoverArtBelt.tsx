@@ -4,12 +4,13 @@ import type { SubsonicAPI, LibraryCacheStorage } from '@asmusic/core';
 import type { PlayerQueueItem } from '../core/types';
 import { CoverArtThumb } from '../../shared/CoverArtThumb';
 import { useHost } from '../../host/HostContext';
+import { usePlayerArtworkCacheKey } from './usePlayerArtworkCacheKey';
+import { usePlayerCoverArtCacheBump } from './usePlayerCoverArtCacheBump';
 import {
-  playerQueueItemArtworkCacheKey,
   persistPlayerCachedArtwork,
+  resolvePlayerArtworkLocalFile,
   resolvePlayerCachedArtwork,
 } from './resolvePlayerCachedArtwork';
-import { usePlayerCoverArtCacheBump } from './usePlayerCoverArtCacheBump';
 
 export type PlayerCoverArtBeltProps = {
   slots: PlayerQueueItem[];
@@ -32,6 +33,7 @@ function PlayerCoverArtThumb({
   libraryCache: LibraryCacheStorage;
 }) {
   const artworkCacheBump = usePlayerCoverArtCacheBump(slot);
+  const artworkCacheKey = usePlayerArtworkCacheKey(slot);
 
   if (!slot.coverArtId) {
     return null;
@@ -42,8 +44,9 @@ function PlayerCoverArtThumb({
       api={api}
       coverArtId={slot.coverArtId}
       resolveCachedArtwork={resolvePlayerCachedArtwork(libraryCache, slot)}
+      resolveArtworkLocalFile={resolvePlayerArtworkLocalFile(libraryCache, slot)}
       persistCachedArtwork={persistPlayerCachedArtwork(libraryCache, slot)}
-      artworkCacheKey={playerQueueItemArtworkCacheKey(slot)}
+      artworkCacheKey={artworkCacheKey}
       artworkCacheBump={artworkCacheBump}
       size={coverSizePx}
       label=""

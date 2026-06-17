@@ -94,6 +94,12 @@ function buildPlayback(): PlaybackHost {
         artworkDataBase64: meta?.artworkDataBase64 ?? undefined,
       });
     },
+    async updateArtwork(meta) {
+      await AsmusicNative.playbackUpdateArtwork({
+        artworkUrl: meta?.artworkUrl ?? undefined,
+        artworkDataBase64: meta?.artworkDataBase64 ?? undefined,
+      });
+    },
     async play() {
       await ensureListeners();
       await AsmusicNative.playbackPlay();

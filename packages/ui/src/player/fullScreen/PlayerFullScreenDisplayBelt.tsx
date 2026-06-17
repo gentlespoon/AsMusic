@@ -6,11 +6,12 @@ import { CoverArtThumb } from "../../shared/CoverArtThumb";
 import type { PersistCachedArtwork } from "../../shared/libraryArtworkCacheAccess";
 import { useHost } from "../../host/HostContext";
 import {
-  playerQueueItemArtworkCacheKey,
   persistPlayerCachedArtwork,
+  resolvePlayerArtworkLocalFile,
   resolvePlayerCachedArtwork,
 } from "../shared/resolvePlayerCachedArtwork";
 import { usePlayerCoverArtCacheBump } from "../shared/usePlayerCoverArtCacheBump";
+import { usePlayerArtworkCacheKey } from "../shared/usePlayerArtworkCacheKey";
 import { PlayerFullScreenTrackInfoSlot } from "./PlayerFullScreenTrackInfoSlot";
 
 const COVER_MAX_PX = 360;
@@ -32,6 +33,7 @@ function DisplaySlot({
   coverSizePx,
   api,
   resolveCachedArtwork,
+  resolveArtworkLocalFile,
   persistCachedArtwork,
   artworkCacheKey,
   artworkCacheBump,
@@ -43,8 +45,9 @@ function DisplaySlot({
   coverSizePx: number;
   api: SubsonicAPI | undefined;
   resolveCachedArtwork: ReturnType<typeof resolvePlayerCachedArtwork>;
+  resolveArtworkLocalFile?: ReturnType<typeof resolvePlayerArtworkLocalFile>;
   persistCachedArtwork: PersistCachedArtwork;
-  artworkCacheKey: string;
+  artworkCacheKey?: string;
   artworkCacheBump: number;
   onCopyName: (text: string) => void;
   onOpenAlbum: (item: PlayerQueueItem) => void;
@@ -87,6 +90,7 @@ function DisplaySlot({
             api={api}
             coverArtId={item.coverArtId}
             resolveCachedArtwork={resolveCachedArtwork}
+            resolveArtworkLocalFile={resolveArtworkLocalFile}
             persistCachedArtwork={persistCachedArtwork}
             artworkCacheKey={artworkCacheKey}
             artworkCacheBump={artworkCacheBump}
@@ -117,6 +121,7 @@ function DisplaySlotWithBump({
 }) {
   const host = useHost();
   const artworkCacheBump = usePlayerCoverArtCacheBump(item);
+  const artworkCacheKey = usePlayerArtworkCacheKey(item);
 
   return (
     <DisplaySlot
@@ -124,8 +129,9 @@ function DisplaySlotWithBump({
       coverSizePx={coverSizePx}
       api={api}
       resolveCachedArtwork={resolvePlayerCachedArtwork(host.libraryCache, item)}
+      resolveArtworkLocalFile={resolvePlayerArtworkLocalFile(host.libraryCache, item)}
       persistCachedArtwork={persistPlayerCachedArtwork(host.libraryCache, item)}
-      artworkCacheKey={playerQueueItemArtworkCacheKey(item)}
+      artworkCacheKey={artworkCacheKey}
       artworkCacheBump={artworkCacheBump}
       onCopyName={onCopyName}
       onOpenAlbum={onOpenAlbum}

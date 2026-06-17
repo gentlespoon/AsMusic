@@ -13,6 +13,8 @@ export class AsmusicNativeWeb extends WebPlugin implements AsmusicNativePlugin {
 
   async playbackLoadUrl(): Promise<void> {}
 
+  async playbackUpdateArtwork(): Promise<void> {}
+
   async playbackPlay(): Promise<void> {}
 
   async playbackPause(): Promise<void> {}
@@ -71,12 +73,27 @@ export class AsmusicNativeWeb extends WebPlugin implements AsmusicNativePlugin {
     throwNativeOnly('libraryCacheClearArtwork');
   }
 
+  async libraryCachePurgeAllArtwork(): Promise<void> {
+    throwNativeOnly('libraryCachePurgeAllArtwork');
+  }
+
   async libraryCachePutArtworkBatch(): Promise<void> {
     throwNativeOnly('libraryCachePutArtworkBatch');
   }
 
+  async libraryCachePutArtworkBlob(): Promise<void> {
+    throwNativeOnly('libraryCachePutArtworkBlob');
+  }
+
   async libraryCacheReadArtworkBlob(): Promise<{ mimeType: string | null; base64: string | null }> {
-    throwNativeOnly('libraryCacheReadArtworkBlob');
+    return { mimeType: null, base64: null };
+  }
+
+  async libraryCacheMaterializeArtworkFile(): Promise<{
+    localFilePath: string | null;
+    mimeType: string | null;
+  }> {
+    return { localFilePath: null, mimeType: null };
   }
 
   async offlineMediaImportFromUrl(): Promise<void> {

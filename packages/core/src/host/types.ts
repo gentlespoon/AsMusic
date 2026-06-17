@@ -37,6 +37,11 @@ export type PlaybackHost = {
       localFilePath?: string;
     }
   ): Promise<void>;
+  /** Native-only: update lock-screen artwork without reloading the current track. */
+  updateArtwork?(meta: {
+    artworkUrl?: string | null;
+    artworkDataBase64?: string | null;
+  }): Promise<void>;
   play(): Promise<void>;
   pause(): Promise<void>;
   seek(positionSeconds: number): Promise<void>;

@@ -45,6 +45,7 @@ export type PlayerActions = {
   setSleepTimerMinutes: (minutes: number) => Promise<void>;
   cancelSleepTimer: () => Promise<void>;
   patchCurrentQueueItemStarred: (starred: boolean) => void;
+  syncCurrentTrackNowPlayingArtwork: () => Promise<void>;
 };
 
 export type PlayerShell = {
@@ -223,6 +224,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       setSleepTimerMinutes: (minutes) => manager.setSleepTimerMinutes(minutes),
       cancelSleepTimer: () => manager.cancelSleepTimer(),
       patchCurrentQueueItemStarred: (starred) => manager.patchCurrentQueueItemStarred(starred),
+      syncCurrentTrackNowPlayingArtwork: () => manager.syncCurrentTrackNowPlayingArtwork(),
     }),
     [manager, openFullPlayer, closeFullPlayer, toggleFullPlayer]
   );

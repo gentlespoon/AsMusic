@@ -16,6 +16,7 @@ public class AsmusicNativePlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "secureStorageSet", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "secureStorageRemove", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "playbackLoadUrl", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "playbackUpdateArtwork", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "playbackPlay", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "playbackPause", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "playbackSeek", returnType: CAPPluginReturnPromise),
@@ -33,8 +34,11 @@ public class AsmusicNativePlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "libraryCacheDeleteScope", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "libraryCachePurgeServerAccount", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "libraryCacheClearArtwork", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "libraryCachePurgeAllArtwork", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "libraryCachePutArtworkBatch", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "libraryCachePutArtworkBlob", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "libraryCacheReadArtworkBlob", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "libraryCacheMaterializeArtworkFile", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "offlineMediaImportFromUrl", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "offlineMediaGetStatus", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "offlineMediaGetPlaybackUrl", returnType: CAPPluginReturnPromise),
@@ -266,6 +270,19 @@ public class AsmusicNativePlugin: CAPPlugin, CAPBridgedPlugin {
             startArtworkLoad(url: artUrl)
         }
 
+        call.resolve()
+    }
+
+    @objc func playbackUpdateArtwork(_ call: CAPPluginCall) {
+        cancelArtworkLoad()
+        let epoch = artworkEpoch
+        if let b64 = call.getString("artworkDataBase64")?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !b64.isEmpty,
+           let data = Data(base64Encoded: b64) {
+            applyArtworkData(data, epoch: epoch)
+        } else if let artStr = call.getString("artworkUrl"), !artStr.isEmpty, let artUrl = URL(string: artStr) {
+            startArtworkLoad(url: artUrl)
+        }
         call.resolve()
     }
 
@@ -543,6 +560,15 @@ public class AsmusicNativePlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
 
+    @objc func libraryCachePurgeAllArtwork(_ call: CAPPluginCall) {
+        do {
+            try LibraryCacheSQLiteStore.purgeAllArtwork()
+            call.resolve()
+        } catch {
+            call.reject(error.localizedDescription)
+        }
+    }
+
     @objc func libraryCachePutArtworkBatch(_ call: CAPPluginCall) {
         guard let serverKey = call.getString("serverKey"), !serverKey.isEmpty,
               let libraryId = call.getString("libraryId"),
@@ -557,6 +583,57 @@ public class AsmusicNativePlugin: CAPPlugin, CAPBridgedPlugin {
                 entriesJson: entriesJson
             )
             call.resolve()
+        } catch {
+            call.reject(error.localizedDescription)
+        }
+    }
+
+    @objc func libraryCachePutArtworkBlob(_ call: CAPPluginCall) {
+        guard let serverKey = call.getString("serverKey"), !serverKey.isEmpty,
+              let libraryId = call.getString("libraryId"),
+              let coverArtId = call.getString("coverArtId"), !coverArtId.isEmpty,
+              let mimeType = call.getString("mimeType"),
+              let base64 = call.getString("base64") else {
+            call.reject("Missing serverKey, libraryId, coverArtId, mimeType, or base64")
+            return
+        }
+        do {
+            try LibraryCacheSQLiteStore.putArtworkBlob(
+                serverKey: serverKey,
+                libraryId: libraryId,
+                coverArtId: coverArtId,
+                mimeType: mimeType,
+                base64: base64
+            )
+            call.resolve()
+        } catch {
+            call.reject(error.localizedDescription)
+        }
+    }
+
+    @objc func libraryCacheMaterializeArtworkFile(_ call: CAPPluginCall) {
+        guard let serverKey = call.getString("serverKey"), !serverKey.isEmpty,
+              let libraryId = call.getString("libraryId"),
+              let coverArtId = call.getString("coverArtId"), !coverArtId.isEmpty else {
+            call.reject("Missing serverKey, libraryId, or coverArtId")
+            return
+        }
+        do {
+            if let row = try LibraryCacheSQLiteStore.materializeArtworkFile(
+                serverKey: serverKey,
+                libraryId: libraryId,
+                coverArtId: coverArtId
+            ) {
+                call.resolve([
+                    "localFilePath": row.localFilePath,
+                    "mimeType": row.mimeType,
+                ])
+            } else {
+                call.resolve([
+                    "localFilePath": NSNull(),
+                    "mimeType": NSNull(),
+                ])
+            }
         } catch {
             call.reject(error.localizedDescription)
         }

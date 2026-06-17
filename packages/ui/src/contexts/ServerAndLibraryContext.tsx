@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from 'react';
 import {
+  CANONICAL_COVER_ART_SIZE,
   createNavidromeApi,
   ping,
   randomUuidV4,
@@ -99,7 +100,12 @@ export function ServerAndLibraryProvider({ children }: { children: ReactNode }) 
   const [activeLibraryRefs, setActiveLibraryRefsState] = useState<ActiveLibraryRef[]>([]);
   const [isRestoring, setIsRestoring] = useState(true);
   const [navidromeByServer, setNavidromeByServer] = useState<Record<string, NavidromeStreamCreds | null>>({});
+  const navidromeByServerRef = useRef<Record<string, NavidromeStreamCreds | null>>({});
   const apiCacheRef = useRef<Map<string, SubsonicAPI>>(new Map());
+
+  useEffect(() => {
+    navidromeByServerRef.current = navidromeByServer;
+  }, [navidromeByServer]);
 
   const setActiveLibraryRefs = useCallback((next: ActiveLibraryRef[]) => {
     setActiveLibraryRefsState(next);
@@ -174,6 +180,7 @@ export function ServerAndLibraryProvider({ children }: { children: ReactNode }) 
   const invalidateApiCache = useCallback((serverId?: string) => {
     if (serverId) {
       apiCacheRef.current.delete(serverId);
+      delete navidromeByServerRef.current[serverId];
       setNavidromeByServer((prev) => {
         const copy = { ...prev };
         delete copy[serverId];
@@ -181,6 +188,7 @@ export function ServerAndLibraryProvider({ children }: { children: ReactNode }) 
       });
     } else {
       apiCacheRef.current.clear();
+      navidromeByServerRef.current = {};
       setNavidromeByServer({});
     }
   }, []);
@@ -188,11 +196,14 @@ export function ServerAndLibraryProvider({ children }: { children: ReactNode }) 
   const hydrateNavidrome = useCallback(async (serverId: string, api: SubsonicAPI) => {
     try {
       const session = await api.navidromeSession();
+      const creds = { subsonicToken: session.subsonicToken, subsonicSalt: session.subsonicSalt };
+      navidromeByServerRef.current = { ...navidromeByServerRef.current, [serverId]: creds };
       setNavidromeByServer((prev) => ({
         ...prev,
-        [serverId]: { subsonicToken: session.subsonicToken, subsonicSalt: session.subsonicSalt },
+        [serverId]: creds,
       }));
     } catch {
+      navidromeByServerRef.current = { ...navidromeByServerRef.current, [serverId]: null };
       setNavidromeByServer((prev) => ({ ...prev, [serverId]: null }));
     }
   }, []);
@@ -242,7 +253,7 @@ export function ServerAndLibraryProvider({ children }: { children: ReactNode }) 
   const getStreamUrl = useCallback(
     (serverId: string, trackId: string): string | null => {
       const entry = servers.find((s) => s.id === serverId);
-      const creds = navidromeByServer[serverId];
+      const creds = navidromeByServerRef.current[serverId];
       if (!entry || !creds) return null;
       const base = entry.serverUrl.replace(/\/$/, '');
       const params = new URLSearchParams({
@@ -255,19 +266,20 @@ export function ServerAndLibraryProvider({ children }: { children: ReactNode }) 
       });
       return `${base}/rest/stream.view?${params.toString()}`;
     },
-    [servers, navidromeByServer]
+    [servers]
   );
 
   const getCoverArtUrl = useCallback(
     (serverId: string, coverArtId: string): string | null => {
       const entry = servers.find((s) => s.id === serverId);
-      const creds = navidromeByServer[serverId];
+      const creds = navidromeByServerRef.current[serverId];
       if (!entry || !creds) return null;
       const id = coverArtId.trim();
       if (!id) return null;
       const base = entry.serverUrl.replace(/\/$/, '');
       const params = new URLSearchParams({
         id,
+        size: String(CANONICAL_COVER_ART_SIZE),
         u: entry.username,
         t: creds.subsonicToken,
         s: creds.subsonicSalt,
@@ -276,7 +288,7 @@ export function ServerAndLibraryProvider({ children }: { children: ReactNode }) 
       });
       return `${base}/rest/getCoverArt.view?${params.toString()}`;
     },
-    [servers, navidromeByServer]
+    [servers]
   );
 
   const addServer = useCallback(

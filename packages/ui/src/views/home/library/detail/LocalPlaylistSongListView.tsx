@@ -20,7 +20,7 @@ import {
   Typography,
 } from "@mui/material";
 import {
-  coverArtIdFromAlbumsForCachedSong,
+  resolveCoverArtIdForCachedSong,
   isChildStarred,
   libraryCacheScope,
   resolveLocalPlaylistEntries,
@@ -86,8 +86,7 @@ export function LocalPlaylistSongListView({
   syncing,
   resolveCachedArtworkForScope,
   persistCachedArtworkForScope,
-  artworkVersionById,
-  artworkVersionKey,
+  getArtworkCacheBump,
   onBack,
   onPlayResolvedRow,
   onPlayNextResolvedRow,
@@ -119,8 +118,7 @@ export function LocalPlaylistSongListView({
   persistCachedArtworkForScope: (
     scope: LibraryCacheScope,
   ) => PersistCachedArtwork | undefined;
-  artworkVersionById: Record<string, number>;
-  artworkVersionKey: (coverArtId: string, sc: LibraryCacheScope) => string;
+  getArtworkCacheBump: (coverArtId: string, scope: LibraryCacheScope) => number;
   onBack: () => void;
   onPlayResolvedRow: (row: LocalPlaylistResolvedEntry) => void;
   onPlayNextResolvedRow: (row: LocalPlaylistResolvedEntry) => void;
@@ -531,7 +529,7 @@ export function LocalPlaylistSongListView({
                   albumsByScope.get(
                     `${row.scope.serverKey}|${row.scope.libraryId}`,
                   ) ?? [];
-                const coverArtId = coverArtIdFromAlbumsForCachedSong(
+                const coverArtId = resolveCoverArtIdForCachedSong(
                   track,
                   albums,
                 );
@@ -549,11 +547,7 @@ export function LocalPlaylistSongListView({
                       row.scope,
                     )}
                     artworkCacheBump={
-                      coverArtId
-                        ? (artworkVersionById[
-                            artworkVersionKey(coverArtId, row.scope)
-                          ] ?? 0)
-                        : 0
+                      coverArtId ? getArtworkCacheBump(coverArtId, row.scope) : 0
                     }
                     includeAlbumInSecondary={false}
                     onClick={() => onPlayResolvedRow(row)}

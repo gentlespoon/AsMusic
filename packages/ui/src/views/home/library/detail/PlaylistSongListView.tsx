@@ -19,7 +19,7 @@ import {
   Typography,
 } from '@mui/material';
 import {
-  coverArtIdFromAlbumsForCachedSong,
+  resolveCoverArtIdForCachedSong,
   isChildStarred,
   mergePlaylistEntryWithCachedSongs,
   playlistEntriesFromGetPlaylistResponse,
@@ -48,8 +48,8 @@ export function PlaylistSongListView({
   syncing,
   resolveCachedArtwork,
   persistCachedArtwork,
-  artworkVersionById,
   coverArtCacheBump,
+  artworkCacheKeyFor,
   serverId,
   libraryId,
   onBack,
@@ -75,8 +75,8 @@ export function PlaylistSongListView({
   syncing: boolean;
   resolveCachedArtwork: (coverArtId: string) => Promise<LibraryArtworkCacheRow | null>;
   persistCachedArtwork?: PersistCachedArtwork;
-  artworkVersionById: Record<string, number>;
   coverArtCacheBump?: (coverArtId: string | undefined) => number;
+  artworkCacheKeyFor?: (coverArtId: string) => string;
   serverId: string;
   libraryId: string;
   onBack: () => void;
@@ -101,8 +101,7 @@ export function PlaylistSongListView({
 }) {
   const t = useT();
   const { enqueuePlaylistDownload } = useOfflineDownload();
-  const bumpFor =
-    coverArtCacheBump ?? ((id: string | undefined) => (id ? (artworkVersionById[id] ?? 0) : 0));
+  const bumpFor = coverArtCacheBump ?? (() => 0);
   const [search, setSearch] = useState('');
   const [tracks, setTracks] = useState<Child[]>([]);
   const [resolvedTitle, setResolvedTitle] = useState(playlistTitle);
@@ -350,7 +349,7 @@ export function PlaylistSongListView({
               }
               itemContent={(_index, track) => {
                 if (!track) return null;
-                const coverArtId = coverArtIdFromAlbumsForCachedSong(track, albums);
+                const coverArtId = resolveCoverArtIdForCachedSong(track, albums);
                 const starred = isChildStarred(track);
                 return (
                   <SongItem
@@ -360,6 +359,9 @@ export function PlaylistSongListView({
                     resolveCachedArtwork={resolveCachedArtwork}
                     persistCachedArtwork={persistCachedArtwork}
                     artworkCacheBump={bumpFor(coverArtId)}
+                    artworkCacheKey={
+                      coverArtId && artworkCacheKeyFor ? artworkCacheKeyFor(coverArtId) : undefined
+                    }
                     includeAlbumInSecondary={false}
                     onClick={onPlayTrack ? () => onPlayTrack(track) : undefined}
                     onPlayNext={onPlayNextTrack ? () => onPlayNextTrack(track) : undefined}

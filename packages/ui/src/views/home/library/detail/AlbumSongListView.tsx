@@ -19,7 +19,7 @@ import {
 import { PageCloseButton } from "../../../../shared/PageCloseButton";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import {
-  coverArtIdFromAlbumsForCachedSong,
+  resolveCoverArtIdForCachedSong,
   isChildStarred,
   type LibraryArtworkCacheRow,
   type SubsonicAPI,
@@ -44,8 +44,8 @@ export function AlbumSongListView({
   syncing,
   resolveCachedArtwork,
   persistCachedArtwork,
-  artworkVersionById,
   coverArtCacheBump,
+  artworkCacheKeyFor,
   scrollRestorationKey,
   serverId,
   libraryId,
@@ -70,8 +70,8 @@ export function AlbumSongListView({
     coverArtId: string,
   ) => Promise<LibraryArtworkCacheRow | null>;
   persistCachedArtwork?: PersistCachedArtwork;
-  artworkVersionById: Record<string, number>;
   coverArtCacheBump?: (coverArtId: string | undefined) => number;
+  artworkCacheKeyFor?: (coverArtId: string) => string;
   serverId: string;
   libraryId: string;
   onBack: () => void;
@@ -92,9 +92,7 @@ export function AlbumSongListView({
 }) {
   const t = useT();
   const { enqueueAlbumDownload } = useOfflineDownload();
-  const bumpFor =
-    coverArtCacheBump ??
-    ((id: string | undefined) => (id ? (artworkVersionById[id] ?? 0) : 0));
+  const bumpFor = coverArtCacheBump ?? (() => 0);
   const [search, setSearch] = useState("");
 
   useEffect(() => {
@@ -240,7 +238,7 @@ export function AlbumSongListView({
               components={{ ...virtuosoComponents, List: VirtuosoMuiList }}
               computeItemKey={(_, track) => String(track.id)}
               itemContent={(_, track) => {
-                const coverId = coverArtIdFromAlbumsForCachedSong(
+                const coverId = resolveCoverArtIdForCachedSong(
                   track,
                   albums,
                 );
@@ -252,6 +250,9 @@ export function AlbumSongListView({
                     resolveCachedArtwork={resolveCachedArtwork}
                     persistCachedArtwork={persistCachedArtwork}
                     artworkCacheBump={bumpFor(coverId)}
+                    artworkCacheKey={
+                      coverId && artworkCacheKeyFor ? artworkCacheKeyFor(coverId) : undefined
+                    }
                     includeAlbumInSecondary={false}
                     onClick={onPlayTrack ? () => onPlayTrack(track) : undefined}
                     onPlayNext={

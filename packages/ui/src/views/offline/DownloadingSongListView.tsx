@@ -35,6 +35,7 @@ import { useServerAndLibrary } from '../../contexts';
 import { useOfflineDownload } from '../../contexts/OfflineDownloadContext';
 import { SongItemMain } from '../../shared/songItem/SongItemMain';
 import { createPersistCachedArtworkForScope } from '../../shared/libraryArtworkCacheAccess';
+import { createResolveCachedArtwork } from '../../shared/createResolveCachedArtwork';
 import { rowSx } from '../../shared/songItem/constants';
 
 type TrackStatus = 'pending' | 'downloading' | 'completed' | 'failed';
@@ -42,6 +43,7 @@ type TrackStatus = 'pending' | 'downloading' | 'completed' | 'failed';
 type ScopeResources = {
   trackByKey: Map<string, Child>;
   apiByScopeKey: Map<string, SubsonicAPI | null>;
+  serverByScopeKey: Map<string, { serverUrl: string; username: string }>;
 };
 
 function scopeKey(scope: LibraryCacheScope): string {
@@ -91,6 +93,7 @@ function useJobScopeResources(jobs: OfflineBulkJob[]): ScopeResources {
   const [resources, setResources] = useState<ScopeResources>({
     trackByKey: new Map(),
     apiByScopeKey: new Map(),
+    serverByScopeKey: new Map(),
   });
 
   useEffect(() => {
@@ -105,6 +108,7 @@ function useJobScopeResources(jobs: OfflineBulkJob[]): ScopeResources {
     void (async () => {
       const trackByKey = new Map<string, Child>();
       const apiByScopeKey = new Map<string, SubsonicAPI | null>();
+      const serverByScopeKey = new Map<string, { serverUrl: string; username: string }>();
 
       await Promise.all(
         [...scopes.entries()].map(async ([sk, scope]) => {
@@ -119,11 +123,14 @@ function useJobScopeResources(jobs: OfflineBulkJob[]): ScopeResources {
           }
           const api = server ? await getApiForServer(server.id) : null;
           apiByScopeKey.set(sk, api);
+          if (server) {
+            serverByScopeKey.set(sk, { serverUrl: server.serverUrl, username: server.username });
+          }
         })
       );
 
       if (!cancelled) {
-        setResources({ trackByKey, apiByScopeKey });
+        setResources({ trackByKey, apiByScopeKey, serverByScopeKey });
       }
     })();
 
@@ -154,12 +161,16 @@ function DownloadingTrackRow({
   scope,
   api,
   statusLabel,
+  serverUrl,
+  username,
 }: {
   track: Child;
   status: TrackStatus;
   scope: LibraryCacheScope;
   api: SubsonicAPI | null;
   statusLabel: string;
+  serverUrl?: string;
+  username?: string;
 }) {
   const host = useHost();
   const coverArtId = track.coverArt?.trim() || undefined;
@@ -178,7 +189,22 @@ function DownloadingTrackRow({
           noWrapSecondary
           api={api}
           coverArtId={coverArtId}
-          resolveCachedArtwork={(coverArtIdArg) => host.libraryCache.readArtworkBlob(scope, coverArtIdArg)}
+          resolveCachedArtwork={(coverArtIdArg) => {
+            if (serverUrl && username) {
+              return createResolveCachedArtwork(
+                host.libraryCache,
+                serverUrl,
+                username,
+                scope.libraryId,
+              )(coverArtIdArg);
+            }
+            return host.libraryCache.readArtworkBlob(scope, coverArtIdArg);
+          }}
+          resolveArtworkLocalFile={
+            host.libraryCache.readArtworkLocalFile
+              ? (coverArtIdArg) => host.libraryCache.readArtworkLocalFile!(scope, coverArtIdArg)
+              : undefined
+          }
           persistCachedArtwork={createPersistCachedArtworkForScope(host.libraryCache, scope)}
           artworkCacheBump={0}
           artworkCacheKey={scopeKey(scope)}
@@ -327,6 +353,7 @@ function DownloadingJobCard({
               syntheticTrack(trackRef.key.trackId);
             const sk = scopeKey(trackRef.key.scope);
             const api = resources.apiByScopeKey.get(sk) ?? null;
+            const server = resources.serverByScopeKey.get(sk);
             return (
               <DownloadingTrackRow
                 key={`${trackRef.key.trackId}-${index}`}
@@ -335,6 +362,8 @@ function DownloadingJobCard({
                 scope={trackRef.key.scope}
                 api={api}
                 statusLabel={trackStatusLabel(status)}
+                serverUrl={server?.serverUrl}
+                username={server?.username}
               />
             );
           })}

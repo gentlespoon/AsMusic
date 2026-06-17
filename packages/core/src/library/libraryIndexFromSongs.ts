@@ -138,6 +138,23 @@ export function collectCoverArtIdsFromAlbums(albums: AlbumID3[]): string[] {
   return [...ids];
 }
 
+/** Track `coverArt` when present, otherwise album-derived cover (same as album grid). */
+export function resolveCoverArtIdForCachedSong(song: Child, albums: AlbumID3[]): string | undefined {
+  const track = song.coverArt?.trim();
+  if (track) return track;
+  return coverArtIdFromAlbumsForCachedSong(song, albums);
+}
+
+/** Distinct cover ids for background prefetch: album covers plus per-track overrides. */
+export function collectCoverArtIdsFromSongs(songs: Child[], albums: AlbumID3[]): string[] {
+  const ids = new Set<string>(collectCoverArtIdsFromAlbums(albums));
+  for (const song of songs) {
+    const id = resolveCoverArtIdForCachedSong(song, albums);
+    if (id) ids.add(id);
+  }
+  return [...ids];
+}
+
 /**
  * Full cached library as a flat list: album artist line, album title, disc/track, then title.
  * Matches a natural browse order alongside {@link albumsFromCachedSongs}.

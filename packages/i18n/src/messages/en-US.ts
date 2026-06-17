@@ -227,6 +227,11 @@ export const enUSMessages = {
   "offline.clearAll.confirmBody":
     "This removes every downloaded track from this device and cancels any in-progress download jobs.",
   "offline.clearAll.confirmTitle": "Clear all downloads?",
+  "offline.clearArtworkCache": "Clear artwork cache",
+  "offline.clearArtworkCache.busy": "Clearing…",
+  "offline.clearArtworkCache.confirmBody":
+    "This removes all cached cover images from this device. Cover art will load again when you browse or play music. Downloaded audio is not affected.",
+  "offline.clearArtworkCache.confirmTitle": "Clear artwork cache?",
   "offline.title": "Offline",
 
   "onboarding.activateLibrary.body":

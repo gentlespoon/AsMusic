@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useT } from "@asmusic/i18n";
-import { libraryCacheScope, localPlaylistTrackRefFromChild } from "@asmusic/core";
+import { CANONICAL_COVER_ART_SIZE, libraryCacheScope, localPlaylistTrackRefFromChild } from "@asmusic/core";
 import { useLibraryBrowseCache } from "../../contexts";
 import type { PlaylistCatalogRow } from "../../contexts/LibraryBrowseCacheContext";
 import { usePlayerActions } from "../../contexts/PlayerContext";
@@ -8,8 +8,6 @@ import { useServerAndLibrary } from "../../contexts/ServerAndLibraryContext";
 import { useHost } from "../../host/HostContext";
 import type { PlayerQueueItem } from "../core/types";
 import { playerQueueItemArtworkScope } from "../shared/resolvePlayerCachedArtwork";
-
-const REFRESH_COVER_ART_SIZE = 512;
 
 export type PlayerFullScreenTrackActions = {
   isStarred: boolean;
@@ -38,7 +36,7 @@ export function usePlayerFullScreenTrackActions(
   const t = useT();
   const host = useHost();
   const { getApiForServer } = useServerAndLibrary();
-  const { patchCurrentQueueItemStarred } = usePlayerActions();
+  const { patchCurrentQueueItemStarred, syncCurrentTrackNowPlayingArtwork } = usePlayerActions();
   const {
     setTrackStarred,
     playlistCatalogRows,
@@ -115,7 +113,7 @@ export function usePlayerFullScreenTrackActions(
         }
         const res = await api.getCoverArt({
           id: coverArtId,
-          size: REFRESH_COVER_ART_SIZE,
+          size: CANONICAL_COVER_ART_SIZE,
         });
         if (!res.ok) {
           throw new Error(t("player.coverArt.couldNotRefresh"));
@@ -132,6 +130,7 @@ export function usePlayerFullScreenTrackActions(
           mimeType,
         });
         notifyArtworkCached(artworkVersionKey(coverArtId, scope));
+        await syncCurrentTrackNowPlayingArtwork();
       } catch (e: unknown) {
         setRefreshCoverArtError(
           e instanceof Error ? e.message : t("player.coverArt.couldNotRefresh"),

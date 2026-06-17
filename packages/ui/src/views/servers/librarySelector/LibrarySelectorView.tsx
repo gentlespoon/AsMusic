@@ -26,8 +26,7 @@ export function LibrarySelectorView({ embedded = false }: LibrarySelectorViewPro
   const navigate = useNavigate();
   const { activeLibraryRefs } = useServerAndLibrary();
   const { rows, loadError, loading, servers } = useLibraryRows();
-  const { refreshingKey, refreshError, setRefreshError, refreshLibraryRow } =
-    useRefreshLibraryRow();
+  const { refreshingKey, refreshError, setRefreshError, refreshLibraryRow } = useRefreshLibraryRow();
   const cacheStatsByRowKey = useLibraryRowCacheStats(rows, loading, refreshingKey);
 
   const activeCount = useMemo(() => activeLibraryRefs.length, [activeLibraryRefs]);

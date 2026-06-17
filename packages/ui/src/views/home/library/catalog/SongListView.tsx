@@ -5,7 +5,7 @@ import Shuffle from "@mui/icons-material/Shuffle";
 import { useT } from "@asmusic/i18n";
 import { Box, IconButton, Stack, TextField, Tooltip, Typography } from "@mui/material";
 import {
-  coverArtIdFromAlbumsForCachedSong,
+  resolveCoverArtIdForCachedSong,
   isChildStarred,
   type LibraryArtworkCacheRow,
   type LibraryCacheScope,
@@ -36,7 +36,7 @@ export function SongListView({
   resolveCachedArtwork,
   persistCachedArtworkForScope,
   artworkVersionKey,
-  artworkVersionById,
+  getArtworkCacheBump,
   includeAlbumInSecondary = true,
   onPlaySong,
   onPlayNextSong,
@@ -61,9 +61,9 @@ export function SongListView({
     scope: LibraryCacheScope,
   ) => Promise<LibraryArtworkCacheRow | null>;
   persistCachedArtworkForScope: (scope: LibraryCacheScope) => PersistCachedArtwork;
-  /** Stable key into `artworkVersionById` for this cover id (default: cover id only). */
+  /** Stable key into artwork cache bump for this cover id (default: cover id only). */
   artworkVersionKey?: (coverArtId: string, scope: LibraryCacheScope) => string;
-  artworkVersionById: Record<string, number>;
+  getArtworkCacheBump: (coverArtId: string, scope: LibraryCacheScope) => number;
   includeAlbumInSecondary?: boolean;
   /** Primary row action: play this track next (insert after current + start it), without replacing the queue. */
   onPlaySong?: (entry: SongListEntry) => void;
@@ -112,10 +112,7 @@ export function SongListView({
     scope: LibraryCacheScope,
   ) => {
     if (!coverArtId) return 0;
-    const k = artworkVersionKey
-      ? artworkVersionKey(coverArtId, scope)
-      : coverArtId;
-    return artworkVersionById[k] ?? 0;
+    return getArtworkCacheBump(coverArtId, scope);
   };
 
   return (
@@ -206,7 +203,7 @@ export function SongListView({
               components={{ ...virtuosoComponents, List: VirtuosoMuiList }}
               computeItemKey={(_, entry) => entry.rowKey}
               itemContent={(_, entry) => {
-                const coverId = coverArtIdFromAlbumsForCachedSong(
+                const coverId = resolveCoverArtIdForCachedSong(
                   entry.song,
                   albums,
                 );

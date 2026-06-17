@@ -83,7 +83,6 @@ export function ArtistAlbumListView({
   syncing,
   resolveCachedArtwork,
   persistCachedArtwork,
-  artworkVersionById,
   coverArtCacheBump,
   scrollRestorationKey,
   allSongsTrackCount,
@@ -102,7 +101,6 @@ export function ArtistAlbumListView({
   syncing: boolean;
   resolveCachedArtwork: (coverArtId: string) => Promise<LibraryArtworkCacheRow | null>;
   persistCachedArtwork?: PersistCachedArtwork;
-  artworkVersionById: Record<string, number>;
   /** When artwork version keys are scoped (multi-library), map cover id to bump. */
   coverArtCacheBump?: (coverArtId: string | undefined) => number;
   onAlbumOpen: (album: AlbumID3) => void;
@@ -111,7 +109,7 @@ export function ArtistAlbumListView({
 }) {
   const t = useT();
   const { format } = useI18n();
-  const bumpFor = coverArtCacheBump ?? ((id: string | undefined) => (id ? artworkVersionById[id] ?? 0 : 0));
+  const bumpFor = coverArtCacheBump ?? (() => 0);
   const [search, setSearch] = useState('');
   const displayMode = useAlbumDisplayMode();
 

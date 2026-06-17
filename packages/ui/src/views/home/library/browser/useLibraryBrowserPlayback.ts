@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from 'react';
 import type { Child } from 'subsonic-api';
 import { useT } from '@asmusic/i18n';
-import { libraryCacheScope } from '@asmusic/core';
+import { libraryCacheScope, albumsFromCachedSongs, resolveCoverArtIdForCachedSong } from '@asmusic/core';
 import { usePlayerActions, useServerAndLibrary } from '../../../../contexts';
 import { playerQueueItemFromChild } from '../../../../player/core/playerQueueItemFromChild';
 import {
@@ -72,15 +72,20 @@ export function useLibraryBrowserPlayback(options: {
     (serverId: string, libraryId: string, song: Child) => {
       const meta = serverMetaById[serverId];
       if (!meta) return null;
+      const scope = libraryCacheScope(meta.serverUrl, meta.username, libraryId);
+      const songs = songsByScope.get(`${scope.serverKey}|${libraryId}`) ?? [];
+      const albums = albumsFromCachedSongs(songs);
+      const coverArtId = resolveCoverArtIdForCachedSong(song, albums);
       return playerQueueItemFromChild({
         song,
         serverId,
         libraryId,
         serverUrl: meta.serverUrl,
         username: meta.username,
+        coverArtId,
       });
     },
-    [serverMetaById]
+    [serverMetaById, songsByScope]
   );
 
   const playSongEntryNow = useCallback(

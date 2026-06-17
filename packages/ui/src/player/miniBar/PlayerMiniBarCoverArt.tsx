@@ -3,12 +3,13 @@ import type { SubsonicAPI } from "@asmusic/core";
 import { CoverArtThumb } from "../../shared/CoverArtThumb";
 import { useHost } from "../../host/HostContext";
 import type { PlayerQueueItem } from "../core/types";
+import { usePlayerArtworkCacheKey } from "../shared/usePlayerArtworkCacheKey";
+import { usePlayerCoverArtCacheBump } from "../shared/usePlayerCoverArtCacheBump";
 import {
-  playerQueueItemArtworkCacheKey,
   persistPlayerCachedArtwork,
+  resolvePlayerArtworkLocalFile,
   resolvePlayerCachedArtwork,
 } from "../shared/resolvePlayerCachedArtwork";
-import { usePlayerCoverArtCacheBump } from "../shared/usePlayerCoverArtCacheBump";
 
 const COVER_SIZE = 40;
 
@@ -20,6 +21,7 @@ export type PlayerMiniBarCoverArtProps = {
 export function PlayerMiniBarCoverArt({ item, api }: PlayerMiniBarCoverArtProps) {
   const host = useHost();
   const artworkCacheBump = usePlayerCoverArtCacheBump(item);
+  const artworkCacheKey = usePlayerArtworkCacheKey(item);
 
   return (
     <Box
@@ -37,8 +39,9 @@ export function PlayerMiniBarCoverArt({ item, api }: PlayerMiniBarCoverArtProps)
           api={api ?? undefined}
           coverArtId={item.coverArtId}
           resolveCachedArtwork={resolvePlayerCachedArtwork(host.libraryCache, item)}
+          resolveArtworkLocalFile={resolvePlayerArtworkLocalFile(host.libraryCache, item)}
           persistCachedArtwork={persistPlayerCachedArtwork(host.libraryCache, item)}
-          artworkCacheKey={playerQueueItemArtworkCacheKey(item)}
+          artworkCacheKey={artworkCacheKey}
           artworkCacheBump={artworkCacheBump}
           size={COVER_SIZE}
           label=""

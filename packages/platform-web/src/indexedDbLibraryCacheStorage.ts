@@ -338,6 +338,15 @@ function clearArtworkDb(db: IDBDatabase, serverKey: string, libraryId: string): 
   return clearObjectStoreByScope(db, 'artworks', 'byScopeArtwork', serverKey, libraryId);
 }
 
+function purgeAllArtworkDb(db: IDBDatabase): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('artworks', 'readwrite');
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error ?? new Error('IndexedDB purgeAllArtwork tx failed'));
+    tx.objectStore('artworks').clear();
+  });
+}
+
 function putArtworkBlobDb(
   db: IDBDatabase,
   serverKey: string,
@@ -500,6 +509,10 @@ export function createIndexedDbLibraryCacheStorage(): LibraryCacheStorage {
     async clearArtworkCache(scope) {
       const db = await openDb();
       await clearArtworkDb(db, scope.serverKey, scope.libraryId);
+    },
+    async purgeAllArtworkCache() {
+      const db = await openDb();
+      await purgeAllArtworkDb(db);
     },
     async putArtworkBlob(scope, entry) {
       const db = await openDb();

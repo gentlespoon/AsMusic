@@ -13,6 +13,9 @@ export type SongItemProps = {
   resolveCachedArtwork: (
     coverArtId: string,
   ) => Promise<LibraryArtworkCacheRow | null>;
+  resolveArtworkLocalFile?: (
+    coverArtId: string,
+  ) => Promise<{ localFilePath: string; mimeType: string } | null>;
   persistCachedArtwork?: PersistCachedArtwork;
   artworkCacheBump: number;
   /** Scope/library disambiguator for shared cover-art object URL cache. */
@@ -42,6 +45,9 @@ export type SongItemMainProps = {
   resolveCachedArtwork: (
     coverArtId: string,
   ) => Promise<LibraryArtworkCacheRow | null>;
+  resolveArtworkLocalFile?: (
+    coverArtId: string,
+  ) => Promise<{ localFilePath: string; mimeType: string } | null>;
   persistCachedArtwork?: PersistCachedArtwork;
   artworkCacheBump: number;
   artworkCacheKey?: string;

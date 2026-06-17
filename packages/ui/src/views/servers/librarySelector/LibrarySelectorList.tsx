@@ -54,31 +54,33 @@ export function LibrarySelectorList({
             divider
             sx={{ alignItems: 'center', maxWidth: '100%' }}
             secondaryAction={
-              <Tooltip
-                title={
-                  checked
-                    ? t('servers.libraries.refresh')
-                    : t('servers.libraries.activateToRefresh')
-                }
-              >
-                <span>
-                  <IconButton
-                    edge="end"
-                    aria-label={t('servers.libraries.refreshAria', { name: row.libraryName })}
-                    disabled={refreshDisabled}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onRefreshRow(row);
-                    }}
-                  >
-                    {rowRefreshing ? (
-                      <CircularProgress size={20} color="inherit" />
-                    ) : (
-                      <Refresh sx={{ fontSize: 20 }} />
-                    )}
-                  </IconButton>
-                </span>
-              </Tooltip>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+                <Tooltip
+                  title={
+                    checked
+                      ? t('servers.libraries.refresh')
+                      : t('servers.libraries.activateToRefresh')
+                  }
+                >
+                  <span>
+                    <IconButton
+                      edge="end"
+                      aria-label={t('servers.libraries.refreshAria', { name: row.libraryName })}
+                      disabled={refreshDisabled}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onRefreshRow(row);
+                      }}
+                    >
+                      {rowRefreshing ? (
+                        <CircularProgress size={20} color="inherit" />
+                      ) : (
+                        <Refresh sx={{ fontSize: 20 }} />
+                      )}
+                    </IconButton>
+                  </span>
+                </Tooltip>
+              </Box>
             }
           >
             <ListItemButton

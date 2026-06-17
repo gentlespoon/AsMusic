@@ -26,7 +26,7 @@ import { PageCloseButton } from "../../shared/PageCloseButton";
 import { DownloadedSongListView } from "./DownloadedSongListView";
 import { DownloadingSongListView } from "./DownloadingSongListView";
 import { useHost } from "../../host/HostContext";
-import { useActiveLibraryScopes } from "../../contexts";
+import { useActiveLibraryScopes, useLibraryBrowseCache } from "../../contexts";
 import { useOfflineDownload } from "../../contexts/OfflineDownloadContext";
 import { libraryFlexFillSx } from "../../shared/LibraryVirtuosoFill";
 import { playerDockPaddingBottomSx } from "../../player/core/constants";
@@ -39,6 +39,7 @@ export function OfflineDownloadedView() {
   const navigate = useNavigate();
   const host = useHost();
   const activeScopes = useActiveLibraryScopes();
+  const { clearAllArtworkCache } = useLibraryBrowseCache();
   const { cancelAllJobs } = useOfflineDownload();
   const [tab, setTab] = useState(0);
   const [activeBytes, setActiveBytes] = useState<number | null>(null);
@@ -46,7 +47,9 @@ export function OfflineDownloadedView() {
   const [listReloadNonce, setListReloadNonce] = useState(0);
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
   const [clearTarget, setClearTarget] = useState<ClearTarget | null>(null);
+  const [clearArtworkOpen, setClearArtworkOpen] = useState(false);
   const [clearBusy, setClearBusy] = useState(false);
+  const [clearArtworkBusy, setClearArtworkBusy] = useState(false);
 
   const refreshTotalBytes = useCallback(() => {
     void Promise.all([
@@ -111,6 +114,16 @@ export function OfflineDownloadedView() {
       setClearBusy(false);
     }
   }, [cancelAllJobs, host, refreshTotalBytes]);
+
+  const handleClearArtworkCache = useCallback(async () => {
+    setClearArtworkBusy(true);
+    try {
+      await clearAllArtworkCache();
+      setClearArtworkOpen(false);
+    } finally {
+      setClearArtworkBusy(false);
+    }
+  }, [clearAllArtworkCache]);
 
   const confirmOpen = clearTarget != null;
   const confirmTitle =
@@ -229,6 +242,17 @@ export function OfflineDownloadedView() {
                 </span>
               </Tooltip>
             </MenuItem>
+            <MenuItem
+              onClick={() => {
+                setMenuAnchor(null);
+                setClearArtworkOpen(true);
+              }}
+            >
+              <ListItemText
+                primary={t("offline.clearArtworkCache")}
+                slotProps={{ primary: { variant: "body2" } }}
+              />
+            </MenuItem>
           </Menu>
         </Toolbar>
       </AppBar>
@@ -311,6 +335,29 @@ export function OfflineDownloadedView() {
             }
           >
             {clearBusy ? confirmBusyLabel : t("common.clear")}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={clearArtworkOpen}
+        onClose={() => !clearArtworkBusy && setClearArtworkOpen(false)}
+      >
+        <DialogTitle>{t("offline.clearArtworkCache.confirmTitle")}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">{t("offline.clearArtworkCache.confirmBody")}</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setClearArtworkOpen(false)} disabled={clearArtworkBusy}>
+            {t("common.cancel")}
+          </Button>
+          <Button
+            color="error"
+            variant="contained"
+            disabled={clearArtworkBusy}
+            onClick={() => void handleClearArtworkCache()}
+          >
+            {clearArtworkBusy ? t("offline.clearArtworkCache.busy") : t("common.clear")}
           </Button>
         </DialogActions>
       </Dialog>

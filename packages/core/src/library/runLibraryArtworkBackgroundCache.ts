@@ -1,9 +1,9 @@
 import type { SubsonicAPI } from '../api/client';
+import { CANONICAL_COVER_ART_SIZE } from './constants';
 import type { LibraryCacheScope } from './cacheScope';
 import type { LibraryArtworkCacheRow, LibraryCacheStorage } from './storage/LibraryCacheStorage';
 
 const DEFAULT_MIME = 'image/jpeg';
-const COVER_ART_SIZE = 320;
 const DEFAULT_COVER_ART_REQUESTS_PER_SECOND = 5;
 
 /** Limits how often workers may start a new HTTP request (avoids 429 during bulk cache). */
@@ -75,9 +75,12 @@ export async function runLibraryArtworkBackgroundCache(
   await runPoolVoid(coverArtIds, concurrency, async (coverArtId) => {
     if (signal?.aborted) return;
     try {
+      const existing = await storage.readArtworkBlob(scope, coverArtId);
+      if (existing?.data?.byteLength) return;
+
       await acquireRequestSlot();
       if (signal?.aborted) return;
-      const res = await api.getCoverArt({ id: coverArtId, size: COVER_ART_SIZE });
+      const res = await api.getCoverArt({ id: coverArtId, size: CANONICAL_COVER_ART_SIZE });
       if (signal?.aborted || !res.ok) return;
       const buf = new Uint8Array(await res.arrayBuffer());
       if (buf.length === 0) return;

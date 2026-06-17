@@ -227,6 +227,11 @@ export const jaJPMessages = {
   "offline.clearAll.confirmBody":
     "このデバイスからダウンロード済みの曲をすべて削除し、進行中のダウンロードジョブをキャンセルします。",
   "offline.clearAll.confirmTitle": "ダウンロードをすべて削除しますか？",
+  "offline.clearArtworkCache": "アートワークのキャッシュを削除",
+  "offline.clearArtworkCache.busy": "削除中…",
+  "offline.clearArtworkCache.confirmBody":
+    "このデバイスにキャッシュされたすべてのカバー画像を削除します。閲覧や再生時に再度読み込まれます。ダウンロード済みの音声には影響しません。",
+  "offline.clearArtworkCache.confirmTitle": "アートワークのキャッシュを削除しますか？",
   "offline.title": "オフライン",
 
   "onboarding.activateLibrary.body":

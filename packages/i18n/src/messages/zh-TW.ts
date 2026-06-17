@@ -218,6 +218,11 @@ export const zhTWMessages = {
   "offline.clearAll.confirmBody":
     "將刪除本裝置上的全部已下載曲目，並取消進行中的下載工作。",
   "offline.clearAll.confirmTitle": "清空全部下載？",
+  "offline.clearArtworkCache": "清空封面快取",
+  "offline.clearArtworkCache.busy": "正在清空…",
+  "offline.clearArtworkCache.confirmBody":
+    "這會刪除本裝置上所有已快取的封面圖片。瀏覽或播放音樂時會重新載入封面。不會影響已下載的音訊。",
+  "offline.clearArtworkCache.confirmTitle": "清空封面快取？",
   "offline.title": "離線",
 
   "onboarding.activateLibrary.body":

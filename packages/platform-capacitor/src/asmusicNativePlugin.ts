@@ -31,6 +31,10 @@ export interface AsmusicNativePlugin {
     artworkUrl?: string | null;
     artworkDataBase64?: string | null;
   }): Promise<void>;
+  playbackUpdateArtwork(options: {
+    artworkUrl?: string | null;
+    artworkDataBase64?: string | null;
+  }): Promise<void>;
   playbackPlay(): Promise<void>;
   playbackPause(): Promise<void>;
   playbackSeek(options: { positionSeconds: number }): Promise<void>;
@@ -81,16 +85,29 @@ export interface AsmusicNativePlugin {
   /** Remove all library cache rows for this account `serverKey` (all music folders). */
   libraryCachePurgeServerAccount(options: { serverKey: string }): Promise<void>;
   libraryCacheClearArtwork(options: { serverKey: string; libraryId: string }): Promise<void>;
+  libraryCachePurgeAllArtwork(): Promise<void>;
   libraryCachePutArtworkBatch(options: {
     serverKey: string;
     libraryId: string;
     entriesJson: string;
+  }): Promise<void>;
+  libraryCachePutArtworkBlob(options: {
+    serverKey: string;
+    libraryId: string;
+    coverArtId: string;
+    mimeType: string;
+    base64: string;
   }): Promise<void>;
   libraryCacheReadArtworkBlob(options: {
     serverKey: string;
     libraryId: string;
     coverArtId: string;
   }): Promise<{ mimeType: string | null; base64: string | null }>;
+  libraryCacheMaterializeArtworkFile(options: {
+    serverKey: string;
+    libraryId: string;
+    coverArtId: string;
+  }): Promise<{ localFilePath: string | null; mimeType: string | null }>;
   offlineMediaImportFromUrl(options: {
     serverKey: string;
     libraryId: string;

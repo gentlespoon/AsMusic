@@ -4,6 +4,7 @@ import {
   type LibraryCacheScope,
   type LibraryCacheStorage,
 } from '@asmusic/core';
+import { createResolveCachedArtwork } from '../../shared/createResolveCachedArtwork';
 import {
   createPersistCachedArtworkForScope,
   type PersistCachedArtwork,
@@ -14,22 +15,31 @@ export function playerQueueItemArtworkScope(item: PlayerQueueItem): LibraryCache
   return libraryCacheScope(item.serverUrl, item.username, item.libraryId);
 }
 
-export function playerQueueItemArtworkCacheKey(item: PlayerQueueItem): string {
-  const scope = playerQueueItemArtworkScope(item);
-  return `${scope.serverKey}|${scope.libraryId}`;
-}
-
 export function resolvePlayerCachedArtwork(
   libraryCache: LibraryCacheStorage,
   item: PlayerQueueItem,
 ): (coverArtId: string) => Promise<LibraryArtworkCacheRow | null> {
+  return createResolveCachedArtwork(
+    libraryCache,
+    item.serverUrl,
+    item.username,
+    item.libraryId,
+  );
+}
+
+export function resolvePlayerArtworkLocalFile(
+  libraryCache: LibraryCacheStorage,
+  item: PlayerQueueItem,
+): ((coverArtId: string) => Promise<{ localFilePath: string; mimeType: string } | null>) | undefined {
+  if (!libraryCache.readArtworkLocalFile) return undefined;
   const scope = playerQueueItemArtworkScope(item);
-  return (coverArtId) => libraryCache.readArtworkBlob(scope, coverArtId);
+  return (coverArtId) => libraryCache.readArtworkLocalFile!(scope, coverArtId);
 }
 
 export function persistPlayerCachedArtwork(
   libraryCache: LibraryCacheStorage,
   item: PlayerQueueItem,
 ): PersistCachedArtwork {
-  return createPersistCachedArtworkForScope(libraryCache, playerQueueItemArtworkScope(item));
+  const scope = playerQueueItemArtworkScope(item);
+  return createPersistCachedArtworkForScope(libraryCache, scope);
 }

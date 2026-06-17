@@ -20,6 +20,11 @@ export type LibraryArtworkCacheRow = {
   mimeType: string;
 };
 
+export type LibraryArtworkLocalFile = {
+  localFilePath: string;
+  mimeType: string;
+};
+
 /**
  * Platform library persistence. UI and sync logic depend only on this contract;
  * IndexedDB, SQLite (plugin), etc. live behind implementations.
@@ -46,9 +51,19 @@ export interface LibraryCacheStorage {
   replacePlaylistSummaries(scope: LibraryCacheScope, playlists: LibraryPlaylistSummary[]): Promise<void>;
   /** Removes all cached artwork for the scope (e.g. before a background refill). */
   clearArtworkCache(scope: LibraryCacheScope): Promise<void>;
+  /** Removes all cached artwork across every library scope. */
+  purgeAllArtworkCache(): Promise<void>;
   /** Upserts one cover-art blob for the scope. */
   putArtworkBlob(scope: LibraryCacheScope, entry: LibraryArtworkCacheRow): Promise<void>;
   readArtworkBlob(scope: LibraryCacheScope, coverArtId: string): Promise<LibraryArtworkCacheRow | null>;
+  /**
+   * iOS-native: materialize cached artwork to a local file and return its path.
+   * When absent, callers read bytes via {@link readArtworkBlob}.
+   */
+  readArtworkLocalFile?(
+    scope: LibraryCacheScope,
+    coverArtId: string,
+  ): Promise<LibraryArtworkLocalFile | null>;
   deleteScope(scope: LibraryCacheScope): Promise<void>;
   /**
    * Remove every row for this account server key (from `serverAccountKey()` in `@asmusic/core`) across all music folders.

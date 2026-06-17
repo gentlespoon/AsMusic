@@ -24,18 +24,13 @@ export function getApiInstanceKey(api: SubsonicAPI): string {
 
 export function buildCoverArtCacheKey(
   coverArtId: string,
-  size: number,
   artworkCacheBump: number,
   context: { api?: SubsonicAPI | null; artworkCacheKey?: string },
 ): string | null {
   const { api, artworkCacheKey } = context;
-  const ownerKey = api
-    ? getApiInstanceKey(api)
-    : artworkCacheKey
-      ? `local:${artworkCacheKey}`
-      : null;
+  const ownerKey = artworkCacheKey ?? (api ? getApiInstanceKey(api) : null);
   if (!ownerKey) return null;
-  return [ownerKey, artworkCacheKey ?? '', coverArtId, String(size), String(artworkCacheBump)].join('|');
+  return [ownerKey, coverArtId, String(artworkCacheBump)].join('|');
 }
 
 export function peekCoverArtUrl(key: string): string | null {
@@ -118,4 +113,12 @@ function evictIfNeeded(): void {
     URL.revokeObjectURL(entry.url);
     cache.delete(key);
   }
+}
+
+/** Revokes all in-memory blob URLs (e.g. after a global artwork cache purge). */
+export function clearCoverArtObjectUrlCache(): void {
+  for (const [, entry] of cache) {
+    if (entry.url) URL.revokeObjectURL(entry.url);
+  }
+  cache.clear();
 }

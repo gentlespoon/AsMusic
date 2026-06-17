@@ -25,6 +25,7 @@ import { PlaylistListView } from './playlists/PlaylistListView';
 import { useHost } from '../../../host/HostContext';
 import { useLibraryBrowseCache } from '../../../contexts';
 import { createPersistCachedArtworkForScope } from '../../../shared/libraryArtworkCacheAccess';
+import { createResolveCachedArtwork } from '../../../shared/createResolveCachedArtwork';
 import { ActiveScopeGate } from './browser/ActiveScopeGate';
 import {
   defaultLibraryBrowserView,
@@ -86,8 +87,8 @@ export function LibraryBrowser() {
     syncError,
     syncProgress,
     apiForServer,
-    artworkVersionById,
     artworkVersionKey,
+    getArtworkCacheBump,
     notifyArtworkCached,
     setTrackStarred,
   } = useLibraryBrowseCache();
@@ -116,13 +117,26 @@ export function LibraryBrowser() {
   const { tab, album: albumSongScope, artist: artistAlbumScope, playlist: playlistScope } = view;
 
   const resolveCachedArtworkForScope = useCallback(
-    (sc: LibraryCacheScope, coverArtId: string) => host.libraryCache.readArtworkBlob(sc, coverArtId),
-    [host.libraryCache]
+    (sc: LibraryCacheScope, coverArtId: string) => {
+      const sl = slices.find(
+        (s) => s.scope.serverKey === sc.serverKey && s.scope.libraryId === sc.libraryId,
+      );
+      if (!sl) {
+        return host.libraryCache.readArtworkBlob(sc, coverArtId);
+      }
+      return createResolveCachedArtwork(
+        host.libraryCache,
+        sl.serverUrl,
+        sl.username,
+        sc.libraryId,
+      )(coverArtId);
+    },
+    [host.libraryCache, slices],
   );
 
   const resolveCachedArtwork = useCallback(
     (coverArtId: string, sc: LibraryCacheScope) => resolveCachedArtworkForScope(sc, coverArtId),
-    [resolveCachedArtworkForScope]
+    [resolveCachedArtworkForScope],
   );
 
   const persistCachedArtworkForScope = useCallback(
@@ -405,9 +419,8 @@ export function LibraryBrowser() {
               syncing={syncing}
               resolveCachedArtwork={(id) => resolveCachedArtworkForScope(resolvedArtist.slice.scope, id)}
               persistCachedArtwork={persistCachedArtworkForScope(resolvedArtist.slice.scope)}
-              artworkVersionById={artworkVersionById}
               coverArtCacheBump={(id) =>
-                id ? artworkVersionById[artworkVersionKey(id, resolvedArtist.slice.scope)] ?? 0 : 0
+                id ? getArtworkCacheBump(id, resolvedArtist.slice.scope) : 0
               }
               onAlbumOpen={(album) =>
                 openAlbum({
@@ -431,8 +444,8 @@ export function LibraryBrowser() {
               syncing={syncing}
               resolveCachedArtworkForScope={resolveCachedArtworkForScope}
               persistCachedArtworkForScope={persistCachedArtworkForScope}
+              getArtworkCacheBump={getArtworkCacheBump}
               artworkVersionKey={artworkVersionKey}
-              artworkVersionById={artworkVersionById}
               onAlbumOpen={openAlbum}
             />
           ))}
@@ -482,8 +495,7 @@ export function LibraryBrowser() {
               syncing={syncing}
               resolveCachedArtworkForScope={resolveCachedArtworkForScope}
               persistCachedArtworkForScope={persistCachedArtworkForScope}
-              artworkVersionById={artworkVersionById}
-              artworkVersionKey={artworkVersionKey}
+              getArtworkCacheBump={getArtworkCacheBump}
               onBack={popPlaylistView}
               onPlayResolvedRow={playLocalResolvedRow}
               onPlayNextResolvedRow={playNextLocalResolvedRow}
@@ -508,10 +520,10 @@ export function LibraryBrowser() {
               syncing={syncing}
               resolveCachedArtwork={(id) => resolveCachedArtworkForScope(resolvedPlaylist.slice.scope, id)}
               persistCachedArtwork={persistCachedArtworkForScope(resolvedPlaylist.slice.scope)}
-              artworkVersionById={artworkVersionById}
               coverArtCacheBump={(id) =>
-                id ? artworkVersionById[artworkVersionKey(id, resolvedPlaylist.slice.scope)] ?? 0 : 0
+                id ? getArtworkCacheBump(id, resolvedPlaylist.slice.scope) : 0
               }
+              artworkCacheKeyFor={(id) => artworkVersionKey(id, resolvedPlaylist.slice.scope)}
               serverId={resolvedPlaylist.slice.serverId}
               libraryId={resolvedPlaylist.slice.libraryId}
               onBack={popPlaylistView}
@@ -563,7 +575,7 @@ export function LibraryBrowser() {
             resolveCachedArtwork={resolveCachedArtwork}
             persistCachedArtworkForScope={persistCachedArtworkForScope}
             artworkVersionKey={artworkVersionKey}
-            artworkVersionById={artworkVersionById}
+            getArtworkCacheBump={getArtworkCacheBump}
             scrollRestorationKey="lb:favorites"
             panelId="library-panel-favorites"
             ariaLabelledBy="library-tab-favorites"
@@ -592,10 +604,10 @@ export function LibraryBrowser() {
               syncing={syncing}
               resolveCachedArtwork={(id) => resolveCachedArtworkForScope(resolvedAlbum.slice.scope, id)}
               persistCachedArtwork={persistCachedArtworkForScope(resolvedAlbum.slice.scope)}
-              artworkVersionById={artworkVersionById}
               coverArtCacheBump={(id) =>
-                id ? artworkVersionById[artworkVersionKey(id, resolvedAlbum.slice.scope)] ?? 0 : 0
+                id ? getArtworkCacheBump(id, resolvedAlbum.slice.scope) : 0
               }
+              artworkCacheKeyFor={(id) => artworkVersionKey(id, resolvedAlbum.slice.scope)}
               serverId={resolvedAlbum.slice.serverId}
               libraryId={resolvedAlbum.slice.libraryId}
               onPlayTrack={(t) => playTrackNow(resolvedAlbum.slice.serverId, resolvedAlbum.slice.libraryId, t)}
@@ -617,10 +629,10 @@ export function LibraryBrowser() {
               syncing={syncing}
               resolveCachedArtwork={(id) => resolveCachedArtworkForScope(resolvedArtist.slice.scope, id)}
               persistCachedArtwork={persistCachedArtworkForScope(resolvedArtist.slice.scope)}
-              artworkVersionById={artworkVersionById}
               coverArtCacheBump={(id) =>
-                id ? artworkVersionById[artworkVersionKey(id, resolvedArtist.slice.scope)] ?? 0 : 0
+                id ? getArtworkCacheBump(id, resolvedArtist.slice.scope) : 0
               }
+              artworkCacheKeyFor={(id) => artworkVersionKey(id, resolvedArtist.slice.scope)}
               onPlayTrack={(t) => playTrackNow(resolvedArtist.slice.serverId, resolvedArtist.slice.libraryId, t)}
               onPlayNextTrack={(t) => playNextForTrack(resolvedArtist.slice.serverId, resolvedArtist.slice.libraryId, t)}
               onAppendTrackToQueue={(t) => appendForTrack(resolvedArtist.slice.serverId, resolvedArtist.slice.libraryId, t)}
@@ -645,7 +657,7 @@ export function LibraryBrowser() {
               resolveCachedArtwork={resolveCachedArtwork}
               persistCachedArtworkForScope={persistCachedArtworkForScope}
               artworkVersionKey={artworkVersionKey}
-              artworkVersionById={artworkVersionById}
+              getArtworkCacheBump={getArtworkCacheBump}
               onPlaySong={playSongEntryNow}
               onPlayNextSong={playNextForSongEntry}
               onAppendSongToQueue={appendForSongEntry}

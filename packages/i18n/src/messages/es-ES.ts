@@ -230,6 +230,11 @@ export const esESMessages = {
   "offline.clearAll.confirmBody":
     "Se eliminarán todas las pistas descargadas de este dispositivo y se cancelarán las descargas en curso.",
   "offline.clearAll.confirmTitle": "¿Borrar todas las descargas?",
+  "offline.clearArtworkCache": "Borrar caché de portadas",
+  "offline.clearArtworkCache.busy": "Borrando…",
+  "offline.clearArtworkCache.confirmBody":
+    "Esto elimina todas las portadas en caché de este dispositivo. Las portadas se volverán a cargar al explorar o reproducir música. No afecta al audio descargado.",
+  "offline.clearArtworkCache.confirmTitle": "¿Borrar caché de portadas?",
   "offline.title": "Sin conexión",
 
   "onboarding.activateLibrary.body":

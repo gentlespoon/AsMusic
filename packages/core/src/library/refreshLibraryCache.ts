@@ -27,7 +27,7 @@ export type LibraryRefreshProgress =
  * removed tracks (offline downloads when {@link RefreshLibraryCacheOptions.offlineMedia} is provided; library
  * songs via {@link LibraryCacheStorage.replaceSongList}). Derived artist/album index rows stay intact until
  * {@link LibraryCacheStorage.replaceSongList} atomically replaces songs and rebuilds those indexes from the new
- * song list. Cover art is filled separately via {@link runLibraryArtworkBackgroundCache}.
+ * song list. Cover art is loaded on demand by the UI when thumbnails are shown.
  */
 export async function refreshLibraryCache(
   api: SubsonicAPI,

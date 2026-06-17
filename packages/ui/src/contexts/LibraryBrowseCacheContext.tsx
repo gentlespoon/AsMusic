@@ -17,8 +17,6 @@ import {
   artistsFromCachedSongs,
   isChildStarred,
   refreshLibraryCache,
-  collectCoverArtIdsFromAlbums,
-  runLibraryArtworkBackgroundCache,
   fetchMusicFolders,
   type LibraryCacheScope,
   refreshPlaylistSummariesOnly,
@@ -36,6 +34,7 @@ import {
 import { useT } from '@asmusic/i18n';
 import { useHost } from '../host/HostContext';
 import { useServerAndLibrary } from './ServerAndLibraryContext';
+import { clearCoverArtObjectUrlCache } from '../shared/coverArtObjectUrlCache';
 import type { AlbumCatalogRow } from '../views/home/library/catalog/AlbumListView';
 import type { ArtistCatalogRow } from '../views/home/library/catalog/ArtistListView';
 import type { SongListEntry } from '../views/home/library/catalog/SongListView';
@@ -75,6 +74,7 @@ export function libraryRefKey(serverId: string, libraryId: string): string {
 
 /** Minimum interval between artwork-driven library UI re-renders during background cache fill. */
 const ARTWORK_UI_RENDER_COOLDOWN_MS = 5000;
+const MAX_ARTWORK_VERSION_ENTRIES = 2000;
 
 export type LibraryBrowseScopeRow = {
   serverId: string;
@@ -109,10 +109,12 @@ type LibraryBrowseCacheContextValue = {
   syncProgress: LibraryRefreshProgress | null;
   runRefresh: () => Promise<void>;
   reloadCachedSongsFromDisk: () => Promise<void>;
+  clearAllArtworkCache: () => Promise<void>;
   apiByServerId: Record<string, SubsonicAPI | null>;
   apiForServer: (serverId: string) => SubsonicAPI | null;
   artworkVersionById: Record<string, number>;
   artworkVersionKey: (coverArtId: string, sc: LibraryCacheScope) => string;
+  getArtworkCacheBump: (coverArtId: string, sc: LibraryCacheScope) => number;
   notifyArtworkCached: (key: string) => void;
   libraryDisplayName: (serverId: string, libraryId: string) => string;
   serverDisplayName: (serverId: string) => string;
@@ -191,6 +193,7 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
   const [syncError, setSyncError] = useState<string | null>(null);
   const [syncProgress, setSyncProgress] = useState<LibraryRefreshProgress | null>(null);
   const [artworkVersionById, setArtworkVersionById] = useState<Record<string, number>>({});
+  const [artworkCacheEpoch, setArtworkCacheEpoch] = useState(0);
   const [apiByServerId, setApiByServerId] = useState<Record<string, SubsonicAPI | null>>({});
   const [libraryNameByKey, setLibraryNameByKey] = useState<Record<string, string>>({});
   const [localPlaylistSummaries, setLocalPlaylistSummaries] = useState<LocalPlaylistSummary[]>([]);
@@ -209,15 +212,23 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
     [host.localPlaylists]
   );
 
-  const artworkAbortRef = useRef<AbortController | null>(null);
   const artworkPendingRef = useRef<Record<string, number>>({});
   const artworkFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const artworkLastFlushAtRef = useRef(0);
+  const artworkVersionLastTouchedRef = useRef<Record<string, number>>({});
 
   const artworkVersionKey = useCallback(
     (coverArtId: string, sc: LibraryCacheScope) =>
       multiLibrary ? `${sc.serverKey}|${sc.libraryId}|${coverArtId}` : coverArtId,
-    [multiLibrary]
+    [multiLibrary],
+  );
+
+  const getArtworkCacheBump = useCallback(
+    (coverArtId: string, sc: LibraryCacheScope) => {
+      const key = artworkVersionKey(coverArtId, sc);
+      return (artworkVersionById[key] ?? 0) + artworkCacheEpoch;
+    },
+    [artworkVersionById, artworkCacheEpoch, artworkVersionKey],
   );
 
   const libraryDisplayName = useCallback(
@@ -465,6 +476,7 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
     }
     artworkPendingRef.current = {};
     artworkLastFlushAtRef.current = 0;
+    artworkVersionLastTouchedRef.current = {};
   }, []);
 
   const flushPendingArtworkVersions = useCallback(() => {
@@ -477,10 +489,23 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
     if (keys.length === 0) return;
     artworkPendingRef.current = {};
     artworkLastFlushAtRef.current = Date.now();
+    const now = Date.now();
     setArtworkVersionById((prev) => {
       const next = { ...prev };
+      const touched = artworkVersionLastTouchedRef.current;
       for (const k of keys) {
         next[k] = (next[k] ?? 0) + pending[k]!;
+        touched[k] = now;
+      }
+      const entries = Object.keys(next);
+      if (entries.length > MAX_ARTWORK_VERSION_ENTRIES) {
+        const sorted = entries.sort((a, b) => (touched[a] ?? 0) - (touched[b] ?? 0));
+        const removeCount = entries.length - MAX_ARTWORK_VERSION_ENTRIES;
+        for (let i = 0; i < removeCount; i++) {
+          const key = sorted[i]!;
+          delete next[key];
+          delete touched[key];
+        }
       }
       return next;
     });
@@ -489,6 +514,7 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
   const notifyArtworkCached = useCallback(
     (key: string) => {
       artworkPendingRef.current[key] = (artworkPendingRef.current[key] ?? 0) + 1;
+      artworkVersionLastTouchedRef.current[key] = Date.now();
       const elapsed = Date.now() - artworkLastFlushAtRef.current;
       if (artworkLastFlushAtRef.current === 0 || elapsed >= ARTWORK_UI_RENDER_COOLDOWN_MS) {
         flushPendingArtworkVersions();
@@ -504,12 +530,9 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
   );
 
   useEffect(() => {
-    artworkAbortRef.current?.abort();
-    artworkAbortRef.current = null;
     clearArtworkVersionThrottle();
     setArtworkVersionById({});
     return () => {
-      artworkAbortRef.current?.abort();
       clearArtworkVersionThrottle();
     };
   }, [scopesKey, host.libraryCache, clearArtworkVersionThrottle]);
@@ -532,12 +555,17 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
 
   const apiForServer = useCallback((serverId: string) => apiByServerId[serverId] ?? null, [apiByServerId]);
 
+  const clearAllArtworkCache = useCallback(async () => {
+    await host.libraryCache.purgeAllArtworkCache();
+    clearCoverArtObjectUrlCache();
+    clearArtworkVersionThrottle();
+    setArtworkVersionById({});
+    setArtworkCacheEpoch((epoch) => epoch + 1);
+  }, [host.libraryCache, clearArtworkVersionThrottle]);
+
   const runRefresh = useCallback(async () => {
     if (scopesToLoad.length === 0) return;
-    artworkAbortRef.current?.abort();
     clearArtworkVersionThrottle();
-    const ac = new AbortController();
-    artworkAbortRef.current = ac;
 
     setSyncing(true);
     setSyncError(null);
@@ -563,15 +591,6 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
           songs,
           playlists,
         });
-
-        const derivedAlbums = albumsFromCachedSongs(songs);
-        const ids = collectCoverArtIdsFromAlbums(derivedAlbums);
-        void runLibraryArtworkBackgroundCache(api, host.libraryCache, sl.scope, ids, {
-          signal: ac.signal,
-          onArtworkCached: (coverArtId) => {
-            notifyArtworkCached(artworkVersionKey(coverArtId, sl.scope));
-          },
-        });
       }
 
       setSlices(built);
@@ -581,7 +600,7 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
       setSyncing(false);
       setSyncProgress(null);
     }
-  }, [scopesToLoad, getApiForServer, host.libraryCache, artworkVersionKey, clearArtworkVersionThrottle, notifyArtworkCached]);
+  }, [scopesToLoad, getApiForServer, host.libraryCache, host.offlineMedia, clearArtworkVersionThrottle]);
 
   const runRefreshRef = useRef(runRefresh);
   runRefreshRef.current = runRefresh;
@@ -856,10 +875,12 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
       syncProgress,
       runRefresh,
       reloadCachedSongsFromDisk,
+      clearAllArtworkCache,
       apiByServerId,
       apiForServer,
       artworkVersionById,
       artworkVersionKey,
+      getArtworkCacheBump,
       notifyArtworkCached,
       libraryDisplayName,
       serverDisplayName,
@@ -900,10 +921,12 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
       syncProgress,
       runRefresh,
       reloadCachedSongsFromDisk,
+      clearAllArtworkCache,
       apiByServerId,
       apiForServer,
       artworkVersionById,
       artworkVersionKey,
+      getArtworkCacheBump,
       notifyArtworkCached,
       libraryDisplayName,
       serverDisplayName,

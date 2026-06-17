@@ -8,6 +8,7 @@ export function SongItemCover({
   api,
   coverArtId,
   resolveCachedArtwork,
+  resolveArtworkLocalFile,
   persistCachedArtwork,
   artworkCacheBump,
   artworkCacheKey,
@@ -17,6 +18,9 @@ export function SongItemCover({
   resolveCachedArtwork: (
     coverArtId: string,
   ) => Promise<LibraryArtworkCacheRow | null>;
+  resolveArtworkLocalFile?: (
+    coverArtId: string,
+  ) => Promise<{ localFilePath: string; mimeType: string } | null>;
   persistCachedArtwork?: PersistCachedArtwork;
   artworkCacheBump: number;
   artworkCacheKey?: string;
@@ -35,6 +39,7 @@ export function SongItemCover({
           api={api ?? undefined}
           coverArtId={coverArtId}
           resolveCachedArtwork={resolveCachedArtwork}
+          resolveArtworkLocalFile={resolveArtworkLocalFile}
           persistCachedArtwork={persistCachedArtwork}
           artworkCacheBump={artworkCacheBump}
           artworkCacheKey={artworkCacheKey}

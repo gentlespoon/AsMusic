@@ -1,6 +1,8 @@
 import {
   libraryCacheScope,
+  offlineLookupScopes,
   PERSIST_WHILE_STREAMING_KEY,
+  readCachedArtworkBlob,
   readPersistWhileStreamingEnabled,
   resolvePlaybackSource,
   type PlaybackRemoteSessionPayload,
@@ -703,6 +705,33 @@ export class PlayerManager {
     };
   }
 
+  private async resolveTrackNowPlayingArtwork(item: PlayerQueueItem): Promise<{
+    artworkUrl?: string;
+    artworkDataBase64?: string;
+  }> {
+    const coverArtId = item.coverArtId?.trim();
+    if (!coverArtId) return {};
+
+    const scopes = offlineLookupScopes(item.serverUrl, item.username, item.libraryId);
+    const row = await readCachedArtworkBlob(this.host.libraryCache, scopes, coverArtId);
+    if (row?.data?.byteLength && this.host.kind === 'ios-capacitor') {
+      return { artworkDataBase64: uint8ArrayToBase64(row.data) };
+    }
+
+    const artworkUrl = this.deps.getCoverArtUrl(item.serverId, coverArtId);
+    return artworkUrl ? { artworkUrl } : {};
+  }
+
+  /** Re-push lock-screen / Control Center artwork after cache refresh. */
+  async syncCurrentTrackNowPlayingArtwork(): Promise<void> {
+    const idx = this.currentIndex;
+    const item = idx !== null ? this.queue[idx] : null;
+    if (!item?.coverArtId?.trim()) return;
+    const art = await this.resolveTrackNowPlayingArtwork(item);
+    if (!art.artworkUrl && !art.artworkDataBase64) return;
+    await this.host.playback.updateArtwork?.(art);
+  }
+
   private async loadCurrentTrack(options: {
     autoplay: boolean;
     suppressFailureAdvance?: boolean;
@@ -776,19 +805,9 @@ export class PlayerManager {
         this.startPersistWhileStreamingIfNeeded(item, streamUrl, playUrl);
       }
 
-      let artworkUrl: string | null = null;
-      let artworkDataBase64: string | undefined;
-      if (item.coverArtId) {
-        artworkUrl = this.deps.getCoverArtUrl(item.serverId, item.coverArtId);
-        if (offlineResolved.usedOffline && this.host.kind === 'ios-capacitor') {
-          const scope = libraryCacheScope(item.serverUrl, item.username, item.libraryId);
-          const row = await this.host.libraryCache.readArtworkBlob(scope, item.coverArtId);
-          if (row?.data?.byteLength) {
-            artworkDataBase64 = uint8ArrayToBase64(row.data);
-            artworkUrl = null;
-          }
-        }
-      }
+      const artwork = item.coverArtId
+        ? await this.resolveTrackNowPlayingArtwork(item)
+        : {};
 
       const playbackRevoke = revoke;
       this.revokePlayback = playbackRevoke;
@@ -800,8 +819,8 @@ export class PlayerManager {
         title: item.title,
         artist: item.artist,
         album: item.album,
-        artworkUrl: artworkUrl ?? undefined,
-        artworkDataBase64,
+        artworkUrl: artwork.artworkUrl,
+        artworkDataBase64: artwork.artworkDataBase64,
         localFilePath: offlineResolved.usedOffline ? localFilePath : undefined,
       });
       if (loadSeq !== this.loadTrackSeq) return false;

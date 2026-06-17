@@ -20,6 +20,7 @@ import { playerQueueItemFromChild } from '../../player/core/playerQueueItemFromC
 import type { PlayerQueueItem } from '../../player/core/types';
 import { SongItem } from '../../shared/SongItem';
 import { createPersistCachedArtworkForScope } from '../../shared/libraryArtworkCacheAccess';
+import { createResolveCachedArtwork } from '../../shared/createResolveCachedArtwork';
 import { songMatchesQuery } from '../../shared/songSearch';
 import { formatBytes } from '../../utils/formatBytes';
 
@@ -31,6 +32,8 @@ type RowModel = {
   stale: boolean;
   api: SubsonicAPI | null;
   queueItem: PlayerQueueItem | null;
+  serverUrl?: string;
+  username?: string;
 };
 
 function syntheticTrack(trackId: string): Child {
@@ -162,6 +165,8 @@ export function DownloadedSongListView({ reloadNonce = 0 }: DownloadedSongListVi
           stale: !child,
           api,
           queueItem,
+          serverUrl: server?.serverUrl,
+          username: server?.username,
         };
       });
       next.sort((a, b) => (a.track.title ?? '').localeCompare(b.track.title ?? ''));
@@ -340,8 +345,22 @@ export function DownloadedSongListView({ reloadNonce = 0 }: DownloadedSongListVi
                     track={r.track}
                     coverArtId={coverArtId}
                     api={r.api}
-                    resolveCachedArtwork={(coverArtIdArg) =>
-                      host.libraryCache.readArtworkBlob(r.scope, coverArtIdArg)
+                    resolveCachedArtwork={(coverArtIdArg) => {
+                      if (r.serverUrl && r.username) {
+                        return createResolveCachedArtwork(
+                          host.libraryCache,
+                          r.serverUrl,
+                          r.username,
+                          r.scope.libraryId,
+                        )(coverArtIdArg);
+                      }
+                      return host.libraryCache.readArtworkBlob(r.scope, coverArtIdArg);
+                    }}
+                    resolveArtworkLocalFile={
+                      host.libraryCache.readArtworkLocalFile
+                        ? (coverArtIdArg) =>
+                            host.libraryCache.readArtworkLocalFile!(r.scope, coverArtIdArg)
+                        : undefined
                     }
                     persistCachedArtwork={createPersistCachedArtworkForScope(host.libraryCache, r.scope)}
                     artworkCacheBump={0}

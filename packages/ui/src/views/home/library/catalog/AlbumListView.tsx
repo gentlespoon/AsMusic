@@ -77,7 +77,7 @@ export function AlbumListView({
   resolveCachedArtworkForScope,
   persistCachedArtworkForScope,
   artworkVersionKey,
-  artworkVersionById,
+  getArtworkCacheBump,
   onAlbumOpen,
 }: {
   rows: AlbumCatalogRow[];
@@ -90,7 +90,7 @@ export function AlbumListView({
   ) => Promise<LibraryArtworkCacheRow | null>;
   persistCachedArtworkForScope: (scope: LibraryCacheScope) => PersistCachedArtwork;
   artworkVersionKey: (coverArtId: string, scope: LibraryCacheScope) => string;
-  artworkVersionById: Record<string, number>;
+  getArtworkCacheBump: (coverArtId: string, scope: LibraryCacheScope) => number;
   onAlbumOpen: (row: AlbumCatalogRow) => void;
 }) {
   const t = useT();
@@ -215,7 +215,7 @@ export function AlbumListView({
                       coverArtId={album.coverArt}
                       resolveCachedArtwork={(id) => resolveCachedArtworkForScope(row.artworkScope, id)}
                       persistCachedArtwork={persistCachedArtworkForScope(row.artworkScope)}
-                      artworkCacheBump={album.coverArt ? artworkVersionById[bumpKey] ?? 0 : 0}
+                      artworkCacheBump={album.coverArt ? getArtworkCacheBump(album.coverArt, row.artworkScope) : 0}
                       artworkCacheKey={album.coverArt ? bumpKey : undefined}
                       size={200}
                       label={album.name}
@@ -272,7 +272,7 @@ export function AlbumListView({
                         coverArtId={album.coverArt}
                         resolveCachedArtwork={(id) => resolveCachedArtworkForScope(row.artworkScope, id)}
                       persistCachedArtwork={persistCachedArtworkForScope(row.artworkScope)}
-                        artworkCacheBump={album.coverArt ? artworkVersionById[bumpKey] ?? 0 : 0}
+                        artworkCacheBump={album.coverArt ? getArtworkCacheBump(album.coverArt, row.artworkScope) : 0}
                         artworkCacheKey={album.coverArt ? bumpKey : undefined}
                         size={48}
                         label=""

@@ -15,6 +15,7 @@ export * from './localPlaylists/localPlaylistEntries';
 export * from './library/refreshLibraryCache';
 export * from './library/purgeRemovedLibraryCacheEntries';
 export * from './library/runLibraryArtworkBackgroundCache';
+export * from './library/readCachedArtworkBlob';
 export * from './library/storage/LibraryCacheStorage';
 export type {
   PlatformHost,

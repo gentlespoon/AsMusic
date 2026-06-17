@@ -218,6 +218,11 @@ export const zhCNMessages = {
   "offline.clearAll.confirmBody":
     "将删除本设备上的全部已下载曲目，并取消进行中的下载任务。",
   "offline.clearAll.confirmTitle": "清空全部下载？",
+  "offline.clearArtworkCache": "清空封面缓存",
+  "offline.clearArtworkCache.busy": "正在清空…",
+  "offline.clearArtworkCache.confirmBody":
+    "这将删除本设备上所有已缓存的封面图片。浏览或播放音乐时会重新加载封面。不会影响已下载的音频。",
+  "offline.clearArtworkCache.confirmTitle": "清空封面缓存？",
   "offline.title": "离线",
 
   "onboarding.activateLibrary.body":

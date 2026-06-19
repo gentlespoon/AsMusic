@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from 'react';
-import type { Child } from 'subsonic-api';
+import type { AlbumID3, Child } from 'subsonic-api';
 import { useT } from '@asmusic/i18n';
-import { libraryCacheScope, albumsFromCachedSongs, resolveCoverArtIdForCachedSong } from '@asmusic/core';
+import { libraryCacheScope, resolveCoverArtIdForCachedSong } from '@asmusic/core';
 import { usePlayerActions, useServerAndLibrary } from '../../../../contexts';
 import { playerQueueItemFromChild } from '../../../../player/core/playerQueueItemFromChild';
 import {
@@ -36,8 +36,9 @@ export function useLibraryBrowserPlayback(options: {
   resolvedArtist: LibraryBrowserResolvedArtist | null;
   resolvedPlaylist: LibraryBrowserResolvedPlaylist | null;
   songsByScope: ReadonlyMap<string, Child[]>;
+  albumsByScope: ReadonlyMap<string, AlbumID3[]>;
 }) {
-  const { resolvedAlbum, resolvedArtist, resolvedPlaylist, songsByScope } = options;
+  const { resolvedAlbum, resolvedArtist, resolvedPlaylist, songsByScope, albumsByScope } = options;
   const t = useT();
   const { servers, activeLibraryRefs } = useServerAndLibrary();
   const { insertAfterCurrent, appendToQueue, replaceQueueAndPlay } = usePlayerActions();
@@ -73,8 +74,7 @@ export function useLibraryBrowserPlayback(options: {
       const meta = serverMetaById[serverId];
       if (!meta) return null;
       const scope = libraryCacheScope(meta.serverUrl, meta.username, libraryId);
-      const songs = songsByScope.get(`${scope.serverKey}|${libraryId}`) ?? [];
-      const albums = albumsFromCachedSongs(songs);
+      const albums = albumsByScope.get(`${scope.serverKey}|${libraryId}`) ?? [];
       const coverArtId = resolveCoverArtIdForCachedSong(song, albums);
       return playerQueueItemFromChild({
         song,
@@ -85,7 +85,7 @@ export function useLibraryBrowserPlayback(options: {
         coverArtId,
       });
     },
-    [serverMetaById, songsByScope]
+    [serverMetaById, albumsByScope]
   );
 
   const playSongEntryNow = useCallback(

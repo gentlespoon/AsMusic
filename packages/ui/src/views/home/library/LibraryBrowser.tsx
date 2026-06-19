@@ -203,7 +203,13 @@ export function LibraryBrowser() {
     replaceQueueAndPlayAllLocalPlaylist,
     appendAllLocalPlaylistToQueue,
     shufflePlayAllLocalPlaylist,
-  } = useLibraryBrowserPlayback({ resolvedAlbum, resolvedArtist, resolvedPlaylist, songsByScope });
+  } = useLibraryBrowserPlayback({
+    resolvedAlbum,
+    resolvedArtist,
+    resolvedPlaylist,
+    songsByScope,
+    albumsByScope,
+  });
 
   const openAlbum = useCallback(
     (row: AlbumCatalogRow) => {

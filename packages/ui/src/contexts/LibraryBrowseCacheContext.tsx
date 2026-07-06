@@ -173,6 +173,7 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
   const { servers, activeLibraryRefs, getApiForServer } = useServerAndLibrary();
 
   const pendingStarQueueRef = useRef<PendingStarMutation[]>([]);
+  const flushPendingStarsInFlightRef = useRef(false);
 
   const scopesToLoad = useMemo(() => {
     return activeLibraryRefs
@@ -621,26 +622,33 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
   );
 
   const flushPendingStarMutations = useCallback(async () => {
-    const queue = coalescePendingStarMutations(pendingStarQueueRef.current);
-    if (queue.length === 0) return;
-    const flushed: PendingStarMutation[] = [];
-    for (const m of queue) {
-      const api = await getApiForServer(m.serverId);
-      if (!api) continue;
-      try {
-        if (m.starred) {
-          await api.star({ id: m.trackId });
-        } else {
-          await api.unstar({ id: m.trackId });
+    if (flushPendingStarsInFlightRef.current) return;
+    flushPendingStarsInFlightRef.current = true;
+    try {
+      while (true) {
+        const queue = coalescePendingStarMutations(pendingStarQueueRef.current);
+        if (queue.length === 0) break;
+        const flushed: PendingStarMutation[] = [];
+        for (const m of queue) {
+          const api = await getApiForServer(m.serverId);
+          if (!api) continue;
+          try {
+            if (m.starred) {
+              await api.star({ id: m.trackId });
+            } else {
+              await api.unstar({ id: m.trackId });
+            }
+            flushed.push(m);
+          } catch {
+            /* keep in queue for retry */
+          }
         }
-        flushed.push(m);
-      } catch {
-        /* keep in queue for retry */
+        if (flushed.length === 0) break;
+        pendingStarQueueRef.current = removePendingStarMutations(pendingStarQueueRef.current, flushed);
+        await persistPendingStarQueue();
       }
-    }
-    if (flushed.length > 0) {
-      pendingStarQueueRef.current = removePendingStarMutations(pendingStarQueueRef.current, flushed);
-      await persistPendingStarQueue();
+    } finally {
+      flushPendingStarsInFlightRef.current = false;
     }
   }, [getApiForServer, persistPendingStarQueue]);
 
@@ -921,30 +929,19 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
       const { serverId, libraryId, trackId, starred } = args;
       const tid = String(trackId);
 
-      if (!isOnlineRef.current) {
-        await applyLocalStarState(args);
-        pendingStarQueueRef.current = upsertPendingStarMutation(pendingStarQueueRef.current, {
-          serverId,
-          libraryId,
-          trackId: tid,
-          starred,
-        });
-        await persistPendingStarQueue();
-        return;
-      }
-
-      const api = await getApiForServer(serverId);
-      if (!api) {
-        throw new Error('Could not open a session for this server');
-      }
-      if (starred) {
-        await api.star({ id: tid });
-      } else {
-        await api.unstar({ id: tid });
-      }
       await applyLocalStarState(args);
+      pendingStarQueueRef.current = upsertPendingStarMutation(pendingStarQueueRef.current, {
+        serverId,
+        libraryId,
+        trackId: tid,
+        starred,
+      });
+      await persistPendingStarQueue();
+      if (isOnlineRef.current) {
+        void flushPendingStarMutations();
+      }
     },
-    [getApiForServer, applyLocalStarState, persistPendingStarQueue]
+    [applyLocalStarState, persistPendingStarQueue, flushPendingStarMutations]
   );
 
   const value = useMemo<LibraryBrowseCacheContextValue>(

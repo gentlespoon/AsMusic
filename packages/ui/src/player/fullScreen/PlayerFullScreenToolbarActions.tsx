@@ -26,7 +26,6 @@ export function PlayerFullScreenToolbarActions({
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const {
     isStarred,
-    starBusy,
     toggleStarred,
     addToPlaylistBusy,
     canAddToPlaylist,
@@ -48,7 +47,6 @@ export function PlayerFullScreenToolbarActions({
         <span>
           <IconButton
             color="inherit"
-            disabled={starBusy}
             aria-label={
               isStarred ? t("player.favorite.remove") : t("player.favorite.add")
             }

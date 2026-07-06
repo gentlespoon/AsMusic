@@ -1,8 +1,8 @@
 import Snackbar from '@mui/material/Snackbar';
 import { useT } from '@asmusic/i18n';
 import { useEffect, useState } from 'react';
-import { usePlayerToast } from '../contexts/PlayerContext';
-import { DisabledLibraryToastContent } from '../shared/DisabledLibraryToastContent';
+import { usePlayerToast } from '@ui/contexts/PlayerContext';
+import { DisabledLibraryToastContent } from '@ui/shared/DisabledLibraryToastContent';
 
 export function PlayerPlaybackToast() {
   const t = useT();

@@ -1,7 +1,7 @@
 import {
   usePlayerShell,
   usePlayerTransportState,
-} from "../../contexts/PlayerContext";
+} from "@ui/contexts/PlayerContext";
 import { useMiniPlayerSwipeGesturesEnabled } from "./miniPlayerPreferences";
 import { PlayerMiniBarContentRow } from "./PlayerMiniBarContentRow";
 import { PlayerMiniBarFullPlayerButton } from "./PlayerMiniBarFullPlayerButton";

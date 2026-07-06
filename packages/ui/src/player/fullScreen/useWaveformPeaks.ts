@@ -8,10 +8,10 @@ import {
   WAVEFORM_BAR_COUNT,
   type OfflinePlaybackSource,
 } from "@asmusic/core";
-import type { PlayerQueueItem } from "../core/types";
-import { useHost } from "../../host/HostContext";
-import { peaksCache } from "../waveformPeaksCache";
-import { trackWaveformCacheKey } from "../trackWaveformCacheKey";
+import type { PlayerQueueItem } from "@ui/player/core/types";
+import { useHost } from "@ui/host/HostContext";
+import { peaksCache } from "@ui/player/waveformPeaksCache";
+import { trackWaveformCacheKey } from "@ui/player/trackWaveformCacheKey";
 
 export { trackWaveformCacheKey };
 

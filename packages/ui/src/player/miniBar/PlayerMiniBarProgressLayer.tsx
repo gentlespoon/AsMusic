@@ -1,6 +1,6 @@
 import Box from "@mui/material/Box";
 import { alpha } from "@mui/material/styles";
-import { WaveformProgressBar } from "../WaveformProgressBar";
+import { WaveformProgressBar } from "@ui/player/WaveformProgressBar";
 
 export type PlayerMiniBarProgressLayerProps = {
   busy: boolean;

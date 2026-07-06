@@ -12,15 +12,15 @@ import {
   Paper,
   Toolbar,
 } from "@mui/material";
-import { PageCloseButton } from "../../shared/PageCloseButton";
-import { useEdgeSwipeBack } from "../../shared/useEdgeSwipeBack";
+import { PageCloseButton } from "@ui/shared/PageCloseButton";
+import { useEdgeSwipeBack } from "@ui/shared/useEdgeSwipeBack";
 import {
   SettingsAppBarTitle,
   SettingsListItemCaption,
   SettingsListItemTitle,
   SettingsPageDescription,
 } from "./SettingsTypography";
-import { playerDockPaddingBottomSx } from "../../player/core/constants";
+import { playerDockPaddingBottomSx } from "@ui/player/core/constants";
 
 export function SettingsView() {
   const t = useT();

@@ -39,13 +39,13 @@ import {
   type SubsonicAPI,
 } from '@asmusic/core';
 import { useT } from '@asmusic/i18n';
-import { useHost } from '../host/HostContext';
+import { useHost } from '@ui/host/HostContext';
 import { useServerAndLibrary } from './ServerAndLibraryContext';
-import { clearCoverArtObjectUrlCache } from '../shared/coverArtObjectUrlCache';
-import { useNetworkStatus } from '../shared/useNetworkStatus';
-import type { AlbumCatalogRow } from '../views/home/library/catalog/AlbumListView';
-import type { ArtistCatalogRow } from '../views/home/library/catalog/ArtistListView';
-import type { SongListEntry } from '../views/home/library/catalog/SongListView';
+import { clearCoverArtObjectUrlCache } from '@ui/shared/coverArtObjectUrlCache';
+import { useNetworkStatus } from '@ui/shared/useNetworkStatus';
+import type { AlbumCatalogRow } from '@ui/views/home/library/catalog/AlbumListView';
+import type { ArtistCatalogRow } from '@ui/views/home/library/catalog/ArtistListView';
+import type { SongListEntry } from '@ui/views/home/library/catalog/SongListView';
 
 export type LibraryBrowseSlice = {
   serverId: string;

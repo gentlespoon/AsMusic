@@ -1,5 +1,5 @@
 import { DEFAULT_LIBRARY_ID } from '@asmusic/core';
-import type { ActiveLibraryRef, SavedServer } from '../../../contexts';
+import type { ActiveLibraryRef, SavedServer } from '@ui/contexts';
 import type { LibraryRow } from './types';
 
 const KNOWN_LIBRARIES_KEY = 'asmusic-known-libraries-v1';

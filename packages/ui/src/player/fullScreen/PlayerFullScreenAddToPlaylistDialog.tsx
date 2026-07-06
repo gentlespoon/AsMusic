@@ -1,4 +1,4 @@
-import { AddToPlaylistDialog } from "../../shared/AddToPlaylistDialog";
+import { AddToPlaylistDialog } from "@ui/shared/AddToPlaylistDialog";
 import type { PlayerFullScreenTrackActions } from "./usePlayerFullScreenTrackActions";
 
 export type PlayerFullScreenAddToPlaylistDialogProps = {

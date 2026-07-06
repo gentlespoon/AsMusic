@@ -1,7 +1,7 @@
 import { forwardRef, useMemo } from 'react';
 import type { Ref, RefObject } from 'react';
 import type { ScrollerProps } from 'react-virtuoso';
-import { mergeRefs } from '../utils/mergeRefs';
+import { mergeRefs } from '@ui/utils/mergeRefs';
 
 /**
  * Virtuoso / VirtuosoGrid scroll container that shares the DOM node with {@link useLibraryScrollRestoration}.

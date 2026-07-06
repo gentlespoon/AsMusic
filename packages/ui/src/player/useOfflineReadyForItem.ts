@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { libraryCacheScope, subscribeOfflineMediaReady } from '@asmusic/core';
-import { useHost } from '../host/HostContext';
+import { useHost } from '@ui/host/HostContext';
 import type { PlayerQueueItem } from './core/types';
 import { trackWaveformCacheKey } from './trackWaveformCacheKey';
 

@@ -1,7 +1,7 @@
 import Box from "@mui/material/Box";
 import type { ReactNode } from "react";
-import { libraryFlexFillSx } from "../../shared/LibraryVirtuosoFill";
-import { playerDockPaddingBottomSx } from "../../player/core/constants";
+import { libraryFlexFillSx } from "@ui/shared/LibraryVirtuosoFill";
+import { playerDockPaddingBottomSx } from "@ui/player/core/constants";
 
 export type PlayingQueueViewShellProps = {
   embedded: boolean;

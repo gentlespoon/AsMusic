@@ -1,10 +1,10 @@
 import { useEffect, useRef } from 'react';
 import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso';
-import type { PlaylistCatalogRow } from '../../../../contexts/LibraryBrowseCacheContext';
-import { useLibraryScrollRestoration } from '../../../../shared/useLibraryScrollRestoration';
-import { useLibraryVirtuosoScroller } from '../../../../shared/useLibraryVirtuosoScroller';
-import { LibraryVirtuosoFill } from '../../../../shared/LibraryVirtuosoFill';
-import { VirtuosoMuiList } from '../../../../shared/virtuosoMuiList';
+import type { PlaylistCatalogRow } from '@ui/contexts/LibraryBrowseCacheContext';
+import { useLibraryScrollRestoration } from '@ui/shared/useLibraryScrollRestoration';
+import { useLibraryVirtuosoScroller } from '@ui/shared/useLibraryVirtuosoScroller';
+import { LibraryVirtuosoFill } from '@ui/shared/LibraryVirtuosoFill';
+import { VirtuosoMuiList } from '@ui/shared/virtuosoMuiList';
 import { PlaylistListViewRow } from './PlaylistListViewRow';
 
 export function PlaylistListViewList({

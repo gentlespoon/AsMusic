@@ -5,9 +5,9 @@ import { Virtuoso } from "react-virtuoso";
 import {
   LibraryVirtuosoFill,
   libraryFlexFillSx,
-} from "../../shared/LibraryVirtuosoFill";
-import { VirtuosoMuiList } from "../../shared/virtuosoMuiList";
-import type { PlayerViewState } from "../../player/core/types";
+} from "@ui/shared/LibraryVirtuosoFill";
+import { VirtuosoMuiList } from "@ui/shared/virtuosoMuiList";
+import type { PlayerViewState } from "@ui/player/core/types";
 import { PlayingQueueViewRow } from "./PlayingQueueViewRow";
 import type { usePlayingQueueScroll } from "./usePlayingQueueScroll";
 

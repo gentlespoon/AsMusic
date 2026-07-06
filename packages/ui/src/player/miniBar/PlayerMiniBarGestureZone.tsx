@@ -1,7 +1,7 @@
 import Box from "@mui/material/Box";
 import { useT } from "@asmusic/i18n";
 import type { SubsonicAPI } from "@asmusic/core";
-import type { PlayerQueueItem } from "../core/types";
+import type { PlayerQueueItem } from "@ui/player/core/types";
 import type { PlayerMiniBarBeltGestures } from "./usePlayerMiniBarBeltGestures";
 import { PlayerMiniBarCoverArt } from "./PlayerMiniBarCoverArt";
 import { PlayerMiniBarTrackBelt } from "./PlayerMiniBarTrackBelt";

@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { libraryCacheScope } from '@asmusic/core';
-import { useServerAndLibrary } from '../../../../contexts';
+import { useServerAndLibrary } from '@ui/contexts';
 import {
   getLibraryBrowserTab,
   setLibraryBrowserTab,
-} from '../../../../preferences/libraryBrowserTabPreference';
+} from '@ui/preferences/libraryBrowserTabPreference';
 import {
   defaultLibraryBrowserView,
   hasExplicitLibraryBrowserNavigation,

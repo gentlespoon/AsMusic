@@ -4,10 +4,10 @@ import type { ArtistID3 } from 'subsonic-api';
 import { Box, ListItemButton, ListItemText, TextField, Typography } from '@mui/material';
 import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso';
 import type { LibraryCacheScope } from '@asmusic/core';
-import { useLibraryScrollRestoration } from '../../../../shared/useLibraryScrollRestoration';
-import { useLibraryVirtuosoScroller } from '../../../../shared/useLibraryVirtuosoScroller';
-import { LibraryVirtuosoFill, libraryFlexFillSx } from '../../../../shared/LibraryVirtuosoFill';
-import { VirtuosoMuiList } from '../../../../shared/virtuosoMuiList';
+import { useLibraryScrollRestoration } from '@ui/shared/useLibraryScrollRestoration';
+import { useLibraryVirtuosoScroller } from '@ui/shared/useLibraryVirtuosoScroller';
+import { LibraryVirtuosoFill, libraryFlexFillSx } from '@ui/shared/LibraryVirtuosoFill';
+import { VirtuosoMuiList } from '@ui/shared/virtuosoMuiList';
 
 export type ArtistCatalogRow = {
   artist: ArtistID3;

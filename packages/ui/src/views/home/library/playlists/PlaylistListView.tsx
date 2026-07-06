@@ -4,8 +4,8 @@ import {
   useLibraryBrowseCache,
   type LibraryBrowseScopeRow,
   type PlaylistCatalogRow,
-} from '../../../../contexts/LibraryBrowseCacheContext';
-import { libraryFlexFillSx } from '../../../../shared/LibraryVirtuosoFill';
+} from '@ui/contexts/LibraryBrowseCacheContext';
+import { libraryFlexFillSx } from '@ui/shared/LibraryVirtuosoFill';
 import { playlistMatchesQuery } from './playlistListFilter';
 import {
   PlaylistListViewCreateDialog,
@@ -15,7 +15,7 @@ import { PlaylistListViewDeleteDialog } from './PlaylistListViewDeleteDialog';
 import { PlaylistListViewList } from './PlaylistListViewList';
 import { PlaylistListViewStatus } from './PlaylistListViewStatus';
 import { PlaylistListViewToolbar } from './PlaylistListViewToolbar';
-import type { CreatePlaylistRequest } from '../browser/useLibraryBrowserPlaylists';
+import type { CreatePlaylistRequest } from '@ui/views/home/library/browser/useLibraryBrowserPlaylists';
 
 export function PlaylistListView({
   rows,

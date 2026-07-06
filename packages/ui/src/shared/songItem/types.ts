@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import type { Child } from "subsonic-api";
 import type { LibraryArtworkCacheRow, SubsonicAPI } from "@asmusic/core";
-import type { PersistCachedArtwork } from "../libraryArtworkCacheAccess";
+import type { PersistCachedArtwork } from "@ui/shared/libraryArtworkCacheAccess";
 
 export type SongItemProps = {
   track: Child;

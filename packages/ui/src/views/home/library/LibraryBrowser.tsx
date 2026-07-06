@@ -22,10 +22,10 @@ import { LocalPlaylistSongListView } from './detail/LocalPlaylistSongListView';
 import { PlaylistEditorView } from './detail/PlaylistEditorView';
 import { PlaylistSongListView } from './detail/PlaylistSongListView';
 import { PlaylistListView } from './playlists/PlaylistListView';
-import { useHost } from '../../../host/HostContext';
-import { useLibraryBrowseCache } from '../../../contexts';
-import { createPersistCachedArtworkForScope } from '../../../shared/libraryArtworkCacheAccess';
-import { createResolveCachedArtwork } from '../../../shared/createResolveCachedArtwork';
+import { useHost } from '@ui/host/HostContext';
+import { useLibraryBrowseCache } from '@ui/contexts';
+import { createPersistCachedArtworkForScope } from '@ui/shared/libraryArtworkCacheAccess';
+import { createResolveCachedArtwork } from '@ui/shared/createResolveCachedArtwork';
 import { ActiveScopeGate } from './browser/ActiveScopeGate';
 import {
   defaultLibraryBrowserView,
@@ -44,8 +44,8 @@ import {
 } from './browser/useLibraryBrowserPlaylists';
 import type { AlbumCatalogRow } from './catalog/AlbumListView';
 import type { ArtistCatalogRow } from './catalog/ArtistListView';
-import type { PlaylistCatalogRow } from '../../../contexts/LibraryBrowseCacheContext';
-import { libraryFlexFillSx } from '../../../shared/LibraryVirtuosoFill';
+import type { PlaylistCatalogRow } from '@ui/contexts/LibraryBrowseCacheContext';
+import { libraryFlexFillSx } from '@ui/shared/LibraryVirtuosoFill';
 
 export function LibraryBrowser() {
   const t = useT();

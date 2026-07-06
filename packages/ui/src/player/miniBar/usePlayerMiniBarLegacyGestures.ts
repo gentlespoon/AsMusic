@@ -5,7 +5,7 @@ import {
   resetBeltSkipGestureState,
   resolveBeltSkipCommit,
   updateBeltSkipGestureState,
-} from "../shared/playerBeltSkipGesture";
+} from "@ui/player/shared/playerBeltSkipGesture";
 
 /** Mirrors thresholds from legacy `PlayerBarView.swift` (Bar enum). */
 const Bar = {

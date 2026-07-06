@@ -1,4 +1,4 @@
-import type { PlaylistCatalogRow } from '../../../../contexts/LibraryBrowseCacheContext';
+import type { PlaylistCatalogRow } from '@ui/contexts/LibraryBrowseCacheContext';
 
 export function playlistMatchesQuery(row: PlaylistCatalogRow, query: string): boolean {
   const q = query.trim().toLowerCase();

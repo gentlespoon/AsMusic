@@ -18,7 +18,7 @@ import Star from "@mui/icons-material/Star";
 import { useT } from "@asmusic/i18n";
 import { useNavigate } from "react-router-dom";
 import { useLibraryBrowserTabBar } from "./library/browser/useLibraryBrowserTabBar";
-import { useServerAndLibrary } from "../../contexts";
+import { useServerAndLibrary } from "@ui/contexts";
 
 const TAB_LABEL_CLASS = "HomePageAppBar-tabLabel";
 

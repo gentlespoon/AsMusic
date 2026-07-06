@@ -24,9 +24,9 @@ import Delete from '@mui/icons-material/Delete';
 import Edit from '@mui/icons-material/Edit';
 import LibraryMusic from '@mui/icons-material/LibraryMusic';
 import { getApiBase } from '@asmusic/core';
-import { PageCloseButton } from '../../shared/PageCloseButton';
-import { SettingsSectionHeader } from '../settings/SettingsTypography';
-import { useServerAndLibrary } from '../../contexts';
+import { PageCloseButton } from '@ui/shared/PageCloseButton';
+import { SettingsSectionHeader } from '@ui/views/settings/SettingsTypography';
+import { useServerAndLibrary } from '@ui/contexts';
 
 export type ServerManagerViewProps = {
   /** Omit page chrome (title bar close, cross-links) when shown inside Settings tabs */

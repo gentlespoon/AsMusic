@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
-import { appAssetUrl } from '../../app/appBasePath';
-import { getAppBuildLabel } from '../../app/appBuildInfo';
+import { appAssetUrl } from '@ui/app/appBasePath';
+import { getAppBuildLabel } from '@ui/app/appBuildInfo';
 import { useT } from '@asmusic/i18n';
 import { useNavigate } from 'react-router-dom';
 import BugReportOutlined from '@mui/icons-material/BugReportOutlined';
@@ -25,9 +25,9 @@ import {
   Toolbar,
   Typography,
 } from '@mui/material';
-import { PageCloseButton } from '../../shared/PageCloseButton';
-import { useHost } from '../../host/HostContext';
-import { playerDockPaddingBottomSx } from '../../player/core/constants';
+import { PageCloseButton } from '@ui/shared/PageCloseButton';
+import { useHost } from '@ui/host/HostContext';
+import { playerDockPaddingBottomSx } from '@ui/player/core/constants';
 
 const FEEDBACK_EMAIL = 'support@angdasoft.com';
 const REPOSITORY_URL = 'https://github.com/gentlespoon/asmusic';

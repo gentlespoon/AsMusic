@@ -15,8 +15,8 @@ import {
   Typography,
 } from '@mui/material';
 import { useT } from '@asmusic/i18n';
-import type { LibraryBrowseScopeRow } from '../../../../contexts/LibraryBrowseCacheContext';
-import type { CreatePlaylistRequest } from '../browser/useLibraryBrowserPlaylists';
+import type { LibraryBrowseScopeRow } from '@ui/contexts/LibraryBrowseCacheContext';
+import type { CreatePlaylistRequest } from '@ui/views/home/library/browser/useLibraryBrowserPlaylists';
 
 export type CreatePlaylistType = CreatePlaylistRequest['kind'];
 

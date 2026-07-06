@@ -7,7 +7,7 @@ import { useT } from "@asmusic/i18n";
 import {
   usePlayerActions,
   usePlayerTransportState,
-} from "../../contexts/PlayerContext";
+} from "@ui/contexts/PlayerContext";
 
 export function PlayerMiniBarTransportButtons() {
   const t = useT();

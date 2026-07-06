@@ -1,8 +1,8 @@
 import { useCallback, useState } from 'react';
 import { useT } from '@asmusic/i18n';
 import { libraryCacheScope, refreshLibraryCache } from '@asmusic/core';
-import { useServerAndLibrary, useLibraryBrowseCache } from '../../../contexts';
-import { useHost } from '../../../host/HostContext';
+import { useServerAndLibrary, useLibraryBrowseCache } from '@ui/contexts';
+import { useHost } from '@ui/host/HostContext';
 import { libraryRowKey } from './libraryRowKey';
 import type { LibraryRow } from './types';
 

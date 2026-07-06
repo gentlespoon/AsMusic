@@ -18,9 +18,9 @@ import {
   Toolbar,
   Tooltip,
 } from "@mui/material";
-import { PageCloseButton } from "../../shared/PageCloseButton";
-import { useHost } from "../../host/HostContext";
-import { useEdgeSwipeBack } from "../../shared/useEdgeSwipeBack";
+import { PageCloseButton } from "@ui/shared/PageCloseButton";
+import { useHost } from "@ui/host/HostContext";
+import { useEdgeSwipeBack } from "@ui/shared/useEdgeSwipeBack";
 import {
   SettingsPreferenceListItem,
   SettingsPreferenceRow,
@@ -36,34 +36,34 @@ import {
   setAppAppearanceMode,
   useAppAppearanceMode,
   type AppAppearanceMode,
-} from "../../preferences/appearanceMode";
+} from "@ui/preferences/appearanceMode";
 import {
   setBlackBackgroundEnabled,
   useBlackBackgroundEnabled,
-} from "../../preferences/blackBackgroundPreference";
-import { useAppPaletteMode } from "../../preferences/useAppPaletteMode";
+} from "@ui/preferences/blackBackgroundPreference";
+import { useAppPaletteMode } from "@ui/preferences/useAppPaletteMode";
 import {
   setHapticFeedbackEnabled,
   useHapticFeedbackEnabled,
-} from "../../preferences/hapticFeedbackPreference";
+} from "@ui/preferences/hapticFeedbackPreference";
 import {
   setWaveformProgressBarEnabled,
   useWaveformProgressBarEnabled,
-} from "../../preferences/waveformProgressBarPreference";
-import { playerDockPaddingBottomSx } from "../../player/core/constants";
+} from "@ui/preferences/waveformProgressBarPreference";
+import { playerDockPaddingBottomSx } from "@ui/player/core/constants";
 import {
   setMiniPlayerSwipeGesturesEnabled,
   useMiniPlayerSwipeGesturesEnabled,
-} from "../../player/miniBar/miniPlayerPreferences";
+} from "@ui/player/miniBar/miniPlayerPreferences";
 import {
   setDisplayLanguagePreference,
   useDisplayLanguagePreference,
   type DisplayLanguagePreference,
-} from "../../preferences/displayLanguagePreference";
+} from "@ui/preferences/displayLanguagePreference";
 import {
   setPlayerDebugLogMenuEnabled,
   usePlayerDebugLogMenuEnabled,
-} from "../../preferences/playerDebugLogPreference";
+} from "@ui/preferences/playerDebugLogPreference";
 
 type LanguageOption = { value: DisplayLanguagePreference; label: string };
 

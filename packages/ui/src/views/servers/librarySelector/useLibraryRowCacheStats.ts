@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { libraryCacheScope } from '@asmusic/core';
-import { useServerAndLibrary } from '../../../contexts';
-import { useHost } from '../../../host/HostContext';
+import { useServerAndLibrary } from '@ui/contexts';
+import { useHost } from '@ui/host/HostContext';
 import { libraryRowKey } from './libraryRowKey';
 import type { LibraryRow, LibraryRowCacheStats } from './types';
 

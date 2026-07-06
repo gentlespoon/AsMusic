@@ -1,4 +1,4 @@
-import { usePlayerShell } from "../../contexts/PlayerContext";
+import { usePlayerShell } from "@ui/contexts/PlayerContext";
 import { PlayerMiniBarContentRow } from "./PlayerMiniBarContentRow";
 import { PlayerMiniBarFullPlayerButton } from "./PlayerMiniBarFullPlayerButton";
 import { PlayerMiniBarQueueButton } from "./PlayerMiniBarQueueButton";

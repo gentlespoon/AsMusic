@@ -1,17 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import Box from "@mui/material/Box";
 import type { SubsonicAPI } from "@asmusic/core";
-import type { PlayerQueueItem } from "../core/types";
-import { CoverArtThumb } from "../../shared/CoverArtThumb";
-import type { PersistCachedArtwork } from "../../shared/libraryArtworkCacheAccess";
-import { useHost } from "../../host/HostContext";
+import type { PlayerQueueItem } from "@ui/player/core/types";
+import { CoverArtThumb } from "@ui/shared/CoverArtThumb";
+import type { PersistCachedArtwork } from "@ui/shared/libraryArtworkCacheAccess";
+import { useHost } from "@ui/host/HostContext";
 import {
   persistPlayerCachedArtwork,
   resolvePlayerArtworkLocalFile,
   resolvePlayerCachedArtwork,
-} from "../shared/resolvePlayerCachedArtwork";
-import { usePlayerCoverArtCacheBump } from "../shared/usePlayerCoverArtCacheBump";
-import { usePlayerArtworkCacheKey } from "../shared/usePlayerArtworkCacheKey";
+} from "@ui/player/shared/resolvePlayerCachedArtwork";
+import { usePlayerCoverArtCacheBump } from "@ui/player/shared/usePlayerCoverArtCacheBump";
+import { usePlayerArtworkCacheKey } from "@ui/player/shared/usePlayerArtworkCacheKey";
 import { PlayerFullScreenTrackInfoSlot } from "./PlayerFullScreenTrackInfoSlot";
 
 const COVER_MAX_PX = 360;

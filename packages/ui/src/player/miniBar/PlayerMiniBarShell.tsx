@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import {
   PLAYER_MINI_BAR_BASE_PX,
   PLAYER_MINI_BAR_COMPACT_PX,
-} from "../core/constants";
+} from "@ui/player/core/constants";
 
 export type PlayerMiniBarShellProps = {
   fullPlayerOpen: boolean;

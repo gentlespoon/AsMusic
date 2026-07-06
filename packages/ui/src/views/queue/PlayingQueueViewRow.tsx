@@ -5,7 +5,7 @@ import ListItemButton from "@mui/material/ListItemButton";
 import ListItemText from "@mui/material/ListItemText";
 import MoreVert from "@mui/icons-material/MoreVert";
 import { useT } from "@asmusic/i18n";
-import type { PlayerQueueItem } from "../../player/core/types";
+import type { PlayerQueueItem } from "@ui/player/core/types";
 
 export type PlayingQueueViewRowProps = {
   item: PlayerQueueItem;

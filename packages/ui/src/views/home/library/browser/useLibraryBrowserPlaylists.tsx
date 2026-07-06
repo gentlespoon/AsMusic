@@ -19,8 +19,8 @@ import {
   useLibraryBrowseCache,
   type LibraryBrowseScopeRow,
   type PlaylistCatalogRow,
-} from '../../../../contexts/LibraryBrowseCacheContext';
-import type { SongListEntry } from '../catalog/SongListView';
+} from '@ui/contexts/LibraryBrowseCacheContext';
+import type { SongListEntry } from '@ui/views/home/library/catalog/SongListView';
 import type { LibraryBrowserResolvedPlaylist } from './useLibraryBrowserResolvedScopes';
 
 type ServerPlaylistEditorTarget = {

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   usePlayerActions,
   usePlayerTransportState,
-} from "../../contexts/PlayerContext";
+} from "@ui/contexts/PlayerContext";
 import { PlayingQueueViewAppBar } from "./PlayingQueueViewAppBar";
 import { PlayingQueueViewClearDialog } from "./PlayingQueueViewClearDialog";
 import { PlayingQueueViewList } from "./PlayingQueueViewList";

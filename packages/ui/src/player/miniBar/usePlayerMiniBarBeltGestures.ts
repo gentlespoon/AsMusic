@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useHost } from "../../host/HostContext";
-import { playImpactIfEnabled } from "../../haptics/playImpactIfEnabled";
+import { useHost } from "@ui/host/HostContext";
+import { playImpactIfEnabled } from "@ui/haptics/playImpactIfEnabled";
 import {
   usePlayerActions,
   usePlayerTransportState,
-} from "../../contexts/PlayerContext";
+} from "@ui/contexts/PlayerContext";
 import {
   clampPlayerBeltDragPx,
   resolvePlayerBeltSlots,
-} from "../shared/resolvePlayerBeltSlots";
+} from "@ui/player/shared/resolvePlayerBeltSlots";
 import { usePlayerMiniBarLegacyGestures } from "./usePlayerMiniBarLegacyGestures";
 
 export type PlayerMiniBarBeltGestures = ReturnType<

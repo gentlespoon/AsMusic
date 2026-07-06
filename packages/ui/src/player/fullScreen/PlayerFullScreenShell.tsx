@@ -1,6 +1,6 @@
 import Box from "@mui/material/Box";
 import { useEffect, type ReactNode } from "react";
-import { PLAYER_MINI_BAR_COMPACT_PX } from "../core/constants";
+import { PLAYER_MINI_BAR_COMPACT_PX } from "@ui/player/core/constants";
 
 export type PlayerFullScreenShellProps = {
   open: boolean;

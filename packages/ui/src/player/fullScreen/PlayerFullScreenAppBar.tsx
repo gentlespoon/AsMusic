@@ -1,8 +1,8 @@
 import AppBar from "@mui/material/AppBar";
 import Box from "@mui/material/Box";
 import Toolbar from "@mui/material/Toolbar";
-import { PageCloseButton } from "../../shared/PageCloseButton";
-import type { PlayerQueueItem } from "../core/types";
+import { PageCloseButton } from "@ui/shared/PageCloseButton";
+import type { PlayerQueueItem } from "@ui/player/core/types";
 import { PlayerFullScreenToolbarActions } from "./PlayerFullScreenToolbarActions";
 import type { PlayerFullScreenTrackActions } from "./usePlayerFullScreenTrackActions";
 

@@ -7,9 +7,9 @@ import {
   usePlayerActions,
   usePlayerShell,
   usePlayerTransportState,
-} from "../../contexts/PlayerContext";
-import { useWaveformProgressBarEnabled } from "../../preferences/waveformProgressBarPreference";
-import { useOfflineReadyForItem } from "../useOfflineReadyForItem";
+} from "@ui/contexts/PlayerContext";
+import { useWaveformProgressBarEnabled } from "@ui/preferences/waveformProgressBarPreference";
+import { useOfflineReadyForItem } from "@ui/player/useOfflineReadyForItem";
 import { WaveformScrubBar } from "./WaveformScrubBar";
 import { useWaveformPeaks } from "./useWaveformPeaks";
 

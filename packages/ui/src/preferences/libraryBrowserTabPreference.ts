@@ -1,4 +1,4 @@
-import type { LibraryBrowserTab } from '../views/home/library/browser/libraryNavigationUrl';
+import type { LibraryBrowserTab } from '@ui/views/home/library/browser/libraryNavigationUrl';
 
 const STORAGE_KEY = 'asmusic-library-browser-tab-v1';
 

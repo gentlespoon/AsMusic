@@ -1,6 +1,6 @@
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
-import type { PlayerQueueItem } from '../core/types';
+import type { PlayerQueueItem } from '@ui/player/core/types';
 
 export type PlayerMiniBarTrackBeltProps = {
   slots: PlayerQueueItem[];

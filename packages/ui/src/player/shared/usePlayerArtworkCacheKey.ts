@@ -1,5 +1,5 @@
-import { useLibraryBrowseCache } from '../../contexts/LibraryBrowseCacheContext';
-import type { PlayerQueueItem } from '../core/types';
+import { useLibraryBrowseCache } from '@ui/contexts/LibraryBrowseCacheContext';
+import type { PlayerQueueItem } from '@ui/player/core/types';
 import { playerQueueItemArtworkScope } from './resolvePlayerCachedArtwork';
 
 /** Matches library browse {@link artworkVersionKey} so player shares cover-art cache entries. */

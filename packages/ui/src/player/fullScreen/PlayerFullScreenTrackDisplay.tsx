@@ -5,17 +5,17 @@ import { useT } from "@asmusic/i18n";
 import {
   usePlayerActions,
   usePlayerTransportState,
-} from "../../contexts/PlayerContext";
-import { useServerAndLibrary } from "../../contexts/ServerAndLibraryContext";
-import { playImpactIfEnabled } from "../../haptics/playImpactIfEnabled";
-import { useHost } from "../../host/HostContext";
-import { copyTextToClipboard } from "../../utils/copyToClipboard";
-import { PlayerCoverArtBelt } from "../shared/PlayerCoverArtBelt";
+} from "@ui/contexts/PlayerContext";
+import { useServerAndLibrary } from "@ui/contexts/ServerAndLibraryContext";
+import { playImpactIfEnabled } from "@ui/haptics/playImpactIfEnabled";
+import { useHost } from "@ui/host/HostContext";
+import { copyTextToClipboard } from "@ui/utils/copyToClipboard";
+import { PlayerCoverArtBelt } from "@ui/player/shared/PlayerCoverArtBelt";
 import {
   clampPlayerBeltDragPx,
   resolvePlayerBeltSlots,
-} from "../shared/resolvePlayerBeltSlots";
-import { usePlayerCoverBeltGestures } from "../shared/usePlayerCoverBeltGestures";
+} from "@ui/player/shared/resolvePlayerBeltSlots";
+import { usePlayerCoverBeltGestures } from "@ui/player/shared/usePlayerCoverBeltGestures";
 import { PlayerFullScreenDisplayBelt } from "./PlayerFullScreenDisplayBelt";
 import { PlayerFullScreenTrackInfoSlot } from "./PlayerFullScreenTrackInfoSlot";
 import { usePlayerLibraryNavigation } from "./usePlayerLibraryNavigation";

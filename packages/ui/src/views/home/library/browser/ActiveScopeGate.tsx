@@ -10,8 +10,8 @@ import {
 import LibraryMusic from '@mui/icons-material/LibraryMusic';
 import { useT } from '@asmusic/i18n';
 import { useNavigate } from 'react-router-dom';
-import { useLibraryBrowseCache, useServerAndLibrary } from '../../../../contexts';
-import { useOnboardingCompleted } from '../../../../preferences/onboardingCompleted';
+import { useLibraryBrowseCache, useServerAndLibrary } from '@ui/contexts';
+import { useOnboardingCompleted } from '@ui/preferences/onboardingCompleted';
 import type { MessageKey } from '@asmusic/i18n';
 
 function emptyMessageKey(serversCount: number, onboardingCompleted: boolean): MessageKey {

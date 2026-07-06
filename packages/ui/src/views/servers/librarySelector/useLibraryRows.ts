@@ -5,7 +5,7 @@ import {
   fetchMusicFolders,
   type MusicFolderSummary,
 } from '@asmusic/core';
-import { useServerAndLibrary } from '../../../contexts';
+import { useServerAndLibrary } from '@ui/contexts';
 import {
   filterKnownRowsForServers,
   knownLibraryRowsForServer,

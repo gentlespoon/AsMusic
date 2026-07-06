@@ -60,6 +60,7 @@ export default defineConfig(() => {
       dedupe: ['react', 'react-dom'],
       alias: {
         '@': path.resolve(__dirname, './src'),
+        '@ui': path.resolve(repoRoot, 'packages/ui/src'),
       },
     },
     server: {

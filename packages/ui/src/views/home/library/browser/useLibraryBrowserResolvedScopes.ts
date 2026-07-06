@@ -6,7 +6,7 @@ import {
   type LocalPlaylistEntry,
   type LocalPlaylistSummary,
 } from '@asmusic/core';
-import type { LibraryBrowseScopeRow, LibraryBrowseSlice } from '../../../../contexts/LibraryBrowseCacheContext';
+import type { LibraryBrowseScopeRow, LibraryBrowseSlice } from '@ui/contexts/LibraryBrowseCacheContext';
 import {
   decodeLibraryBrowserRef,
   decodeLocalPlaylistRef,

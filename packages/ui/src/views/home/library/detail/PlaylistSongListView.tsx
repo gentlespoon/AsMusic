@@ -21,9 +21,9 @@ import {
 import {
   resolveCoverArtIdForCachedSong,
   isChildStarred,
-  mergePlaylistEntryWithCachedSongs,
-  playlistEntriesFromGetPlaylistResponse,
+  loadPlaylistTracks,
   type LibraryArtworkCacheRow,
+  type LibraryCacheScope,
   type SubsonicAPI,
 } from '@asmusic/core';
 import { PageCloseButton } from '../../../../shared/PageCloseButton';
@@ -36,6 +36,7 @@ import { useLibraryScrollRestoration } from '../../../../shared/useLibraryScroll
 import { useLibraryVirtuosoScroller } from '../../../../shared/useLibraryVirtuosoScroller';
 import { VirtuosoMuiList } from '../../../../shared/virtuosoMuiList';
 import { useOfflineDownload } from '../../../../contexts/OfflineDownloadContext';
+import { useHost } from '../../../../host/HostContext';
 
 export function PlaylistSongListView({
   playlistId,
@@ -52,6 +53,7 @@ export function PlaylistSongListView({
   artworkCacheKeyFor,
   serverId,
   libraryId,
+  scope,
   onBack,
   onPlayTrack,
   onPlayNextTrack,
@@ -79,6 +81,7 @@ export function PlaylistSongListView({
   artworkCacheKeyFor?: (coverArtId: string) => string;
   serverId: string;
   libraryId: string;
+  scope: LibraryCacheScope;
   onBack: () => void;
   onPlayTrack?: (track: Child) => void;
   onPlayNextTrack?: (track: Child) => void;
@@ -100,6 +103,7 @@ export function PlaylistSongListView({
   }) => Promise<void>;
 }) {
   const t = useT();
+  const host = useHost();
   const { enqueuePlaylistDownload } = useOfflineDownload();
   const bumpFor = coverArtCacheBump ?? (() => 0);
   const [search, setSearch] = useState('');
@@ -114,21 +118,22 @@ export function PlaylistSongListView({
     setLoadError(null);
     setTracks([]);
     try {
-      const res = await api.getPlaylist({ id: playlistId });
-      if (res.status !== 'ok' || !res.playlist) {
-        throw new Error('Could not load playlist from server');
-      }
-      const pl = res.playlist;
-      const name = typeof pl.name === 'string' && pl.name.length > 0 ? pl.name : playlistTitle;
-      setResolvedTitle(name);
-      const entries = playlistEntriesFromGetPlaylistResponse(pl);
-      setTracks(entries.map((e) => mergePlaylistEntryWithCachedSongs(e, cachedSongs)));
+      const result = await loadPlaylistTracks({
+        api,
+        storage: host.libraryCache,
+        scope,
+        playlistId,
+        playlistTitle,
+        cachedSongs,
+      });
+      setResolvedTitle(result.title);
+      setTracks(result.tracks);
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : 'Could not load playlist');
     } finally {
       setLoading(false);
     }
-  }, [api, playlistId, cachedSongs, playlistTitle]);
+  }, [api, host.libraryCache, scope, playlistId, cachedSongs, playlistTitle]);
 
   useEffect(() => {
     setSearch('');

@@ -13,6 +13,7 @@ import type { Child, SubsonicAPI } from 'subsonic-api';
 import {
   localPlaylistRefFromKey,
   localPlaylistTrackRefFromChild,
+  type LibraryCacheScope,
 } from '@asmusic/core';
 import {
   useLibraryBrowseCache,
@@ -29,6 +30,7 @@ type ServerPlaylistEditorTarget = {
   playlistId: string;
   playlistName: string;
   cachedSongs: Child[];
+  scope: LibraryCacheScope;
   api: SubsonicAPI;
 };
 
@@ -134,6 +136,7 @@ export function useLibraryBrowserPlaylists(options: {
       playlistId: resolvedPlaylist.subsonicPlaylistId,
       playlistName: playlistHeaderTitle,
       cachedSongs: resolvedPlaylist.slice.songs,
+      scope: resolvedPlaylist.slice.scope,
       api: playlistDetailApi,
     });
   }, [resolvedPlaylist, playlistDetailApi, playlistHeaderTitle, songEntries]);

@@ -31,6 +31,9 @@ public class AsmusicNativePlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "libraryCachePatchSong", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "libraryCacheReadPlaylistSummaries", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "libraryCacheReplacePlaylistSummaries", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "libraryCacheReadPlaylistEntryTrackIds", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "libraryCacheReplacePlaylistEntryTrackIds", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "libraryCachePurgePlaylistEntryTrackIdsNotIn", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "libraryCacheDeleteScope", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "libraryCachePurgeServerAccount", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "libraryCacheClearArtwork", returnType: CAPPluginReturnPromise),
@@ -512,6 +515,65 @@ public class AsmusicNativePlugin: CAPPlugin, CAPBridgedPlugin {
                 serverKey: serverKey,
                 libraryId: libraryId,
                 playlistsJson: playlistsJson
+            )
+            call.resolve()
+        } catch {
+            call.reject(error.localizedDescription)
+        }
+    }
+
+    @objc func libraryCacheReadPlaylistEntryTrackIds(_ call: CAPPluginCall) {
+        guard let serverKey = call.getString("serverKey"), !serverKey.isEmpty,
+              let libraryId = call.getString("libraryId"),
+              let playlistId = call.getString("playlistId"), !playlistId.isEmpty else {
+            call.reject("Missing serverKey, libraryId, or playlistId")
+            return
+        }
+        do {
+            let trackIdsJson = try LibraryCacheSQLiteStore.readPlaylistEntryTrackIdsJson(
+                serverKey: serverKey,
+                libraryId: libraryId,
+                playlistId: playlistId
+            )
+            call.resolve(["trackIdsJson": trackIdsJson])
+        } catch {
+            call.reject(error.localizedDescription)
+        }
+    }
+
+    @objc func libraryCacheReplacePlaylistEntryTrackIds(_ call: CAPPluginCall) {
+        guard let serverKey = call.getString("serverKey"), !serverKey.isEmpty,
+              let libraryId = call.getString("libraryId"),
+              let playlistId = call.getString("playlistId"), !playlistId.isEmpty,
+              let trackIdsJson = call.getString("trackIdsJson") else {
+            call.reject("Missing serverKey, libraryId, playlistId, or trackIdsJson")
+            return
+        }
+        do {
+            try LibraryCacheSQLiteStore.replacePlaylistEntryTrackIds(
+                serverKey: serverKey,
+                libraryId: libraryId,
+                playlistId: playlistId,
+                trackIdsJson: trackIdsJson
+            )
+            call.resolve()
+        } catch {
+            call.reject(error.localizedDescription)
+        }
+    }
+
+    @objc func libraryCachePurgePlaylistEntryTrackIdsNotIn(_ call: CAPPluginCall) {
+        guard let serverKey = call.getString("serverKey"), !serverKey.isEmpty,
+              let libraryId = call.getString("libraryId"),
+              let playlistIdsJson = call.getString("playlistIdsJson") else {
+            call.reject("Missing serverKey, libraryId, or playlistIdsJson")
+            return
+        }
+        do {
+            try LibraryCacheSQLiteStore.purgePlaylistEntryTrackIdsNotIn(
+                serverKey: serverKey,
+                libraryId: libraryId,
+                playlistIdsJson: playlistIdsJson
             )
             call.resolve()
         } catch {

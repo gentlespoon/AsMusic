@@ -10,7 +10,7 @@ import {
 } from '@asmusic/core';
 
 const DB_NAME = 'asmusic-library-cache';
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 
 type SongRow = {
   serverKey: string;
@@ -106,6 +106,12 @@ function openDb(): Promise<IDBDatabase> {
         for (const name of names) {
           tx.objectStore(name).clear();
         }
+      }
+      if (ev.oldVersion < 5) {
+        const playlistTrackLists = db.createObjectStore('playlistTrackLists', {
+          keyPath: ['serverKey', 'libraryId', 'playlistId'],
+        });
+        playlistTrackLists.createIndex('byScopePt', ['serverKey', 'libraryId']);
       }
     };
   });
@@ -334,6 +340,79 @@ function replacePlaylistsDb(
   });
 }
 
+type PlaylistTrackListRow = {
+  serverKey: string;
+  libraryId: string;
+  playlistId: string;
+  trackIds: string[];
+};
+
+function readPlaylistEntryTrackIdsDb(
+  db: IDBDatabase,
+  serverKey: string,
+  libraryId: string,
+  playlistId: string,
+): Promise<string[]> {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('playlistTrackLists', 'readonly');
+    const store = tx.objectStore('playlistTrackLists');
+    const req = store.get([serverKey, libraryId, playlistId]);
+    req.onerror = () => reject(req.error);
+    req.onsuccess = () => {
+      const row = req.result as PlaylistTrackListRow | undefined;
+      resolve(row?.trackIds ?? []);
+    };
+  });
+}
+
+function replacePlaylistEntryTrackIdsDb(
+  db: IDBDatabase,
+  serverKey: string,
+  libraryId: string,
+  playlistId: string,
+  trackIds: string[],
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('playlistTrackLists', 'readwrite');
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error ?? new Error('IndexedDB transaction failed'));
+    const store = tx.objectStore('playlistTrackLists');
+    if (trackIds.length === 0) {
+      store.delete([serverKey, libraryId, playlistId]);
+      return;
+    }
+    store.put({ serverKey, libraryId, playlistId, trackIds });
+  });
+}
+
+function purgePlaylistEntryTrackIdsNotInDb(
+  db: IDBDatabase,
+  serverKey: string,
+  libraryId: string,
+  playlistIds: string[],
+): Promise<void> {
+  const keep = new Set(playlistIds);
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('playlistTrackLists', 'readwrite');
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error ?? new Error('IndexedDB transaction failed'));
+    const store = tx.objectStore('playlistTrackLists');
+    const idx = store.index('byScopePt');
+    const range = IDBKeyRange.only([serverKey, libraryId]);
+    const req = idx.openCursor(range);
+    req.onerror = () => reject(req.error);
+    req.onsuccess = () => {
+      const cursor = req.result;
+      if (!cursor) return;
+      const row = cursor.value as PlaylistTrackListRow;
+      if (!keep.has(row.playlistId)) {
+        cursor.delete();
+      }
+      cursor.continue();
+    };
+  });
+}
+
 function clearArtworkDb(db: IDBDatabase, serverKey: string, libraryId: string): Promise<void> {
   return clearObjectStoreByScope(db, 'artworks', 'byScopeArtwork', serverKey, libraryId);
 }
@@ -395,8 +474,8 @@ function readArtworkDb(
 
 function clearObjectStoreByScope(
   db: IDBDatabase,
-  storeName: 'songs' | 'playlists' | 'artworks' | 'artists' | 'albums',
-  indexName: 'byScope' | 'byScopePl' | 'byScopeArtwork' | 'byScopeArtists' | 'byScopeAlbums',
+  storeName: 'songs' | 'playlists' | 'playlistTrackLists' | 'artworks' | 'artists' | 'albums',
+  indexName: 'byScope' | 'byScopePl' | 'byScopePt' | 'byScopeArtwork' | 'byScopeArtists' | 'byScopeAlbums',
   serverKey: string,
   libraryId: string
 ): Promise<void> {
@@ -423,6 +502,7 @@ function deleteScopeDb(db: IDBDatabase, serverKey: string, libraryId: string): P
   return (async () => {
     await clearObjectStoreByScope(db, 'songs', 'byScope', serverKey, libraryId);
     await clearObjectStoreByScope(db, 'playlists', 'byScopePl', serverKey, libraryId);
+    await clearObjectStoreByScope(db, 'playlistTrackLists', 'byScopePt', serverKey, libraryId);
     await clearObjectStoreByScope(db, 'artworks', 'byScopeArtwork', serverKey, libraryId);
     await clearObjectStoreByScope(db, 'artists', 'byScopeArtists', serverKey, libraryId);
     await clearObjectStoreByScope(db, 'albums', 'byScopeAlbums', serverKey, libraryId);
@@ -442,7 +522,7 @@ function purgeArtistAndAlbumCachesDb(db: IDBDatabase, serverKey: string, library
   })();
 }
 
-const STORES_WITH_SERVER_KEY = ['songs', 'meta', 'playlists', 'artworks', 'artists', 'albums'] as const;
+const STORES_WITH_SERVER_KEY = ['songs', 'meta', 'playlists', 'playlistTrackLists', 'artworks', 'artists', 'albums'] as const;
 
 function purgeServerAccountDb(db: IDBDatabase, accountServerKey: string): Promise<void> {
   return (async () => {
@@ -505,6 +585,18 @@ export function createIndexedDbLibraryCacheStorage(): LibraryCacheStorage {
     async replacePlaylistSummaries(scope, playlists) {
       const db = await openDb();
       await replacePlaylistsDb(db, scope.serverKey, scope.libraryId, playlists);
+    },
+    async readPlaylistEntryTrackIds(scope, playlistId) {
+      const db = await openDb();
+      return readPlaylistEntryTrackIdsDb(db, scope.serverKey, scope.libraryId, playlistId);
+    },
+    async replacePlaylistEntryTrackIds(scope, playlistId, trackIds) {
+      const db = await openDb();
+      await replacePlaylistEntryTrackIdsDb(db, scope.serverKey, scope.libraryId, playlistId, trackIds);
+    },
+    async purgePlaylistEntryTrackIdsNotIn(scope, playlistIds) {
+      const db = await openDb();
+      await purgePlaylistEntryTrackIdsNotInDb(db, scope.serverKey, scope.libraryId, playlistIds);
     },
     async clearArtworkCache(scope) {
       const db = await openDb();

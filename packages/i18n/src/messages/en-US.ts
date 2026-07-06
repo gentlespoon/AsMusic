@@ -89,6 +89,7 @@ export const enUSMessages = {
   "library.favorites.empty":
     "No starred tracks yet. Star songs from your library or the full-screen player to see them here.",
   "library.favorites.noMatch": "No favorites match your search.",
+  "library.favorites.offlineQueued": "Favorite updated on this device. It will sync when you're back online.",
   "library.favorites.search": "Search favorites",
   "library.linkMismatch.album":
     "This album link does not match any active library cache.",
@@ -141,6 +142,8 @@ export const enUSMessages = {
   "library.playlist.editor.loadingSongs": "Loading songs…",
   "library.playlist.editor.save": "Save",
   "library.playlist.editor.saveError": "Could not save playlist",
+  "library.playlist.editor.offlineReadOnly":
+    "Offline — membership is read-only. Connect to save changes.",
   "library.playlist.editor.unsaved": "Unsaved changes",
   "library.playlist.empty":
     "No playlists on this server. Sync your library or create a new playlist.",

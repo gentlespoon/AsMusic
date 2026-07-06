@@ -15,21 +15,24 @@ import {
 } from '@mui/material';
 import {
   allCachedSongsSorted,
-  filterPlaylistEntries,
-  mergePlaylistEntryWithCachedSongs,
+  loadPlaylistTracks,
   playlistEditDiff,
-  playlistEntriesFromGetPlaylistResponse,
+  type LibraryCacheScope,
+  type LibraryCacheStorage,
   type SubsonicAPI,
 } from '@asmusic/core';
 import { useT } from '@asmusic/i18n';
 import { PageCloseButton } from '../../../../shared/PageCloseButton';
 import { songMatchesQuery } from '../../../../shared/songSearch';
 import { libraryFlexFillSx } from '../../../../shared/LibraryVirtuosoFill';
+import { useNetworkStatus } from '../../../../shared/useNetworkStatus';
 
 export function PlaylistEditorView({
   playlistId,
   playlistName,
   cachedSongs,
+  scope,
+  storage,
   api,
   onBack,
   onSave,
@@ -37,11 +40,14 @@ export function PlaylistEditorView({
   playlistId: string;
   playlistName: string;
   cachedSongs: Child[];
+  scope: LibraryCacheScope;
+  storage: LibraryCacheStorage;
   api: SubsonicAPI;
   onBack: () => void;
   onSave: (diff: { songIdsToAdd: string[]; songIndexesToRemove: number[] }) => Promise<void>;
 }) {
   const t = useT();
+  const { isOnline } = useNetworkStatus();
   const [search, setSearch] = useState('');
   const [songs, setSongs] = useState<Child[]>([]);
   const [originalEntryIds, setOriginalEntryIds] = useState<string[]>([]);
@@ -50,27 +56,34 @@ export function PlaylistEditorView({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loadedFromCache, setLoadedFromCache] = useState(false);
+
+  const readOnly = !isOnline || loadedFromCache;
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError(null);
+    setLoadedFromCache(false);
     void (async () => {
       try {
-        const res = await api.getPlaylist({ id: playlistId });
+        const result = await loadPlaylistTracks({
+          api,
+          storage,
+          scope,
+          playlistId,
+          playlistTitle: playlistName,
+          cachedSongs,
+        });
         if (cancelled) return;
-        if (res.status !== 'ok' || !res.playlist) {
-          throw new Error('Could not load playlist');
-        }
-        const entries = filterPlaylistEntries(playlistEntriesFromGetPlaylistResponse(res.playlist));
-        const ids = entries.map((e) => String(e.id));
-        const allSongs =
-          cachedSongs.length > 0 ? allCachedSongsSorted(cachedSongs) : entries.map((e) => mergePlaylistEntryWithCachedSongs(e, cachedSongs));
+        const ids = result.entryTrackIds;
+        const allSongs = allCachedSongsSorted(cachedSongs);
         const idSet = new Set(ids);
         setSongs(allSongs);
         setOriginalEntryIds(ids);
         setSelectedIds(idSet);
         setOriginalIds(new Set(ids));
+        setLoadedFromCache(result.fromCache);
       } catch (e) {
         if (!cancelled) {
           setError(e instanceof Error ? e.message : t('library.playlist.editor.loadError'));
@@ -82,7 +95,7 @@ export function PlaylistEditorView({
     return () => {
       cancelled = true;
     };
-  }, [api, playlistId, cachedSongs]);
+  }, [api, storage, scope, playlistId, playlistName, cachedSongs, t]);
 
   const filteredSongs = useMemo(
     () => songs.filter((s) => songMatchesQuery(s, search)),
@@ -107,6 +120,7 @@ export function PlaylistEditorView({
   }, []);
 
   const handleSave = useCallback(async () => {
+    if (readOnly) return;
     if (!hasChanges) {
       onBack();
       return;
@@ -122,7 +136,7 @@ export function PlaylistEditorView({
     } finally {
       setSaving(false);
     }
-  }, [hasChanges, originalEntryIds, selectedIds, onSave, onBack]);
+  }, [readOnly, hasChanges, originalEntryIds, selectedIds, onSave, onBack, t]);
 
   return (
     <Box
@@ -138,10 +152,21 @@ export function PlaylistEditorView({
         <Typography variant="h6" component="h2" sx={{ fontWeight: 600, flex: 1, minWidth: 0 }}>
           {t('library.playlist.editor.editTitle', { name: playlistName })}
         </Typography>
-        <Button variant="contained" size="small" disabled={!hasChanges || saving} onClick={() => void handleSave()}>
+        <Button
+          variant="contained"
+          size="small"
+          disabled={readOnly || !hasChanges || saving}
+          onClick={() => void handleSave()}
+        >
           {saving ? t('common.saving') : t('library.playlist.editor.done')}
         </Button>
       </Stack>
+
+      {readOnly && !loading && (
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2, flexShrink: 0 }}>
+          {t('library.playlist.editor.offlineReadOnly')}
+        </Typography>
+      )}
 
       {loading && (
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 2 }}>
@@ -179,9 +204,19 @@ export function PlaylistEditorView({
           const checked = selectedIds.has(id);
           return (
             <ListItem key={id} disablePadding divider>
-              <ListItemButton onClick={() => toggleSelection(id)} sx={{ py: 0.75 }}>
+              <ListItemButton
+                onClick={() => !readOnly && toggleSelection(id)}
+                disabled={readOnly}
+                sx={{ py: 0.75 }}
+              >
                 <ListItemIcon sx={{ minWidth: 40 }}>
-                  <Checkbox edge="start" checked={checked} tabIndex={-1} disableRipple />
+                  <Checkbox
+                    edge="start"
+                    checked={checked}
+                    tabIndex={-1}
+                    disableRipple
+                    disabled={readOnly}
+                  />
                 </ListItemIcon>
                 <ListItemText
                   primary={song.title ?? id}

@@ -49,6 +49,15 @@ export interface LibraryCacheStorage {
   patchSong(scope: LibraryCacheScope, song: Child): Promise<void>;
   readPlaylistSummaries(scope: LibraryCacheScope): Promise<LibraryPlaylistSummary[]>;
   replacePlaylistSummaries(scope: LibraryCacheScope, playlists: LibraryPlaylistSummary[]): Promise<void>;
+  /** Ordered track ids for a server playlist (cached during library sync or on open). */
+  readPlaylistEntryTrackIds(scope: LibraryCacheScope, playlistId: string): Promise<string[]>;
+  replacePlaylistEntryTrackIds(
+    scope: LibraryCacheScope,
+    playlistId: string,
+    trackIds: string[],
+  ): Promise<void>;
+  /** Drop cached entry rows for playlists no longer in the server catalog. */
+  purgePlaylistEntryTrackIdsNotIn(scope: LibraryCacheScope, playlistIds: string[]): Promise<void>;
   /** Removes all cached artwork for the scope (e.g. before a background refill). */
   clearArtworkCache(scope: LibraryCacheScope): Promise<void>;
   /** Removes all cached artwork across every library scope. */

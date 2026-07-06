@@ -194,6 +194,8 @@ See also `NOTE.md` (section â€œPlaylist creation and multiple active librariesâ€
 - Create, delete, edit membership (checkbox editor)
 - Add-to-playlist from full-screen player
 - Offline bulk download for a playlist
+- **Cached playlist entry track ids** for server playlists (sync + on open); offline browse/play via `loadPlaylistTracks`
+- Server playlist editor loads membership from cache offline (read-only; save requires network)
 - Multi-library browse with scoped deep links
 - **Local cross-library playlists** (create/edit/add-from-player with multiple libraries)
 - Server playlist create with library picker when multiple libraries active
@@ -201,7 +203,6 @@ See also `NOTE.md` (section â€œPlaylist creation and multiple active librariesâ€
 **Not implemented / deferred:**
 
 - Drag-reorder editor (`reorderPlaylistEntries` is unused)
-- Cached playlist **entries** for server playlists (only summaries are cached; tracks always fetched live)
 - Create/edit **server** playlist membership with multiple libraries active (editor scoped to playlist library)
 - Extended summary fields (`owner`, `duration`) for shared-playlist labeling
 

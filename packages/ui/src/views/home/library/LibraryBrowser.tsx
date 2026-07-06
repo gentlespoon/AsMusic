@@ -483,6 +483,8 @@ export function LibraryBrowser() {
                 playlistId={playlistEditorTarget.playlistId}
                 playlistName={playlistEditorTarget.playlistName}
                 cachedSongs={playlistEditorTarget.cachedSongs}
+                scope={playlistEditorTarget.scope}
+                storage={host.libraryCache}
                 api={playlistEditorTarget.api}
                 onBack={closePlaylistEditor}
                 onSave={savePlaylistEditor}
@@ -532,6 +534,7 @@ export function LibraryBrowser() {
               artworkCacheKeyFor={(id) => artworkVersionKey(id, resolvedPlaylist.slice.scope)}
               serverId={resolvedPlaylist.slice.serverId}
               libraryId={resolvedPlaylist.slice.libraryId}
+              scope={resolvedPlaylist.slice.scope}
               onBack={popPlaylistView}
               onPlayTrack={(track) =>
                 playTrackNow(resolvedPlaylist.slice.serverId, resolvedPlaylist.slice.libraryId, track)

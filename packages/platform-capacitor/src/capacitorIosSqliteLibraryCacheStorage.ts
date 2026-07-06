@@ -102,6 +102,31 @@ export function createCapacitorIosSqliteLibraryCacheStorage(): LibraryCacheStora
         playlistsJson: JSON.stringify(playlists),
       });
     },
+    async readPlaylistEntryTrackIds(scope, playlistId) {
+      const { trackIdsJson } = await AsmusicNative.libraryCacheReadPlaylistEntryTrackIds({
+        serverKey: scope.serverKey,
+        libraryId: scope.libraryId,
+        playlistId,
+      });
+      const parsed = JSON.parse(trackIdsJson) as unknown;
+      if (!Array.isArray(parsed)) return [];
+      return parsed.map((id) => String(id));
+    },
+    async replacePlaylistEntryTrackIds(scope, playlistId, trackIds) {
+      await AsmusicNative.libraryCacheReplacePlaylistEntryTrackIds({
+        serverKey: scope.serverKey,
+        libraryId: scope.libraryId,
+        playlistId,
+        trackIdsJson: JSON.stringify(trackIds),
+      });
+    },
+    async purgePlaylistEntryTrackIdsNotIn(scope, playlistIds) {
+      await AsmusicNative.libraryCachePurgePlaylistEntryTrackIdsNotIn({
+        serverKey: scope.serverKey,
+        libraryId: scope.libraryId,
+        playlistIdsJson: JSON.stringify(playlistIds),
+      });
+    },
     async clearArtworkCache(scope) {
       await AsmusicNative.libraryCacheClearArtwork({
         serverKey: scope.serverKey,

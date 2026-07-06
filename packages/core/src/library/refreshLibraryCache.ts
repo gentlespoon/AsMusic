@@ -8,7 +8,7 @@ import {
   purgeRemovedLibraryCacheEntries,
   removedSongIdsFromLibraryRefresh,
 } from './purgeRemovedLibraryCacheEntries';
-import { refreshPlaylistSummariesOnly } from './playlistMutations';
+import { refreshPlaylistCacheForScope } from './playlistMutations';
 import type { LibraryCacheStorage } from './storage/LibraryCacheStorage';
 
 export type RefreshLibraryCacheOptions = {
@@ -54,7 +54,7 @@ export async function refreshLibraryCache(
     onProgress?.({ phase: 'write', written });
   });
 
-  await refreshPlaylistSummariesOnly(api, storage, scope);
+  await refreshPlaylistCacheForScope(api, storage, scope);
   onProgress?.({ phase: 'playlists' });
   return { songCount: songs.length, songs, removedSongCount: removedTrackIds.length };
 }

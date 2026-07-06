@@ -81,6 +81,22 @@ export interface AsmusicNativePlugin {
     libraryId: string;
     playlistsJson: string;
   }): Promise<void>;
+  libraryCacheReadPlaylistEntryTrackIds(options: {
+    serverKey: string;
+    libraryId: string;
+    playlistId: string;
+  }): Promise<{ trackIdsJson: string }>;
+  libraryCacheReplacePlaylistEntryTrackIds(options: {
+    serverKey: string;
+    libraryId: string;
+    playlistId: string;
+    trackIdsJson: string;
+  }): Promise<void>;
+  libraryCachePurgePlaylistEntryTrackIdsNotIn(options: {
+    serverKey: string;
+    libraryId: string;
+    playlistIdsJson: string;
+  }): Promise<void>;
   libraryCacheDeleteScope(options: { serverKey: string; libraryId: string }): Promise<void>;
   /** Remove all library cache rows for this account `serverKey` (all music folders). */
   libraryCachePurgeServerAccount(options: { serverKey: string }): Promise<void>;

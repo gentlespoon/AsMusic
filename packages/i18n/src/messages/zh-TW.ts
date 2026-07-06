@@ -85,6 +85,7 @@ export const zhTWMessages = {
   "library.favorites.empty":
     "尚無收藏曲目。在資料庫或全螢幕播放器中為歌曲加星號，即可在此查看。",
   "library.favorites.noMatch": "沒有符合的收藏。",
+  "library.favorites.offlineQueued": "已在此裝置更新收藏。恢復連線後將同步至伺服器。",
   "library.favorites.search": "搜尋收藏",
   "library.linkMismatch.album": "此專輯連結與任何已啟用資料庫的快取不符。",
   "library.linkMismatch.artist": "此藝人連結與任何已啟用資料庫的快取不符。",
@@ -132,6 +133,7 @@ export const zhTWMessages = {
   "library.playlist.editor.loadingSongs": "正在載入歌曲…",
   "library.playlist.editor.save": "儲存",
   "library.playlist.editor.saveError": "無法儲存播放清單",
+  "library.playlist.editor.offlineReadOnly": "離線時為唯讀。請連線後再儲存變更。",
   "library.playlist.editor.unsaved": "有未儲存的變更",
   "library.playlist.empty":
     "此伺服器上尚無播放清單。請同步資料庫或建立新播放清單。",

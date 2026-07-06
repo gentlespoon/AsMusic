@@ -19,8 +19,15 @@ import {
   refreshLibraryCache,
   fetchMusicFolders,
   type LibraryCacheScope,
-  refreshPlaylistSummariesOnly,
+  refreshPlaylistCacheForScope,
   updatePlaylistTracks,
+  PENDING_STAR_MUTATIONS_STORAGE_KEY,
+  coalescePendingStarMutations,
+  parsePendingStarMutationsJson,
+  serializePendingStarMutations,
+  upsertPendingStarMutation,
+  removePendingStarMutations,
+  type PendingStarMutation,
   createLocalPlaylist,
   deleteLocalPlaylist,
   addTrackToLocalPlaylist,
@@ -35,6 +42,7 @@ import { useT } from '@asmusic/i18n';
 import { useHost } from '../host/HostContext';
 import { useServerAndLibrary } from './ServerAndLibraryContext';
 import { clearCoverArtObjectUrlCache } from '../shared/coverArtObjectUrlCache';
+import { useNetworkStatus } from '../shared/useNetworkStatus';
 import type { AlbumCatalogRow } from '../views/home/library/catalog/AlbumListView';
 import type { ArtistCatalogRow } from '../views/home/library/catalog/ArtistListView';
 import type { SongListEntry } from '../views/home/library/catalog/SongListView';
@@ -159,7 +167,12 @@ const LibraryBrowseCacheContext = createContext<LibraryBrowseCacheContextValue |
 export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }) {
   const t = useT();
   const host = useHost();
+  const { isOnline } = useNetworkStatus();
+  const isOnlineRef = useRef(isOnline);
+  isOnlineRef.current = isOnline;
   const { servers, activeLibraryRefs, getApiForServer } = useServerAndLibrary();
+
+  const pendingStarQueueRef = useRef<PendingStarMutation[]>([]);
 
   const scopesToLoad = useMemo(() => {
     return activeLibraryRefs
@@ -197,6 +210,19 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
   const [apiByServerId, setApiByServerId] = useState<Record<string, SubsonicAPI | null>>({});
   const [libraryNameByKey, setLibraryNameByKey] = useState<Record<string, string>>({});
   const [localPlaylistSummaries, setLocalPlaylistSummaries] = useState<LocalPlaylistSummary[]>([]);
+
+  useEffect(() => {
+    void host.secureStorage.get(PENDING_STAR_MUTATIONS_STORAGE_KEY).then((json) => {
+      pendingStarQueueRef.current = parsePendingStarMutationsJson(json);
+    });
+  }, [host]);
+
+  const persistPendingStarQueue = useCallback(async () => {
+    await host.secureStorage.set(
+      PENDING_STAR_MUTATIONS_STORAGE_KEY,
+      serializePendingStarMutations(pendingStarQueueRef.current),
+    );
+  }, [host]);
 
   const reloadLocalPlaylists = useCallback(async () => {
     const list = await host.localPlaylists.listSummaries();
@@ -555,6 +581,85 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
 
   const apiForServer = useCallback((serverId: string) => apiByServerId[serverId] ?? null, [apiByServerId]);
 
+  const applyLocalStarState = useCallback(
+    async (args: { serverId: string; libraryId: string; trackId: string; starred: boolean }) => {
+      const { serverId, libraryId, trackId, starred } = args;
+      const toLoad = scopesToLoadRef.current;
+      const sl = toLoad.find((s) => s.serverId === serverId && s.libraryId === libraryId);
+      if (!sl) {
+        throw new Error('Library is not available');
+      }
+      const tid = String(trackId);
+      const prevSlices = slicesRef.current;
+      const sliceIdx = prevSlices.findIndex((s) => s.serverId === serverId && s.libraryId === libraryId);
+      if (sliceIdx < 0) {
+        throw new Error('Library slice not loaded');
+      }
+      const songIdx = prevSlices[sliceIdx]!.songs.findIndex((s) => String(s.id) === tid);
+      if (songIdx < 0) {
+        throw new Error('Track not in local library cache');
+      }
+      const song = prevSlices[sliceIdx]!.songs[songIdx]!;
+      const nextSong: Child = {
+        ...song,
+        starred: starred ? new Date().toISOString() : undefined,
+      };
+      await host.libraryCache.patchSong(sl.scope, nextSong);
+      setSlices((prev) => {
+        const i = prev.findIndex((s) => s.serverId === serverId && s.libraryId === libraryId);
+        if (i < 0) return prev;
+        const j = prev[i]!.songs.findIndex((s) => String(s.id) === tid);
+        if (j < 0) return prev;
+        const nextSongs = [...prev[i]!.songs];
+        nextSongs[j] = nextSong;
+        const next = [...prev];
+        next[i] = { ...prev[i]!, songs: nextSongs };
+        return next;
+      });
+    },
+    [host.libraryCache]
+  );
+
+  const flushPendingStarMutations = useCallback(async () => {
+    const queue = coalescePendingStarMutations(pendingStarQueueRef.current);
+    if (queue.length === 0) return;
+    const flushed: PendingStarMutation[] = [];
+    for (const m of queue) {
+      const api = await getApiForServer(m.serverId);
+      if (!api) continue;
+      try {
+        if (m.starred) {
+          await api.star({ id: m.trackId });
+        } else {
+          await api.unstar({ id: m.trackId });
+        }
+        flushed.push(m);
+      } catch {
+        /* keep in queue for retry */
+      }
+    }
+    if (flushed.length > 0) {
+      pendingStarQueueRef.current = removePendingStarMutations(pendingStarQueueRef.current, flushed);
+      await persistPendingStarQueue();
+    }
+  }, [getApiForServer, persistPendingStarQueue]);
+
+  const reapplyPendingStarsToSlices = useCallback(async () => {
+    const queue = coalescePendingStarMutations(pendingStarQueueRef.current);
+    for (const m of queue) {
+      try {
+        await applyLocalStarState(m);
+      } catch {
+        /* track may no longer be in cache */
+      }
+    }
+  }, [applyLocalStarState]);
+
+  useEffect(() => {
+    if (!isOnline) return;
+    void flushPendingStarMutations();
+  }, [isOnline, flushPendingStarMutations]);
+
   const clearAllArtworkCache = useCallback(async () => {
     await host.libraryCache.purgeAllArtworkCache();
     clearCoverArtObjectUrlCache();
@@ -571,6 +676,7 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
     setSyncError(null);
     setSyncProgress(null);
     try {
+      await flushPendingStarMutations();
       const built: LibraryBrowseSlice[] = [];
 
       for (const sl of scopesToLoad) {
@@ -594,13 +700,22 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
       }
 
       setSlices(built);
+      await reapplyPendingStarsToSlices();
     } catch (e) {
       setSyncError(e instanceof Error ? e.message : 'Library sync failed');
     } finally {
       setSyncing(false);
       setSyncProgress(null);
     }
-  }, [scopesToLoad, getApiForServer, host.libraryCache, host.offlineMedia, clearArtworkVersionThrottle]);
+  }, [
+    scopesToLoad,
+    getApiForServer,
+    host.libraryCache,
+    host.offlineMedia,
+    clearArtworkVersionThrottle,
+    flushPendingStarMutations,
+    reapplyPendingStarsToSlices,
+  ]);
 
   const runRefreshRef = useRef(runRefresh);
   runRefreshRef.current = runRefresh;
@@ -692,7 +807,7 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
       if (!api) throw new Error('Could not open a session for this server');
       const sl = scopesToLoadRef.current.find((s) => s.serverId === serverId && s.libraryId === libraryId);
       if (!sl) throw new Error('Library is not available');
-      const playlists = await refreshPlaylistSummariesOnly(api, host.libraryCache, sl.scope);
+      const playlists = await refreshPlaylistCacheForScope(api, host.libraryCache, sl.scope);
       applyPlaylistsToSlice(serverId, libraryId, playlists);
     },
     [getApiForServer, host.libraryCache, applyPlaylistsToSlice]
@@ -804,49 +919,32 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
   const setTrackStarred = useCallback(
     async (args: { serverId: string; libraryId: string; trackId: string; starred: boolean }) => {
       const { serverId, libraryId, trackId, starred } = args;
+      const tid = String(trackId);
+
+      if (!isOnlineRef.current) {
+        await applyLocalStarState(args);
+        pendingStarQueueRef.current = upsertPendingStarMutation(pendingStarQueueRef.current, {
+          serverId,
+          libraryId,
+          trackId: tid,
+          starred,
+        });
+        await persistPendingStarQueue();
+        return;
+      }
+
       const api = await getApiForServer(serverId);
       if (!api) {
         throw new Error('Could not open a session for this server');
       }
-      const toLoad = scopesToLoadRef.current;
-      const sl = toLoad.find((s) => s.serverId === serverId && s.libraryId === libraryId);
-      if (!sl) {
-        throw new Error('Library is not available');
-      }
-      const tid = String(trackId);
-      const prevSlices = slicesRef.current;
-      const sliceIdx = prevSlices.findIndex((s) => s.serverId === serverId && s.libraryId === libraryId);
-      if (sliceIdx < 0) {
-        throw new Error('Library slice not loaded');
-      }
-      const songIdx = prevSlices[sliceIdx]!.songs.findIndex((s) => String(s.id) === tid);
-      if (songIdx < 0) {
-        throw new Error('Track not in local library cache');
-      }
-      const song = prevSlices[sliceIdx]!.songs[songIdx]!;
       if (starred) {
         await api.star({ id: tid });
       } else {
         await api.unstar({ id: tid });
       }
-      const nextSong: Child = {
-        ...song,
-        starred: starred ? new Date().toISOString() : undefined,
-      };
-      await host.libraryCache.patchSong(sl.scope, nextSong);
-      setSlices((prev) => {
-        const i = prev.findIndex((s) => s.serverId === serverId && s.libraryId === libraryId);
-        if (i < 0) return prev;
-        const j = prev[i]!.songs.findIndex((s) => String(s.id) === tid);
-        if (j < 0) return prev;
-        const nextSongs = [...prev[i]!.songs];
-        nextSongs[j] = nextSong;
-        const next = [...prev];
-        next[i] = { ...prev[i]!, songs: nextSongs };
-        return next;
-      });
+      await applyLocalStarState(args);
     },
-    [getApiForServer, host.libraryCache]
+    [getApiForServer, applyLocalStarState, persistPendingStarQueue]
   );
 
   const value = useMemo<LibraryBrowseCacheContextValue>(

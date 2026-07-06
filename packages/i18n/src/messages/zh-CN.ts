@@ -85,6 +85,7 @@ export const zhCNMessages = {
   "library.favorites.empty":
     "尚无收藏曲目。在资料库或全屏播放器中为歌曲加星，即可在此查看。",
   "library.favorites.noMatch": "没有匹配的收藏。",
+  "library.favorites.offlineQueued": "已在此设备更新收藏。恢复联网后将同步到服务器。",
   "library.favorites.search": "搜索收藏",
   "library.linkMismatch.album": "此专辑链接与任何已启用资料库的缓存不匹配。",
   "library.linkMismatch.artist": "此艺术家链接与任何已启用资料库的缓存不匹配。",
@@ -132,6 +133,7 @@ export const zhCNMessages = {
   "library.playlist.editor.loadingSongs": "正在加载歌曲…",
   "library.playlist.editor.save": "保存",
   "library.playlist.editor.saveError": "无法保存播放列表",
+  "library.playlist.editor.offlineReadOnly": "离线模式下为只读。请联网后再保存更改。",
   "library.playlist.editor.unsaved": "有未保存的更改",
   "library.playlist.empty":
     "此服务器上尚无播放列表。请同步资料库或创建新播放列表。",

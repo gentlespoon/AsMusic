@@ -61,6 +61,18 @@ export class AsmusicNativeWeb extends WebPlugin implements AsmusicNativePlugin {
     throwNativeOnly('libraryCacheReplacePlaylistSummaries');
   }
 
+  async libraryCacheReadPlaylistEntryTrackIds(): Promise<{ trackIdsJson: string }> {
+    throwNativeOnly('libraryCacheReadPlaylistEntryTrackIds');
+  }
+
+  async libraryCacheReplacePlaylistEntryTrackIds(): Promise<void> {
+    throwNativeOnly('libraryCacheReplacePlaylistEntryTrackIds');
+  }
+
+  async libraryCachePurgePlaylistEntryTrackIdsNotIn(): Promise<void> {
+    throwNativeOnly('libraryCachePurgePlaylistEntryTrackIdsNotIn');
+  }
+
   async libraryCacheDeleteScope(): Promise<void> {
     throwNativeOnly('libraryCacheDeleteScope');
   }

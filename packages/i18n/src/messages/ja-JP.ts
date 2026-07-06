@@ -88,6 +88,8 @@ export const jaJPMessages = {
   "library.favorites.empty":
     "お気に入りの曲はまだありません。ライブラリまたは全画面プレイヤーで曲にスターを付けると、ここに表示されます。",
   "library.favorites.noMatch": "検索に一致するお気に入りがありません。",
+  "library.favorites.offlineQueued":
+    "このデバイスでお気に入りを更新しました。オンライン復帰時に同期されます。",
   "library.favorites.search": "お気に入りを検索",
   "library.linkMismatch.album":
     "このアルバムのリンクは、有効なライブラリキャッシュと一致しません。",
@@ -141,6 +143,8 @@ export const jaJPMessages = {
   "library.playlist.editor.loadingSongs": "曲を読み込み中…",
   "library.playlist.editor.save": "保存",
   "library.playlist.editor.saveError": "プレイリストを保存できませんでした",
+  "library.playlist.editor.offlineReadOnly":
+    "オフラインのため読み取り専用です。保存するにはネットワークに接続してください。",
   "library.playlist.editor.unsaved": "未保存の変更があります",
   "library.playlist.empty":
     "このサーバーにプレイリストがありません。ライブラリを同期するか、新しいプレイリストを作成してください。",

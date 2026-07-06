@@ -355,6 +355,158 @@ enum LibraryCacheSQLiteStore {
         }
     }
 
+    static func readPlaylistEntryTrackIdsJson(serverKey: String, libraryId: String, playlistId: String) throws -> String {
+        try queue.sync {
+            try openIfNeeded()
+            guard let db else { throw StoreError.databaseUnavailable }
+
+            let sql = """
+                SELECT track_id FROM library_playlist_tracks
+                WHERE server_key = ? AND library_id = ? AND playlist_id = ?
+                ORDER BY sort_index ASC;
+                """
+            var stmt: OpaquePointer?
+            defer { sqlite3_finalize(stmt) }
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+                throw StoreError.prepareFailed
+            }
+            sqlite3_bind_text(stmt, 1, serverKey, -1, transientDestructor)
+            sqlite3_bind_text(stmt, 2, libraryId, -1, transientDestructor)
+            sqlite3_bind_text(stmt, 3, playlistId, -1, transientDestructor)
+
+            var parts: [String] = []
+            parts.append("[")
+            var first = true
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                guard let tidC = sqlite3_column_text(stmt, 0) else { continue }
+                let tid = String(cString: tidC)
+                let tidStr = try jsonQuotedString(tid)
+                if !first { parts.append(",") }
+                first = false
+                parts.append(tidStr)
+            }
+            parts.append("]")
+            return parts.joined()
+        }
+    }
+
+    static func replacePlaylistEntryTrackIds(
+        serverKey: String,
+        libraryId: String,
+        playlistId: String,
+        trackIdsJson: String
+    ) throws {
+        try queue.sync {
+            try openIfNeeded()
+            guard let db else { throw StoreError.databaseUnavailable }
+
+            guard let data = trackIdsJson.data(using: .utf8) else { throw StoreError.invalidJson }
+            let raw = try JSONSerialization.jsonObject(with: data, options: [])
+            guard let trackIds = raw as? [Any] else { throw StoreError.invalidJson }
+
+            guard execute(db, "BEGIN IMMEDIATE;") else { throw StoreError.transactionFailed }
+            var shouldCommit = false
+            defer {
+                _ = execute(db, shouldCommit ? "COMMIT;" : "ROLLBACK;")
+            }
+
+            var del: OpaquePointer?
+            defer { sqlite3_finalize(del) }
+            let delSql = """
+                DELETE FROM library_playlist_tracks
+                WHERE server_key = ? AND library_id = ? AND playlist_id = ?;
+                """
+            guard sqlite3_prepare_v2(db, delSql, -1, &del, nil) == SQLITE_OK else { return }
+            sqlite3_bind_text(del, 1, serverKey, -1, transientDestructor)
+            sqlite3_bind_text(del, 2, libraryId, -1, transientDestructor)
+            sqlite3_bind_text(del, 3, playlistId, -1, transientDestructor)
+            guard sqlite3_step(del) == SQLITE_DONE else { return }
+
+            let insSql = """
+                INSERT INTO library_playlist_tracks(server_key, library_id, playlist_id, sort_index, track_id)
+                VALUES(?, ?, ?, ?, ?);
+                """
+            var ins: OpaquePointer?
+            defer { sqlite3_finalize(ins) }
+            guard sqlite3_prepare_v2(db, insSql, -1, &ins, nil) == SQLITE_OK else { return }
+
+            for (index, rawId) in trackIds.enumerated() {
+                let tid = Self.jsonStringId(rawId) ?? ""
+                if tid.isEmpty { continue }
+                sqlite3_reset(ins)
+                sqlite3_clear_bindings(ins)
+                sqlite3_bind_text(ins, 1, serverKey, -1, transientDestructor)
+                sqlite3_bind_text(ins, 2, libraryId, -1, transientDestructor)
+                sqlite3_bind_text(ins, 3, playlistId, -1, transientDestructor)
+                sqlite3_bind_int64(ins, 4, Int64(index))
+                sqlite3_bind_text(ins, 5, tid, -1, transientDestructor)
+                guard sqlite3_step(ins) == SQLITE_DONE else { return }
+            }
+
+            shouldCommit = true
+        }
+    }
+
+    static func purgePlaylistEntryTrackIdsNotIn(
+        serverKey: String,
+        libraryId: String,
+        playlistIdsJson: String
+    ) throws {
+        try queue.sync {
+            try openIfNeeded()
+            guard let db else { throw StoreError.databaseUnavailable }
+
+            guard let data = playlistIdsJson.data(using: .utf8) else { throw StoreError.invalidJson }
+            let raw = try JSONSerialization.jsonObject(with: data, options: [])
+            guard let playlistIds = raw as? [Any] else { throw StoreError.invalidJson }
+            let keep = Set(playlistIds.compactMap { Self.jsonStringId($0) })
+
+            guard execute(db, "BEGIN IMMEDIATE;") else { throw StoreError.transactionFailed }
+            var shouldCommit = false
+            defer {
+                _ = execute(db, shouldCommit ? "COMMIT;" : "ROLLBACK;")
+            }
+
+            let sql = """
+                SELECT DISTINCT playlist_id FROM library_playlist_tracks
+                WHERE server_key = ? AND library_id = ?;
+                """
+            var stmt: OpaquePointer?
+            defer { sqlite3_finalize(stmt) }
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return }
+            sqlite3_bind_text(stmt, 1, serverKey, -1, transientDestructor)
+            sqlite3_bind_text(stmt, 2, libraryId, -1, transientDestructor)
+
+            var toDelete: [String] = []
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                guard let pidC = sqlite3_column_text(stmt, 0) else { continue }
+                let pid = String(cString: pidC)
+                if !keep.contains(pid) {
+                    toDelete.append(pid)
+                }
+            }
+
+            var del: OpaquePointer?
+            defer { sqlite3_finalize(del) }
+            let delSql = """
+                DELETE FROM library_playlist_tracks
+                WHERE server_key = ? AND library_id = ? AND playlist_id = ?;
+                """
+            guard sqlite3_prepare_v2(db, delSql, -1, &del, nil) == SQLITE_OK else { return }
+
+            for pid in toDelete {
+                sqlite3_reset(del)
+                sqlite3_clear_bindings(del)
+                sqlite3_bind_text(del, 1, serverKey, -1, transientDestructor)
+                sqlite3_bind_text(del, 2, libraryId, -1, transientDestructor)
+                sqlite3_bind_text(del, 3, pid, -1, transientDestructor)
+                guard sqlite3_step(del) == SQLITE_DONE else { return }
+            }
+
+            shouldCommit = true
+        }
+    }
+
     // MARK: - Local playlists (device-only)
 
     static func readLocalPlaylistSummariesJson() throws -> String {
@@ -956,7 +1108,7 @@ enum LibraryCacheSQLiteStore {
             offlinePaths = try offlineCollectPathsForScope(db: db, serverKey: serverKey, libraryId: libraryId)
 
             for table in [
-                "library_songs", "library_playlists", "library_artworks",
+                "library_songs", "library_playlists", "library_playlist_tracks", "library_artworks",
                 "library_artists", "library_albums", "library_meta", "offline_tracks"
             ] {
                 let sql = "DELETE FROM \(table) WHERE server_key = ? AND library_id = ?;"
@@ -1832,7 +1984,7 @@ enum LibraryCacheSQLiteStore {
             offlinePaths = try offlineCollectPathsForServer(db: db, serverKey: serverKey)
 
             for table in [
-                "library_songs", "library_playlists", "library_artworks",
+                "library_songs", "library_playlists", "library_playlist_tracks", "library_artworks",
                 "library_artists", "library_albums", "library_meta", "offline_tracks"
             ] {
                 let sql = "DELETE FROM \(table) WHERE server_key = ?;"
@@ -2003,6 +2155,17 @@ enum LibraryCacheSQLiteStore {
             );
             CREATE INDEX IF NOT EXISTS idx_library_playlists_scope ON library_playlists(server_key, library_id);
 
+            CREATE TABLE IF NOT EXISTS library_playlist_tracks (
+              server_key TEXT NOT NULL,
+              library_id TEXT NOT NULL,
+              playlist_id TEXT NOT NULL,
+              sort_index INTEGER NOT NULL,
+              track_id TEXT NOT NULL,
+              PRIMARY KEY (server_key, library_id, playlist_id, sort_index)
+            );
+            CREATE INDEX IF NOT EXISTS idx_library_playlist_tracks_playlist
+              ON library_playlist_tracks(server_key, library_id, playlist_id);
+
             CREATE TABLE IF NOT EXISTS library_artworks (
               server_key TEXT NOT NULL,
               library_id TEXT NOT NULL,
@@ -2060,6 +2223,7 @@ enum LibraryCacheSQLiteStore {
         migrateLegacyArtworkTableIfNeeded(h)
         migrateCacheLayoutForAccountServerKeyIfNeeded(h)
         migrateOfflineTracksWaveformColumnsIfNeeded(h)
+        migrateLibraryPlaylistTracksTableIfNeeded(h)
     }
 
     /// Clears all rows once when upgrading to account-level `server_key` (matches JS `serverAccountKey`).
@@ -2102,6 +2266,35 @@ enum LibraryCacheSQLiteStore {
         _ = execute(h, "ALTER TABLE offline_tracks ADD COLUMN waveform_peaks_json TEXT;")
         _ = execute(h, "ALTER TABLE offline_tracks ADD COLUMN waveform_bar_count INTEGER;")
         _ = execute(h, "PRAGMA user_version = 3;")
+    }
+
+    private static func migrateLibraryPlaylistTracksTableIfNeeded(_ h: OpaquePointer) {
+        var current: Int32 = 0
+        var verStmt: OpaquePointer?
+        if sqlite3_prepare_v2(h, "PRAGMA user_version;", -1, &verStmt, nil) == SQLITE_OK,
+           sqlite3_step(verStmt) == SQLITE_ROW {
+            current = sqlite3_column_int(verStmt, 0)
+        }
+        if verStmt != nil {
+            sqlite3_finalize(verStmt)
+        }
+
+        guard current < 4 else { return }
+
+        let ddl = """
+            CREATE TABLE IF NOT EXISTS library_playlist_tracks (
+              server_key TEXT NOT NULL,
+              library_id TEXT NOT NULL,
+              playlist_id TEXT NOT NULL,
+              sort_index INTEGER NOT NULL,
+              track_id TEXT NOT NULL,
+              PRIMARY KEY (server_key, library_id, playlist_id, sort_index)
+            );
+            CREATE INDEX IF NOT EXISTS idx_library_playlist_tracks_playlist
+              ON library_playlist_tracks(server_key, library_id, playlist_id);
+            """
+        _ = execute(h, ddl)
+        _ = execute(h, "PRAGMA user_version = 4;")
     }
 
     private static func execute(_ db: OpaquePointer, _ sql: String) -> Bool {

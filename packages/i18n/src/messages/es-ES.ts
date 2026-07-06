@@ -88,6 +88,8 @@ export const esESMessages = {
   "library.favorites.empty":
     "Aún no hay pistas favoritas. Marca canciones con estrella desde tu biblioteca o el reproductor a pantalla completa para verlas aquí.",
   "library.favorites.noMatch": "Ningún favorito coincide con tu búsqueda.",
+  "library.favorites.offlineQueued":
+    "Favorito actualizado en este dispositivo. Se sincronizará cuando vuelvas a estar en línea.",
   "library.favorites.search": "Buscar favoritos",
   "library.linkMismatch.album":
     "Este enlace de álbum no coincide con ninguna caché de biblioteca activa.",
@@ -142,6 +144,8 @@ export const esESMessages = {
   "library.playlist.editor.loadingSongs": "Cargando canciones…",
   "library.playlist.editor.save": "Guardar",
   "library.playlist.editor.saveError": "No se pudo guardar la lista",
+  "library.playlist.editor.offlineReadOnly":
+    "Sin conexión: la lista es solo de lectura. Conéctate para guardar cambios.",
   "library.playlist.editor.unsaved": "Cambios sin guardar",
   "library.playlist.empty":
     "No hay listas en este servidor. Sincroniza tu biblioteca o crea una lista nueva.",

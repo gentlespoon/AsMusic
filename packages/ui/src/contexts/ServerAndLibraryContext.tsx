@@ -28,6 +28,28 @@ function passwordStorageKey(serverId: string): string {
   return `asmusic-server-pw-${serverId}`;
 }
 
+function streamCredsStorageKey(serverId: string): string {
+  return `asmusic-server-stream-creds-${serverId}`;
+}
+
+function parseStreamCredsJson(raw: string | null): NavidromeStreamCreds | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (
+      typeof parsed === 'object' &&
+      parsed !== null &&
+      typeof (parsed as NavidromeStreamCreds).subsonicToken === 'string' &&
+      typeof (parsed as NavidromeStreamCreds).subsonicSalt === 'string'
+    ) {
+      return parsed as NavidromeStreamCreds;
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
 export type SavedServer = {
   id: string;
   serverUrl: string;
@@ -159,15 +181,42 @@ export function ServerAndLibraryProvider({ children }: { children: ReactNode }) 
     let cancelled = false;
     void (async () => {
       await loadServers();
-      if (!cancelled) {
-        setActiveLibraryRefsState(readActiveLibrariesFromDisk());
-        setIsRestoring(false);
-      }
+      if (cancelled) return;
+      setActiveLibraryRefsState(readActiveLibrariesFromDisk());
+      setIsRestoring(false);
     })();
     return () => {
       cancelled = true;
     };
   }, [loadServers]);
+
+  /** Restore persisted stream creds so getStreamUrl works before navidromeSession on cold start. */
+  useEffect(() => {
+    if (servers.length === 0) return;
+    let cancelled = false;
+    void (async () => {
+      const next: Record<string, NavidromeStreamCreds | null> = {};
+      for (const s of servers) {
+        if (navidromeByServerRef.current[s.id]) {
+          next[s.id] = navidromeByServerRef.current[s.id]!;
+          continue;
+        }
+        const persisted = parseStreamCredsJson(
+          await host.secureStorage.get(streamCredsStorageKey(s.id)),
+        );
+        if (persisted) {
+          next[s.id] = persisted;
+          navidromeByServerRef.current[s.id] = persisted;
+        }
+      }
+      if (!cancelled && Object.keys(next).length > 0) {
+        setNavidromeByServer((prev) => ({ ...prev, ...next }));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [servers, host]);
 
   const persistServers = useCallback(
     async (next: SavedServer[]) => {
@@ -193,20 +242,35 @@ export function ServerAndLibraryProvider({ children }: { children: ReactNode }) 
     }
   }, []);
 
-  const hydrateNavidrome = useCallback(async (serverId: string, api: SubsonicAPI) => {
-    try {
-      const session = await api.navidromeSession();
-      const creds = { subsonicToken: session.subsonicToken, subsonicSalt: session.subsonicSalt };
-      navidromeByServerRef.current = { ...navidromeByServerRef.current, [serverId]: creds };
-      setNavidromeByServer((prev) => ({
-        ...prev,
-        [serverId]: creds,
-      }));
-    } catch {
-      navidromeByServerRef.current = { ...navidromeByServerRef.current, [serverId]: null };
-      setNavidromeByServer((prev) => ({ ...prev, [serverId]: null }));
-    }
-  }, []);
+  const hydrateNavidrome = useCallback(
+    async (serverId: string, api: SubsonicAPI) => {
+      try {
+        const session = await api.navidromeSession();
+        const creds = { subsonicToken: session.subsonicToken, subsonicSalt: session.subsonicSalt };
+        await host.secureStorage.set(streamCredsStorageKey(serverId), JSON.stringify(creds));
+        navidromeByServerRef.current = { ...navidromeByServerRef.current, [serverId]: creds };
+        setNavidromeByServer((prev) => ({
+          ...prev,
+          [serverId]: creds,
+        }));
+      } catch {
+        if (navidromeByServerRef.current[serverId]) {
+          return;
+        }
+        const persisted = parseStreamCredsJson(
+          await host.secureStorage.get(streamCredsStorageKey(serverId)),
+        );
+        if (persisted) {
+          navidromeByServerRef.current = { ...navidromeByServerRef.current, [serverId]: persisted };
+          setNavidromeByServer((prev) => ({ ...prev, [serverId]: persisted }));
+          return;
+        }
+        navidromeByServerRef.current = { ...navidromeByServerRef.current, [serverId]: null };
+        setNavidromeByServer((prev) => ({ ...prev, [serverId]: null }));
+      }
+    },
+    [host]
+  );
 
   const getApiForServer = useCallback(
     async (serverId: string): Promise<SubsonicAPI | null> => {
@@ -345,6 +409,7 @@ export function ServerAndLibraryProvider({ children }: { children: ReactNode }) 
         }
         if (password && password.length > 0) {
           await host.secureStorage.set(passwordStorageKey(id), password);
+          await host.secureStorage.remove(streamCredsStorageKey(id));
         }
         const next = [...servers];
         next[idx] = { id, serverUrl: url, username: user };
@@ -365,6 +430,7 @@ export function ServerAndLibraryProvider({ children }: { children: ReactNode }) 
       const nextList = servers.filter((s) => s.id !== id);
       await persistServers(nextList);
       await host.secureStorage.remove(passwordStorageKey(id));
+      await host.secureStorage.remove(streamCredsStorageKey(id));
       invalidateApiCache(id);
       setActiveLibraryRefsState((prev) => {
         const pruned = prev.filter((r) => r.serverId !== id);

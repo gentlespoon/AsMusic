@@ -9,6 +9,8 @@ export * from './library/fetchMusicFolders';
 export * from './library/libraryIndexFromSongs';
 export * from './library/playlistEntries';
 export * from './library/playlistMutations';
+export * from './library/loadPlaylistTracks';
+export * from './library/pendingStarMutations';
 export * from './localPlaylists/LocalPlaylistStore';
 export * from './localPlaylists/localPlaylistMutations';
 export * from './localPlaylists/localPlaylistEntries';

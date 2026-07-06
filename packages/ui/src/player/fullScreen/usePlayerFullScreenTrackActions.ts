@@ -11,7 +11,6 @@ import { playerQueueItemArtworkScope } from "@ui/player/shared/resolvePlayerCach
 
 export type PlayerFullScreenTrackActions = {
   isStarred: boolean;
-  starBusy: boolean;
   starError: string | null;
   clearStarError: () => void;
   toggleStarred: () => void;
@@ -46,7 +45,6 @@ export function usePlayerFullScreenTrackActions(
     artworkVersionKey,
   } = useLibraryBrowseCache();
 
-  const [starBusy, setStarBusy] = useState(false);
   const [starError, setStarError] = useState<string | null>(null);
   const [addToPlaylistOpen, setAddToPlaylistOpen] = useState(false);
   const [addToPlaylistError, setAddToPlaylistError] = useState<string | null>(null);
@@ -80,23 +78,19 @@ export function usePlayerFullScreenTrackActions(
   const toggleStarred = () => {
     if (!item) return;
     setStarError(null);
-    setStarBusy(true);
     const next = !isStarred;
+    patchCurrentQueueItemStarred(next);
     void setTrackStarred({
       serverId: item.serverId,
       libraryId: item.libraryId,
       trackId: item.trackId,
       starred: next,
-    })
-      .then(() => {
-        patchCurrentQueueItemStarred(next);
-      })
-      .catch((e: unknown) => {
-        setStarError(
-          e instanceof Error ? e.message : t("player.favorite.couldNotUpdate"),
-        );
-      })
-      .finally(() => setStarBusy(false));
+    }).catch((e: unknown) => {
+      patchCurrentQueueItemStarred(!next);
+      setStarError(
+        e instanceof Error ? e.message : t("player.favorite.couldNotUpdate"),
+      );
+    });
   };
 
   const refreshCoverArt = () => {
@@ -178,7 +172,6 @@ export function usePlayerFullScreenTrackActions(
 
   return {
     isStarred,
-    starBusy,
     starError,
     clearStarError: () => setStarError(null),
     toggleStarred,

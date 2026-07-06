@@ -8,7 +8,6 @@ import type { useT } from "@asmusic/i18n";
 export function SongItemActions({
   showStar,
   isStarred,
-  starBusy,
   onStarClick,
   showDelete,
   showQueueMenu,
@@ -18,7 +17,6 @@ export function SongItemActions({
 }: {
   showStar: boolean;
   isStarred?: boolean;
-  starBusy: boolean;
   onStarClick: () => void;
   showDelete: boolean;
   showQueueMenu: boolean;
@@ -59,7 +57,6 @@ export function SongItemActions({
                   : t("player.favorite.add")
               }
               aria-pressed={isStarred}
-              disabled={starBusy}
               onClick={(e) => {
                 stopRowClick(e);
                 onStarClick();

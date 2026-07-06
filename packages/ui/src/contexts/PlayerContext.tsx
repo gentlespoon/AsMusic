@@ -153,14 +153,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         p.onRemoteFavoriteStar(() => {
           const item = manager.getSnapshot().currentItem;
           if (!item) return;
+          manager.patchCurrentQueueItemStarred(true);
           void setTrackStarred({
             serverId: item.serverId,
             libraryId: item.libraryId,
             trackId: item.trackId,
             starred: true,
-          })
-            .then(() => manager.patchCurrentQueueItemStarred(true))
-            .catch((e: unknown) => console.warn('[AsMusic] remote favorite star failed', e));
+          }).catch((e: unknown) => console.warn('[AsMusic] remote favorite star failed', e));
         })
       );
     }
@@ -169,14 +168,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         p.onRemoteFavoriteUnstar(() => {
           const item = manager.getSnapshot().currentItem;
           if (!item) return;
+          manager.patchCurrentQueueItemStarred(false);
           void setTrackStarred({
             serverId: item.serverId,
             libraryId: item.libraryId,
             trackId: item.trackId,
             starred: false,
-          })
-            .then(() => manager.patchCurrentQueueItemStarred(false))
-            .catch((e: unknown) => console.warn('[AsMusic] remote favorite unstar failed', e));
+          }).catch((e: unknown) => console.warn('[AsMusic] remote favorite unstar failed', e));
         })
       );
     }

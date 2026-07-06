@@ -31,7 +31,6 @@ export function SongItem({
 }: SongItemProps) {
   const t = useT();
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
-  const [starBusy, setStarBusy] = useState(false);
 
   const showQueueMenu = Boolean(onPlayNext || onAppendToQueue);
   const showStar = Boolean(onToggleStar) && isStarred != null;
@@ -68,11 +67,9 @@ export function SongItem({
     <SongItemActions
       showStar={showStar}
       isStarred={isStarred}
-      starBusy={starBusy}
       onStarClick={() => {
         if (!onToggleStar) return;
-        setStarBusy(true);
-        void Promise.resolve(onToggleStar()).finally(() => setStarBusy(false));
+        void Promise.resolve(onToggleStar());
       }}
       showDelete={showDelete}
       showQueueMenu={showQueueMenu}

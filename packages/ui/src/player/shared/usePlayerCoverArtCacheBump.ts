@@ -1,5 +1,5 @@
-import { useLibraryBrowseCache } from '../../contexts/LibraryBrowseCacheContext';
-import type { PlayerQueueItem } from '../core/types';
+import { useLibraryBrowseCache } from '@ui/contexts/LibraryBrowseCacheContext';
+import type { PlayerQueueItem } from '@ui/player/core/types';
 import { playerQueueItemArtworkScope } from './resolvePlayerCachedArtwork';
 
 export function usePlayerCoverArtCacheBump(item: PlayerQueueItem | null): number {

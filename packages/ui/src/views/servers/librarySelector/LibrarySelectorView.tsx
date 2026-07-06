@@ -10,9 +10,9 @@ import {
   Stack,
   Typography,
 } from '@mui/material';
-import { useServerAndLibrary } from '../../../contexts';
-import { PageCloseButton } from '../../../shared/PageCloseButton';
-import { SettingsPageDescription } from '../../settings/SettingsTypography';
+import { useServerAndLibrary } from '@ui/contexts';
+import { PageCloseButton } from '@ui/shared/PageCloseButton';
+import { SettingsPageDescription } from '@ui/views/settings/SettingsTypography';
 import { LibrarySelectorList } from './LibrarySelectorList';
 import { LibrarySelectorToolbar } from './LibrarySelectorToolbar';
 import { useLibraryRowCacheStats } from './useLibraryRowCacheStats';

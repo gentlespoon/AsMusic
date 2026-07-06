@@ -1,6 +1,6 @@
 import { formatDuration } from "@asmusic/core";
 import type { I18nContextValue } from "@asmusic/i18n";
-import type { PlayerQueueItem } from "../core/types";
+import type { PlayerQueueItem } from "@ui/player/core/types";
 
 export type PlayerFullScreenTrackMetaRow = {
   label: string;

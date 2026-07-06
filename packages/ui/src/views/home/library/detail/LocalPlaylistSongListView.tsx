@@ -31,25 +31,25 @@ import {
   type LocalPlaylistResolvedEntry,
   type SubsonicAPI,
 } from "@asmusic/core";
-import { PageCloseButton } from "../../../../shared/PageCloseButton";
-import { DisabledLibraryToastContent } from "../../../../shared/DisabledLibraryToastContent";
+import { PageCloseButton } from "@ui/shared/PageCloseButton";
+import { DisabledLibraryToastContent } from "@ui/shared/DisabledLibraryToastContent";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
-import { SongItem } from "../../../../shared/SongItem";
-import type { PersistCachedArtwork } from "../../../../shared/libraryArtworkCacheAccess";
+import { SongItem } from "@ui/shared/songItem";
+import type { PersistCachedArtwork } from "@ui/shared/libraryArtworkCacheAccess";
 import {
   LibraryVirtuosoFill,
   libraryFlexFillSx,
-} from "../../../../shared/LibraryVirtuosoFill";
-import { useLibraryScrollRestoration } from "../../../../shared/useLibraryScrollRestoration";
-import { useLibraryVirtuosoScroller } from "../../../../shared/useLibraryVirtuosoScroller";
-import { VirtuosoMuiList } from "../../../../shared/virtuosoMuiList";
-import { useOfflineDownload } from "../../../../contexts/OfflineDownloadContext";
-import { useHost } from "../../../../host/HostContext";
+} from "@ui/shared/LibraryVirtuosoFill";
+import { useLibraryScrollRestoration } from "@ui/shared/useLibraryScrollRestoration";
+import { useLibraryVirtuosoScroller } from "@ui/shared/useLibraryVirtuosoScroller";
+import { VirtuosoMuiList } from "@ui/shared/virtuosoMuiList";
+import { useOfflineDownload } from "@ui/contexts/OfflineDownloadContext";
+import { useHost } from "@ui/host/HostContext";
 import {
   useLibraryBrowseCache,
   useServerAndLibrary,
-} from "../../../../contexts";
-import { libraryRefKey } from "../../../../contexts/LibraryBrowseCacheContext";
+} from "@ui/contexts";
+import { libraryRefKey } from "@ui/contexts/LibraryBrowseCacheContext";
 
 type LocalPlaylistRow = LocalPlaylistResolvedEntry & { rowKey: string };
 

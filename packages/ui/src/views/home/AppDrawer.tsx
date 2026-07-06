@@ -11,16 +11,16 @@ import {
 import { alpha } from "@mui/material/styles";
 import { useT } from "@asmusic/i18n";
 import { useNavigate } from "react-router-dom";
-import { PageCloseButton } from "../../shared/PageCloseButton";
-import { useHost } from "../../host/HostContext";
-import { usePlayerDebugLogMenuEnabled } from "../../preferences/playerDebugLogPreference";
-import { copyPlayerDebugLogToClipboard } from "../../player/core/playerDebugLog";
+import { PageCloseButton } from "@ui/shared/PageCloseButton";
+import { useHost } from "@ui/host/HostContext";
+import { usePlayerDebugLogMenuEnabled } from "@ui/preferences/playerDebugLogPreference";
+import { copyPlayerDebugLogToClipboard } from "@ui/player/core/playerDebugLog";
 import {
   formatSleepTimerRemaining,
   SleepTimerDialog,
   useSleepTimerRemainingSeconds,
-} from "../../player/sleepTimer/SleepTimerDialog";
-import { PLAYING_QUEUE_PATH } from "../queue/PlayingQueueView";
+} from "@ui/player/sleepTimer/SleepTimerDialog";
+import { PLAYING_QUEUE_PATH } from "@ui/views/queue/PlayingQueueView";
 
 const DRAWER_WIDTH = 280;
 

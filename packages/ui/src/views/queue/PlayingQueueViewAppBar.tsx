@@ -3,7 +3,7 @@ import Toolbar from "@mui/material/Toolbar";
 import Typography from "@mui/material/Typography";
 import QueueMusic from "@mui/icons-material/QueueMusic";
 import { useT } from "@asmusic/i18n";
-import { PageCloseButton } from "../../shared/PageCloseButton";
+import { PageCloseButton } from "@ui/shared/PageCloseButton";
 import { PlayingQueueViewToolbarActions } from "./PlayingQueueViewToolbarActions";
 import type { PlayingQueueViewToolbarActionsProps } from "./PlayingQueueViewToolbarActions";
 

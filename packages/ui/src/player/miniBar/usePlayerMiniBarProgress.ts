@@ -1,7 +1,7 @@
-import { useWaveformProgressBarEnabled } from "../../preferences/waveformProgressBarPreference";
-import { useOfflineReadyForItem } from "../useOfflineReadyForItem";
-import { useWaveformPeaks } from "../fullScreen/useWaveformPeaks";
-import type { PlayerQueueItem, PlayerViewState } from "../core/types";
+import { useWaveformProgressBarEnabled } from "@ui/preferences/waveformProgressBarPreference";
+import { useOfflineReadyForItem } from "@ui/player/useOfflineReadyForItem";
+import { useWaveformPeaks } from "@ui/player/fullScreen/useWaveformPeaks";
+import type { PlayerQueueItem, PlayerViewState } from "@ui/player/core/types";
 
 export function usePlayerMiniBarProgress(
   state: PlayerViewState,

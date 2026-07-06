@@ -9,4 +9,4 @@ export { useActiveLibraryScopes } from './useActiveLibraryScopes';
 export { OfflineDownloadProvider, useOfflineDownload } from './OfflineDownloadContext';
 export { PlayerProvider, PlayerTransportRoot, usePlayerActions, usePlayerTransportState, usePlayerShell, usePlayerSleepTimer } from './PlayerContext';
 export type { PlayerActions, PlayerShell } from './PlayerContext';
-export { HostProvider, useHost } from '../host/HostContext';
+export { HostProvider, useHost } from '@ui/host/HostContext';

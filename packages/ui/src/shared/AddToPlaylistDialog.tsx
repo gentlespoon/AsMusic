@@ -9,7 +9,7 @@ import {
   CircularProgress,
 } from '@mui/material';
 import { useI18n, useT } from '@asmusic/i18n';
-import type { PlaylistCatalogRow } from '../contexts/LibraryBrowseCacheContext';
+import type { PlaylistCatalogRow } from '@ui/contexts/LibraryBrowseCacheContext';
 
 export function AddToPlaylistDialog({
   open,

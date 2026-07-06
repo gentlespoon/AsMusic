@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from 'react';
 import type { LibraryCacheScope } from '@asmusic/core';
-import { useLibraryBrowseCache } from '../contexts/LibraryBrowseCacheContext';
-import { useHost } from '../host/HostContext';
+import { useLibraryBrowseCache } from '@ui/contexts/LibraryBrowseCacheContext';
+import { useHost } from '@ui/host/HostContext';
 import { createResolveCachedArtwork } from './createResolveCachedArtwork';
 import { createPersistCachedArtworkForScope } from './libraryArtworkCacheAccess';
 

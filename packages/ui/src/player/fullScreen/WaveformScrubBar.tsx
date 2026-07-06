@@ -1,7 +1,7 @@
 import { useT } from "@asmusic/i18n";
 import { useCallback, useRef, useState } from "react";
 import Box from "@mui/material/Box";
-import { WaveformProgressBar } from "../WaveformProgressBar";
+import { WaveformProgressBar } from "@ui/player/WaveformProgressBar";
 
 type WaveformScrubBarProps = {
   peaks: number[];

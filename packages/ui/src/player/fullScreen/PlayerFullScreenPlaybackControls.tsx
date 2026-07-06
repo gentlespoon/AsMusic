@@ -10,7 +10,7 @@ import { useT } from "@asmusic/i18n";
 import {
   usePlayerActions,
   usePlayerTransportState,
-} from "../../contexts/PlayerContext";
+} from "@ui/contexts/PlayerContext";
 
 export function PlayerFullScreenPlaybackControls() {
   const t = useT();

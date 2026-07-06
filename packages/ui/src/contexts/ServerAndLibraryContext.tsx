@@ -18,7 +18,7 @@ import {
   type PlatformHost,
   type SubsonicAPI,
 } from '@asmusic/core';
-import { useHost } from '../host/HostContext';
+import { useHost } from '@ui/host/HostContext';
 
 const SERVERS_JSON_KEY = 'asmusic-servers-v1';
 const LEGACY_SESSION_KEY = 'asmusic-session';

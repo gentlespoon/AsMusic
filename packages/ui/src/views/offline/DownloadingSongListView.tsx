@@ -30,13 +30,13 @@ import PlayArrow from '@mui/icons-material/PlayArrow';
 import Replay from '@mui/icons-material/Replay';
 import type { MessageKey } from '@asmusic/i18n';
 import { useT } from '@asmusic/i18n';
-import { useHost } from '../../host/HostContext';
-import { useServerAndLibrary } from '../../contexts';
-import { useOfflineDownload } from '../../contexts/OfflineDownloadContext';
-import { SongItemMain } from '../../shared/songItem/SongItemMain';
-import { createPersistCachedArtworkForScope } from '../../shared/libraryArtworkCacheAccess';
-import { createResolveCachedArtwork } from '../../shared/createResolveCachedArtwork';
-import { rowSx } from '../../shared/songItem/constants';
+import { useHost } from '@ui/host/HostContext';
+import { useServerAndLibrary } from '@ui/contexts';
+import { useOfflineDownload } from '@ui/contexts/OfflineDownloadContext';
+import { SongItemMain } from '@ui/shared/songItem/SongItemMain';
+import { createPersistCachedArtworkForScope } from '@ui/shared/libraryArtworkCacheAccess';
+import { createResolveCachedArtwork } from '@ui/shared/createResolveCachedArtwork';
+import { rowSx } from '@ui/shared/songItem/constants';
 
 type TrackStatus = 'pending' | 'downloading' | 'completed' | 'failed';
 

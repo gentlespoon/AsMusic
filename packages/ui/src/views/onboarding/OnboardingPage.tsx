@@ -12,11 +12,11 @@ import {
 import ArrowBack from '@mui/icons-material/ArrowBack';
 import { useT } from '@asmusic/i18n';
 import { useNavigate } from 'react-router-dom';
-import { useServerAndLibrary } from '../../contexts';
-import { LibrarySelectorView } from '../servers/LibrarySelectorView';
-import { ServerManagerView } from '../servers/ServerManagerView';
-import { playerDockPaddingBottomSx } from '../../player/core/constants';
-import { setOnboardingCompleted } from '../../preferences/onboardingCompleted';
+import { useServerAndLibrary } from '@ui/contexts';
+import { LibrarySelectorView } from '@ui/views/servers/librarySelector';
+import { ServerManagerView } from '@ui/views/servers/ServerManagerView';
+import { playerDockPaddingBottomSx } from '@ui/player/core/constants';
+import { setOnboardingCompleted } from '@ui/preferences/onboardingCompleted';
 
 type Step = 'welcome' | 'addServer' | 'activateLibrary';
 

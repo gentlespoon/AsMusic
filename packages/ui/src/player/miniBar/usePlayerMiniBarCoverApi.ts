@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { SubsonicAPI } from "@asmusic/core";
-import { useServerAndLibrary } from "../../contexts/ServerAndLibraryContext";
-import type { PlayerQueueItem } from "../core/types";
+import { useServerAndLibrary } from "@ui/contexts/ServerAndLibraryContext";
+import type { PlayerQueueItem } from "@ui/player/core/types";
 
 export function usePlayerMiniBarCoverApi(
   item: PlayerQueueItem | null,

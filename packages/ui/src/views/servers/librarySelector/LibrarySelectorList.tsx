@@ -12,10 +12,10 @@ import {
   Tooltip,
 } from '@mui/material';
 import Refresh from '@mui/icons-material/Refresh';
-import { useServerAndLibrary } from '../../../contexts';
+import { useServerAndLibrary } from '@ui/contexts';
 import {
   SettingsListItemCaption,
-} from '../../settings/SettingsTypography';
+} from '@ui/views/settings/SettingsTypography';
 import { libraryRowKey } from './libraryRowKey';
 import { libraryRowStatsLines } from './libraryRowStatsLines';
 import type { LibraryRow, LibraryRowCacheStats } from './types';

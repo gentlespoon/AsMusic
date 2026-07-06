@@ -4,7 +4,7 @@ import {
   usePlayerActions,
   usePlayerShell,
   usePlayerTransportState,
-} from "../../contexts/PlayerContext";
+} from "@ui/contexts/PlayerContext";
 import { buildPlayerFullScreenTrackMeta } from "./buildPlayerFullScreenTrackMeta";
 import { PlayerFullScreenAddToPlaylistDialog } from "./PlayerFullScreenAddToPlaylistDialog";
 import { PlayerFullScreenAppBar } from "./PlayerFullScreenAppBar";

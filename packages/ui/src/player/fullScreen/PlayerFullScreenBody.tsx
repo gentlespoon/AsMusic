@@ -2,7 +2,7 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Typography from "@mui/material/Typography";
 import { useT } from "@asmusic/i18n";
-import type { PlayerQueueItem, PlayerViewState } from "../core/types";
+import type { PlayerQueueItem, PlayerViewState } from "@ui/player/core/types";
 import { PlayerFullScreenPlaybackControls } from "./PlayerFullScreenPlaybackControls";
 import { PlayerFullScreenProgressBar } from "./PlayerFullScreenProgressBar";
 import { PlayerFullScreenTrackDisplay } from "./PlayerFullScreenTrackDisplay";

@@ -8,11 +8,11 @@ import DialogTitle from "@mui/material/DialogTitle";
 import Slider from "@mui/material/Slider";
 import Typography from "@mui/material/Typography";
 import { useT } from "@asmusic/i18n";
-import { PageCloseButton } from "../../shared/PageCloseButton";
+import { PageCloseButton } from "@ui/shared/PageCloseButton";
 import {
   usePlayerActions,
   usePlayerSleepTimer,
-} from "../../contexts/PlayerContext";
+} from "@ui/contexts/PlayerContext";
 
 function formatClock(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) return "0:00";

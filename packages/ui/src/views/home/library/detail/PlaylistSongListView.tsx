@@ -26,17 +26,17 @@ import {
   type LibraryCacheScope,
   type SubsonicAPI,
 } from '@asmusic/core';
-import { PageCloseButton } from '../../../../shared/PageCloseButton';
+import { PageCloseButton } from '@ui/shared/PageCloseButton';
 import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso';
-import { SongItem } from '../../../../shared/SongItem';
-import type { PersistCachedArtwork } from '../../../../shared/libraryArtworkCacheAccess';
-import { songMatchesQuery } from '../../../../shared/songSearch';
-import { LibraryVirtuosoFill, libraryFlexFillSx } from '../../../../shared/LibraryVirtuosoFill';
-import { useLibraryScrollRestoration } from '../../../../shared/useLibraryScrollRestoration';
-import { useLibraryVirtuosoScroller } from '../../../../shared/useLibraryVirtuosoScroller';
-import { VirtuosoMuiList } from '../../../../shared/virtuosoMuiList';
-import { useOfflineDownload } from '../../../../contexts/OfflineDownloadContext';
-import { useHost } from '../../../../host/HostContext';
+import { SongItem } from '@ui/shared/songItem';
+import type { PersistCachedArtwork } from '@ui/shared/libraryArtworkCacheAccess';
+import { songMatchesQuery } from '@ui/shared/songSearch';
+import { LibraryVirtuosoFill, libraryFlexFillSx } from '@ui/shared/LibraryVirtuosoFill';
+import { useLibraryScrollRestoration } from '@ui/shared/useLibraryScrollRestoration';
+import { useLibraryVirtuosoScroller } from '@ui/shared/useLibraryVirtuosoScroller';
+import { VirtuosoMuiList } from '@ui/shared/virtuosoMuiList';
+import { useOfflineDownload } from '@ui/contexts/OfflineDownloadContext';
+import { useHost } from '@ui/host/HostContext';
 
 export function PlaylistSongListView({
   playlistId,

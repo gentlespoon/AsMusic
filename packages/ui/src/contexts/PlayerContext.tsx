@@ -9,15 +9,15 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from 'react';
-import { useHost } from '../host/HostContext';
-import { PlayerManager, type PlayerSleepTimerSnapshot, type SavedServerRef } from '../player/core/PlayerManager';
-import type { PlayerQueueItem, PlayerToastEvent, PlayerViewState } from '../player/core/types';
+import { useHost } from '@ui/host/HostContext';
+import { PlayerManager, type PlayerSleepTimerSnapshot, type SavedServerRef } from '@ui/player/core/PlayerManager';
+import type { PlayerQueueItem, PlayerToastEvent, PlayerViewState } from '@ui/player/core/types';
 import { useServerAndLibrary } from './ServerAndLibraryContext';
 import { useLibraryBrowseCache } from './LibraryBrowseCacheContext';
 import {
   clearPlayerDebugLog,
   copyPlayerDebugLogToClipboard,
-} from '../player/core/playerDebugLog';
+} from '@ui/player/core/playerDebugLog';
 
 export type PlayerActions = {
   replaceQueueAndPlay: (items: PlayerQueueItem[], startIndex: number) => Promise<void>;

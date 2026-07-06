@@ -4,9 +4,9 @@ import { Box, Container, Typography } from "@mui/material";
 import { AppDrawer } from "./AppDrawer";
 import { HomePageAppBar } from "./HomePageAppBar";
 import { LibraryBrowser } from "./library/LibraryBrowser";
-import { libraryFlexFillSx } from "../../shared/LibraryVirtuosoFill";
-import { useServerAndLibrary } from "../../contexts";
-import { playerDockPaddingBottomSx } from "../../player/core/constants";
+import { libraryFlexFillSx } from "@ui/shared/LibraryVirtuosoFill";
+import { useServerAndLibrary } from "@ui/contexts";
+import { playerDockPaddingBottomSx } from "@ui/player/core/constants";
 
 export function HomePage() {
   const t = useT();

@@ -4,12 +4,12 @@ import {
   type LibraryCacheScope,
   type LibraryCacheStorage,
 } from '@asmusic/core';
-import { createResolveCachedArtwork } from '../../shared/createResolveCachedArtwork';
+import { createResolveCachedArtwork } from '@ui/shared/createResolveCachedArtwork';
 import {
   createPersistCachedArtworkForScope,
   type PersistCachedArtwork,
-} from '../../shared/libraryArtworkCacheAccess';
-import type { PlayerQueueItem } from '../core/types';
+} from '@ui/shared/libraryArtworkCacheAccess';
+import type { PlayerQueueItem } from '@ui/player/core/types';
 
 export function playerQueueItemArtworkScope(item: PlayerQueueItem): LibraryCacheScope {
   return libraryCacheScope(item.serverUrl, item.username, item.libraryId);

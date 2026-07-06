@@ -20,13 +20,13 @@ import ViewModule from '@mui/icons-material/ViewModule';
 import { Virtuoso, VirtuosoGrid, type VirtuosoGridHandle, type VirtuosoHandle } from 'react-virtuoso';
 import type { GridItemProps, GridListProps } from 'react-virtuoso';
 import type { LibraryArtworkCacheRow, LibraryCacheScope, SubsonicAPI } from '@asmusic/core';
-import { CoverArtThumb } from '../../../../shared/CoverArtThumb';
-import type { PersistCachedArtwork } from '../../../../shared/libraryArtworkCacheAccess';
-import { LibraryVirtuosoFill, libraryFlexFillSx } from '../../../../shared/LibraryVirtuosoFill';
-import { useLibraryScrollRestoration } from '../../../../shared/useLibraryScrollRestoration';
-import { useLibraryVirtuosoScroller } from '../../../../shared/useLibraryVirtuosoScroller';
-import { VirtuosoMuiList } from '../../../../shared/virtuosoMuiList';
-import { setAlbumDisplayMode, useAlbumDisplayMode, type AlbumDisplayMode } from '../../../../preferences/albumDisplayMode';
+import { CoverArtThumb } from '@ui/shared/CoverArtThumb';
+import type { PersistCachedArtwork } from '@ui/shared/libraryArtworkCacheAccess';
+import { LibraryVirtuosoFill, libraryFlexFillSx } from '@ui/shared/LibraryVirtuosoFill';
+import { useLibraryScrollRestoration } from '@ui/shared/useLibraryScrollRestoration';
+import { useLibraryVirtuosoScroller } from '@ui/shared/useLibraryVirtuosoScroller';
+import { VirtuosoMuiList } from '@ui/shared/virtuosoMuiList';
+import { setAlbumDisplayMode, useAlbumDisplayMode, type AlbumDisplayMode } from '@ui/preferences/albumDisplayMode';
 
 export type AlbumCatalogRow = {
   album: AlbumID3;

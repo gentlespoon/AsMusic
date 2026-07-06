@@ -1,15 +1,15 @@
 import Box from "@mui/material/Box";
 import type { SubsonicAPI } from "@asmusic/core";
-import { CoverArtThumb } from "../../shared/CoverArtThumb";
-import { useHost } from "../../host/HostContext";
-import type { PlayerQueueItem } from "../core/types";
-import { usePlayerArtworkCacheKey } from "../shared/usePlayerArtworkCacheKey";
-import { usePlayerCoverArtCacheBump } from "../shared/usePlayerCoverArtCacheBump";
+import { CoverArtThumb } from "@ui/shared/CoverArtThumb";
+import { useHost } from "@ui/host/HostContext";
+import type { PlayerQueueItem } from "@ui/player/core/types";
+import { usePlayerArtworkCacheKey } from "@ui/player/shared/usePlayerArtworkCacheKey";
+import { usePlayerCoverArtCacheBump } from "@ui/player/shared/usePlayerCoverArtCacheBump";
 import {
   persistPlayerCachedArtwork,
   resolvePlayerArtworkLocalFile,
   resolvePlayerCachedArtwork,
-} from "../shared/resolvePlayerCachedArtwork";
+} from "@ui/player/shared/resolvePlayerCachedArtwork";
 
 const COVER_SIZE = 40;
 

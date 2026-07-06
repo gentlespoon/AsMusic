@@ -8,10 +8,10 @@ import {
 import {
   encodeLibraryBrowserRef,
   mergeLibraryBrowserSearchParams,
-} from "../../views/home/library/browser/libraryNavigationUrl";
-import { useLibraryBrowseCache } from "../../contexts";
-import { usePlayerActions } from "../../contexts/PlayerContext";
-import type { PlayerQueueItem } from "../core/types";
+} from "@ui/views/home/library/browser/libraryNavigationUrl";
+import { useLibraryBrowseCache } from "@ui/contexts";
+import { usePlayerActions } from "@ui/contexts/PlayerContext";
+import type { PlayerQueueItem } from "@ui/player/core/types";
 
 function albumIdFallback(item: PlayerQueueItem): string | null {
   const title = item.album?.trim();

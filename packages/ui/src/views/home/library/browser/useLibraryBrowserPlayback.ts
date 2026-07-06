@@ -2,14 +2,14 @@ import { useCallback, useMemo } from 'react';
 import type { AlbumID3, Child } from 'subsonic-api';
 import { useT } from '@asmusic/i18n';
 import { libraryCacheScope, resolveCoverArtIdForCachedSong } from '@asmusic/core';
-import { usePlayerActions, useServerAndLibrary } from '../../../../contexts';
-import { playerQueueItemFromChild } from '../../../../player/core/playerQueueItemFromChild';
+import { usePlayerActions, useServerAndLibrary } from '@ui/contexts';
+import { playerQueueItemFromChild } from '@ui/player/core/playerQueueItemFromChild';
 import {
   playerQueueItemsFromLocalResolvedEntries,
   localPlaylistEntriesToResolvedSync,
-} from '../../../../player/core/playerQueueItemFromLocalEntry';
-import type { PlayerQueueItem } from '../../../../player/core/types';
-import type { SongListEntry } from '../catalog/SongListView';
+} from '@ui/player/core/playerQueueItemFromLocalEntry';
+import type { PlayerQueueItem } from '@ui/player/core/types';
+import type { SongListEntry } from '@ui/views/home/library/catalog/SongListView';
 import type {
   LibraryBrowserResolvedAlbum,
   LibraryBrowserResolvedArtist,

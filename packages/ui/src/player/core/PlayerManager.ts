@@ -16,7 +16,7 @@ import {
   parsePersistedQueue,
   type PersistedPlaybackQueueV1,
 } from './playbackQueuePersistence';
-import { playImpactIfEnabled } from '../../haptics/playImpactIfEnabled';
+import { playImpactIfEnabled } from '@ui/haptics/playImpactIfEnabled';
 
 /** Coalesce host `onPlaybackState` into fewer React updates while playing (position-only ticks). */
 const PLAYBACK_UI_EMIT_INTERVAL_MS = 200;

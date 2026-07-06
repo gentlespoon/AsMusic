@@ -14,11 +14,11 @@ import {
 } from '@mui/material';
 import { localPlaylistEditDiff, localPlaylistEntryKey, type LocalPlaylistEntry } from '@asmusic/core';
 import { useT } from '@asmusic/i18n';
-import { PageCloseButton } from '../../../../shared/PageCloseButton';
-import { songMatchesQuery } from '../../../../shared/songSearch';
-import { libraryFlexFillSx } from '../../../../shared/LibraryVirtuosoFill';
-import type { SongListEntry } from '../catalog/SongListView';
-import { useLibraryBrowseCache } from '../../../../contexts/LibraryBrowseCacheContext';
+import { PageCloseButton } from '@ui/shared/PageCloseButton';
+import { songMatchesQuery } from '@ui/shared/songSearch';
+import { libraryFlexFillSx } from '@ui/shared/LibraryVirtuosoFill';
+import type { SongListEntry } from '@ui/views/home/library/catalog/SongListView';
+import { useLibraryBrowseCache } from '@ui/contexts/LibraryBrowseCacheContext';
 
 export function LocalPlaylistEditorView({
   playlistId,

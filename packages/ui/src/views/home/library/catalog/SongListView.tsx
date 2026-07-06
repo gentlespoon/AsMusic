@@ -12,13 +12,13 @@ import {
   type SubsonicAPI,
 } from "@asmusic/core";
 import type { AlbumID3, Child } from "subsonic-api";
-import { SongItem } from "../../../../shared/SongItem";
-import type { PersistCachedArtwork } from "../../../../shared/libraryArtworkCacheAccess";
-import { songMatchesQuery } from "../../../../shared/songSearch";
-import { LibraryVirtuosoFill, libraryFlexFillSx } from "../../../../shared/LibraryVirtuosoFill";
-import { useLibraryScrollRestoration } from "../../../../shared/useLibraryScrollRestoration";
-import { useLibraryVirtuosoScroller } from "../../../../shared/useLibraryVirtuosoScroller";
-import { VirtuosoMuiList } from "../../../../shared/virtuosoMuiList";
+import { SongItem } from "@ui/shared/songItem";
+import type { PersistCachedArtwork } from "@ui/shared/libraryArtworkCacheAccess";
+import { songMatchesQuery } from "@ui/shared/songSearch";
+import { LibraryVirtuosoFill, libraryFlexFillSx } from "@ui/shared/LibraryVirtuosoFill";
+import { useLibraryScrollRestoration } from "@ui/shared/useLibraryScrollRestoration";
+import { useLibraryVirtuosoScroller } from "@ui/shared/useLibraryVirtuosoScroller";
+import { VirtuosoMuiList } from "@ui/shared/virtuosoMuiList";
 
 export type SongListEntry = {
   song: Child;

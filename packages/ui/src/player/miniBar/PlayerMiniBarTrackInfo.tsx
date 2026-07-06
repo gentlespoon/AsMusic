@@ -1,6 +1,6 @@
 import Typography from "@mui/material/Typography";
 import { useT } from "@asmusic/i18n";
-import type { PlayerQueueItem } from "../core/types";
+import type { PlayerQueueItem } from "@ui/player/core/types";
 
 export type PlayerMiniBarTrackInfoProps = {
   item: PlayerQueueItem | null;

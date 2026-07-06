@@ -5,8 +5,8 @@ import PlaylistAdd from '@mui/icons-material/PlaylistAdd';
 import Shuffle from '@mui/icons-material/Shuffle';
 import { Box, IconButton, Stack, TextField, Tooltip, Typography } from '@mui/material';
 import { Virtuoso } from 'react-virtuoso';
-import { LibraryVirtuosoFill, libraryFlexFillSx } from '../../shared/LibraryVirtuosoFill';
-import { VirtuosoMuiList } from '../../shared/virtuosoMuiList';
+import { LibraryVirtuosoFill, libraryFlexFillSx } from '@ui/shared/LibraryVirtuosoFill';
+import { VirtuosoMuiList } from '@ui/shared/virtuosoMuiList';
 import {
   formatDuration,
   serverAccountKey,
@@ -14,15 +14,15 @@ import {
   type OfflineMediaKey,
   type SubsonicAPI,
 } from '@asmusic/core';
-import { useHost } from '../../host/HostContext';
-import { useActiveLibraryScopes, useLibraryBrowseCache, usePlayerActions, useServerAndLibrary } from '../../contexts';
-import { playerQueueItemFromChild } from '../../player/core/playerQueueItemFromChild';
-import type { PlayerQueueItem } from '../../player/core/types';
-import { SongItem } from '../../shared/SongItem';
-import { createPersistCachedArtworkForScope } from '../../shared/libraryArtworkCacheAccess';
-import { createResolveCachedArtwork } from '../../shared/createResolveCachedArtwork';
-import { songMatchesQuery } from '../../shared/songSearch';
-import { formatBytes } from '../../utils/formatBytes';
+import { useHost } from '@ui/host/HostContext';
+import { useActiveLibraryScopes, useLibraryBrowseCache, usePlayerActions, useServerAndLibrary } from '@ui/contexts';
+import { playerQueueItemFromChild } from '@ui/player/core/playerQueueItemFromChild';
+import type { PlayerQueueItem } from '@ui/player/core/types';
+import { SongItem } from '@ui/shared/songItem';
+import { createPersistCachedArtworkForScope } from '@ui/shared/libraryArtworkCacheAccess';
+import { createResolveCachedArtwork } from '@ui/shared/createResolveCachedArtwork';
+import { songMatchesQuery } from '@ui/shared/songSearch';
+import { formatBytes } from '@ui/utils/formatBytes';
 
 type RowModel = {
   key: OfflineMediaKey;

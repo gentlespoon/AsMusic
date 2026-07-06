@@ -22,15 +22,15 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
-import { PageCloseButton } from "../../shared/PageCloseButton";
+import { PageCloseButton } from "@ui/shared/PageCloseButton";
 import { DownloadedSongListView } from "./DownloadedSongListView";
 import { DownloadingSongListView } from "./DownloadingSongListView";
-import { useHost } from "../../host/HostContext";
-import { useActiveLibraryScopes, useLibraryBrowseCache } from "../../contexts";
-import { useOfflineDownload } from "../../contexts/OfflineDownloadContext";
-import { libraryFlexFillSx } from "../../shared/LibraryVirtuosoFill";
-import { playerDockPaddingBottomSx } from "../../player/core/constants";
-import { formatBytes } from "../../utils/formatBytes";
+import { useHost } from "@ui/host/HostContext";
+import { useActiveLibraryScopes, useLibraryBrowseCache } from "@ui/contexts";
+import { useOfflineDownload } from "@ui/contexts/OfflineDownloadContext";
+import { libraryFlexFillSx } from "@ui/shared/LibraryVirtuosoFill";
+import { playerDockPaddingBottomSx } from "@ui/player/core/constants";
+import { formatBytes } from "@ui/utils/formatBytes";
 
 type ClearTarget = "active" | "all";
 

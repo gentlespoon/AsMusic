@@ -1,4 +1,4 @@
-import type { PlayerQueueItem } from '../core/types';
+import type { PlayerQueueItem } from '@ui/player/core/types';
 
 export type PlayerBeltSlots = {
   slots: PlayerQueueItem[];

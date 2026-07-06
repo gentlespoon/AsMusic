@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
 import type { SubsonicAPI, LibraryCacheStorage } from '@asmusic/core';
-import type { PlayerQueueItem } from '../core/types';
-import { CoverArtThumb } from '../../shared/CoverArtThumb';
-import { useHost } from '../../host/HostContext';
+import type { PlayerQueueItem } from '@ui/player/core/types';
+import { CoverArtThumb } from '@ui/shared/CoverArtThumb';
+import { useHost } from '@ui/host/HostContext';
 import { usePlayerArtworkCacheKey } from './usePlayerArtworkCacheKey';
 import { usePlayerCoverArtCacheBump } from './usePlayerCoverArtCacheBump';
 import {

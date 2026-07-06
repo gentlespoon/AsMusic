@@ -14,7 +14,7 @@ import { useI18n, useT } from '@asmusic/i18n';
 import {
   useLibraryBrowseCache,
   type PlaylistCatalogRow,
-} from '../../../../contexts/LibraryBrowseCacheContext';
+} from '@ui/contexts/LibraryBrowseCacheContext';
 
 export function PlaylistListViewRow({
   row,

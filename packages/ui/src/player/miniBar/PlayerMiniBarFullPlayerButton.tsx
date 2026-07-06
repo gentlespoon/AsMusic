@@ -5,7 +5,7 @@ import { useT } from "@asmusic/i18n";
 import {
   usePlayerActions,
   usePlayerShell,
-} from "../../contexts/PlayerContext";
+} from "@ui/contexts/PlayerContext";
 
 export function PlayerMiniBarFullPlayerButton() {
   const t = useT();

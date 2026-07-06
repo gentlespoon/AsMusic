@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import { useT } from "@asmusic/i18n";
 import { CANONICAL_COVER_ART_SIZE, libraryCacheScope, localPlaylistTrackRefFromChild } from "@asmusic/core";
-import { useLibraryBrowseCache } from "../../contexts";
-import type { PlaylistCatalogRow } from "../../contexts/LibraryBrowseCacheContext";
-import { usePlayerActions } from "../../contexts/PlayerContext";
-import { useServerAndLibrary } from "../../contexts/ServerAndLibraryContext";
-import { useHost } from "../../host/HostContext";
-import type { PlayerQueueItem } from "../core/types";
-import { playerQueueItemArtworkScope } from "../shared/resolvePlayerCachedArtwork";
+import { useLibraryBrowseCache } from "@ui/contexts";
+import type { PlaylistCatalogRow } from "@ui/contexts/LibraryBrowseCacheContext";
+import { usePlayerActions } from "@ui/contexts/PlayerContext";
+import { useServerAndLibrary } from "@ui/contexts/ServerAndLibraryContext";
+import { useHost } from "@ui/host/HostContext";
+import type { PlayerQueueItem } from "@ui/player/core/types";
+import { playerQueueItemArtworkScope } from "@ui/player/shared/resolvePlayerCachedArtwork";
 
 export type PlayerFullScreenTrackActions = {
   isStarred: boolean;

@@ -20,23 +20,23 @@ import {
 import ViewList from '@mui/icons-material/ViewList';
 import ViewModule from '@mui/icons-material/ViewModule';
 import { Virtuoso, VirtuosoGrid, type VirtuosoGridHandle, type VirtuosoHandle } from 'react-virtuoso';
-import { PageCloseButton } from '../../../../shared/PageCloseButton';
+import { PageCloseButton } from '@ui/shared/PageCloseButton';
 import type { GridItemProps, GridListProps } from 'react-virtuoso';
 import type { LibraryArtworkCacheRow, SubsonicAPI } from '@asmusic/core';
-import { CoverArtThumb } from '../../../../shared/CoverArtThumb';
-import type { PersistCachedArtwork } from '../../../../shared/libraryArtworkCacheAccess';
-import { LibraryVirtuosoFill, libraryFlexFillSx } from '../../../../shared/LibraryVirtuosoFill';
-import { useLibraryScrollRestoration } from '../../../../shared/useLibraryScrollRestoration';
-import { useLibraryVirtuosoScroller } from '../../../../shared/useLibraryVirtuosoScroller';
-import { VirtuosoMuiList } from '../../../../shared/virtuosoMuiList';
+import { CoverArtThumb } from '@ui/shared/CoverArtThumb';
+import type { PersistCachedArtwork } from '@ui/shared/libraryArtworkCacheAccess';
+import { LibraryVirtuosoFill, libraryFlexFillSx } from '@ui/shared/LibraryVirtuosoFill';
+import { useLibraryScrollRestoration } from '@ui/shared/useLibraryScrollRestoration';
+import { useLibraryVirtuosoScroller } from '@ui/shared/useLibraryVirtuosoScroller';
+import { VirtuosoMuiList } from '@ui/shared/virtuosoMuiList';
 import {
   LibraryAlbumCardCaption,
   LibraryAlbumCardTitle,
   LibraryDetailTitle,
   libraryDetailHeaderStackSx,
-} from '../shared/libraryTypography';
-import { setAlbumDisplayMode, useAlbumDisplayMode, type AlbumDisplayMode } from '../../../../preferences/albumDisplayMode';
-import { useEdgeSwipeBack } from '../../../../shared/useEdgeSwipeBack';
+} from '@ui/views/home/library/shared/libraryTypography';
+import { setAlbumDisplayMode, useAlbumDisplayMode, type AlbumDisplayMode } from '@ui/preferences/albumDisplayMode';
+import { useEdgeSwipeBack } from '@ui/shared/useEdgeSwipeBack';
 
 function albumMatchesQuery(album: AlbumID3, query: string): boolean {
   const q = query.trim().toLowerCase();

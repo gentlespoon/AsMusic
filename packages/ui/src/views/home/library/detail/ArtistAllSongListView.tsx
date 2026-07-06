@@ -4,7 +4,7 @@ import type { AlbumID3, Child } from "subsonic-api";
 import PlaylistAdd from "@mui/icons-material/PlaylistAdd";
 import Shuffle from "@mui/icons-material/Shuffle";
 import { Box, IconButton, Stack, TextField, Tooltip, Typography } from "@mui/material";
-import { PageCloseButton } from "../../../../shared/PageCloseButton";
+import { PageCloseButton } from "@ui/shared/PageCloseButton";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import {
   resolveCoverArtIdForCachedSong,
@@ -12,13 +12,13 @@ import {
   type LibraryArtworkCacheRow,
   type SubsonicAPI,
 } from "@asmusic/core";
-import { SongItem } from "../../../../shared/SongItem";
-import type { PersistCachedArtwork } from "../../../../shared/libraryArtworkCacheAccess";
-import { songMatchesQuery } from "../../../../shared/songSearch";
-import { LibraryVirtuosoFill, libraryFlexFillSx } from "../../../../shared/LibraryVirtuosoFill";
-import { useLibraryScrollRestoration } from "../../../../shared/useLibraryScrollRestoration";
-import { useLibraryVirtuosoScroller } from "../../../../shared/useLibraryVirtuosoScroller";
-import { VirtuosoMuiList } from "../../../../shared/virtuosoMuiList";
+import { SongItem } from "@ui/shared/songItem";
+import type { PersistCachedArtwork } from "@ui/shared/libraryArtworkCacheAccess";
+import { songMatchesQuery } from "@ui/shared/songSearch";
+import { LibraryVirtuosoFill, libraryFlexFillSx } from "@ui/shared/LibraryVirtuosoFill";
+import { useLibraryScrollRestoration } from "@ui/shared/useLibraryScrollRestoration";
+import { useLibraryVirtuosoScroller } from "@ui/shared/useLibraryVirtuosoScroller";
+import { VirtuosoMuiList } from "@ui/shared/virtuosoMuiList";
 
 export function ArtistAllSongListView({
   artistName,

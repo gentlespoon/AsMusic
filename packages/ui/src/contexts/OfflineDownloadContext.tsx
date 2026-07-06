@@ -16,7 +16,7 @@ import {
   type OfflineBulkJobQueueSnapshot,
   type OfflineBulkJobTrack,
 } from '@asmusic/core';
-import { useHost } from '../host/HostContext';
+import { useHost } from '@ui/host/HostContext';
 import { useServerAndLibrary } from './ServerAndLibraryContext';
 
 type OfflineDownloadContextValue = {

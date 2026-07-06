@@ -5,8 +5,8 @@ import { useMatch, useNavigate } from "react-router-dom";
 import {
   usePlayerActions,
   usePlayerShell,
-} from "../../contexts/PlayerContext";
-import { PLAYING_QUEUE_PATH } from "../../views/queue/PlayingQueueView";
+} from "@ui/contexts/PlayerContext";
+import { PLAYING_QUEUE_PATH } from "@ui/views/queue/PlayingQueueView";
 
 export function PlayerMiniBarQueueButton() {
   const t = useT();

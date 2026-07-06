@@ -22,10 +22,10 @@ import {
   type SubsonicAPI,
 } from '@asmusic/core';
 import { useT } from '@asmusic/i18n';
-import { PageCloseButton } from '../../../../shared/PageCloseButton';
-import { songMatchesQuery } from '../../../../shared/songSearch';
-import { libraryFlexFillSx } from '../../../../shared/LibraryVirtuosoFill';
-import { useNetworkStatus } from '../../../../shared/useNetworkStatus';
+import { PageCloseButton } from '@ui/shared/PageCloseButton';
+import { songMatchesQuery } from '@ui/shared/songSearch';
+import { libraryFlexFillSx } from '@ui/shared/LibraryVirtuosoFill';
+import { useNetworkStatus } from '@ui/shared/useNetworkStatus';
 
 export function PlaylistEditorView({
   playlistId,

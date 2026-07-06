@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import type { ListRange, VirtuosoHandle } from "react-virtuoso";
-import type { PlayerViewState } from "../../player/core/types";
+import type { PlayerViewState } from "@ui/player/core/types";
 
 function resolveCurrentScrollIndex(state: PlayerViewState): number | null {
   if (state.currentIndex === null || state.queue.length === 0) return null;

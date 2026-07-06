@@ -12,27 +12,27 @@ import {
   Tabs,
   Toolbar,
 } from "@mui/material";
-import { useOfflineDownload } from "../../contexts/OfflineDownloadContext";
+import { useOfflineDownload } from "@ui/contexts/OfflineDownloadContext";
 import {
   SettingsPreferenceListItem,
   SettingsPreferenceRow,
   SettingsPreferenceRowLabel,
-} from "../settings/SettingsPreferenceRow";
+} from "@ui/views/settings/SettingsPreferenceRow";
 import {
   SettingsListItemCaption,
   SettingsListItemTitle,
-} from "../settings/SettingsTypography";
-import { PageCloseButton } from "../../shared/PageCloseButton";
-import { useEdgeSwipeBack } from "../../shared/useEdgeSwipeBack";
+} from "@ui/views/settings/SettingsTypography";
+import { PageCloseButton } from "@ui/shared/PageCloseButton";
+import { useEdgeSwipeBack } from "@ui/shared/useEdgeSwipeBack";
 import {
   SettingsAppBarTitle,
   SettingsPageDescription,
-} from "../settings/SettingsTypography";
-import { useServerAndLibrary } from "../../contexts";
-import { LibrarySelectorView } from "./LibrarySelectorView";
+} from "@ui/views/settings/SettingsTypography";
+import { useServerAndLibrary } from "@ui/contexts";
+import { LibrarySelectorView } from "./librarySelector";
 import { ServerManagerView } from "./ServerManagerView";
-import { libraryFlexFillSx } from "../../shared/LibraryVirtuosoFill";
-import { playerDockPaddingBottomSx } from "../../player/core/constants";
+import { libraryFlexFillSx } from "@ui/shared/LibraryVirtuosoFill";
+import { playerDockPaddingBottomSx } from "@ui/player/core/constants";
 
 function tabIndexFromParam(tab: string | null): number {
   return tab === "libraries" ? 1 : 0;

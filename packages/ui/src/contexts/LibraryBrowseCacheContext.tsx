@@ -459,18 +459,22 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
 
   const playlistCatalogRows = useMemo(() => {
     const out: PlaylistCatalogRow[] = [];
+    const seenServerPlaylists = new Set<string>();
     for (const sl of slices) {
       const sorted = [...sl.playlists].sort((a, b) =>
         a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
       );
       for (const playlist of sorted) {
+        const dedupeKey = `${sl.serverId}|${playlist.id}`;
+        if (seenServerPlaylists.has(dedupeKey)) continue;
+        seenServerPlaylists.add(dedupeKey);
         out.push({
           kind: 'server',
           playlist,
           serverId: sl.serverId,
           libraryId: sl.libraryId,
           artworkScope: sl.scope,
-          rowKey: `${sl.scope.serverKey}|${sl.scope.libraryId}|${playlist.id}`,
+          rowKey: `${sl.scope.serverKey}|${playlist.id}`,
         });
       }
     }
@@ -810,13 +814,15 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
 
   const refreshPlaylistSummariesForScope = useCallback(
     async (args: { serverId: string; libraryId: string }) => {
-      const { serverId, libraryId } = args;
+      const { serverId } = args;
       const api = await getApiForServer(serverId);
       if (!api) throw new Error('Could not open a session for this server');
-      const sl = scopesToLoadRef.current.find((s) => s.serverId === serverId && s.libraryId === libraryId);
-      if (!sl) throw new Error('Library is not available');
-      const playlists = await refreshPlaylistCacheForScope(api, host.libraryCache, sl.scope);
-      applyPlaylistsToSlice(serverId, libraryId, playlists);
+      const scopesForServer = scopesToLoadRef.current.filter((s) => s.serverId === serverId);
+      if (scopesForServer.length === 0) throw new Error('Library is not available');
+      for (const sl of scopesForServer) {
+        const playlists = await refreshPlaylistCacheForScope(api, host.libraryCache, sl.scope);
+        applyPlaylistsToSlice(sl.serverId, sl.libraryId, playlists);
+      }
     },
     [getApiForServer, host.libraryCache, applyPlaylistsToSlice]
   );

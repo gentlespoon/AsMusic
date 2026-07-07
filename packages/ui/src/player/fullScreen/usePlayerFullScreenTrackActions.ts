@@ -56,10 +56,7 @@ export function usePlayerFullScreenTrackActions(
 
   const serverPlaylistsForTrack = item
     ? playlistCatalogRows.filter(
-        (r) =>
-          r.kind === "server" &&
-          r.serverId === item.serverId &&
-          r.libraryId === item.libraryId,
+        (r) => r.kind === "server" && r.serverId === item.serverId,
       )
     : [];
   const localPlaylists = playlistCatalogRows.filter((r) => r.kind === "local");

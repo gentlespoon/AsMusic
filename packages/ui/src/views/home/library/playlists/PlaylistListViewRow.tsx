@@ -29,7 +29,7 @@ export function PlaylistListViewRow({
 }) {
   const t = useT();
   const { format } = useI18n();
-  const { libraryDisplayName } = useLibraryBrowseCache();
+  const { serverDisplayName } = useLibraryBrowseCache();
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
 
   const count = row.playlist.songCount;
@@ -41,7 +41,7 @@ export function PlaylistListViewRow({
     row.kind === 'local'
       ? `${songCountLabel} · ${t('library.playlist.onDevice')}`
       : multiLibrary
-        ? `${songCountLabel} · ${libraryDisplayName(row.serverId, row.libraryId)}`
+        ? `${songCountLabel} · ${serverDisplayName(row.serverId)}`
         : songCountLabel;
 
   return (

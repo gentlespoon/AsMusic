@@ -36,6 +36,7 @@ enum LibraryCacheSQLiteStore {
                 throw StoreError.prepareFailed
             }
             sqlite3_bind_text(stmt, 1, serverKey, -1, transientDestructor)
+            sqlite3_bind_text(stmt, 2, libraryId, -1, transientDestructor)
 
             var parts: [String] = []
             parts.reserveCapacity(256)

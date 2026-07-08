@@ -89,22 +89,24 @@ function migratePlaylistsToServerScope(tx: IDBTransaction, db: IDBDatabase): voi
     const cur = legacyPlaylists.openCursor();
     cur.onsuccess = () => {
       const cursor = cur.result;
-      if (!cursor) return;
-      const row = cursor.value as LegacyPlaylistRow;
-      const key = `${row.serverKey}|${row.playlistId}`;
-      if (!seen.has(key)) {
-        seen.add(key);
-        serverPlaylists.put({
-          serverKey: row.serverKey,
-          playlistId: row.playlistId,
-          sortIndex: row.sortIndex ?? 0,
-          name: row.name,
-          songCount: row.songCount,
-        } satisfies ServerPlaylistRow);
+      if (cursor) {
+        const row = cursor.value as LegacyPlaylistRow;
+        const key = `${row.serverKey}|${row.playlistId}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          serverPlaylists.put({
+            serverKey: row.serverKey,
+            playlistId: row.playlistId,
+            sortIndex: row.sortIndex ?? 0,
+            name: row.name,
+            songCount: row.songCount,
+          } satisfies ServerPlaylistRow);
+        }
+        cursor.continue();
+      } else {
+        db.deleteObjectStore('playlists');
       }
-      cursor.continue();
     };
-    db.deleteObjectStore('playlists');
   }
 
   if (db.objectStoreNames.contains('playlistTrackLists')) {
@@ -113,20 +115,22 @@ function migratePlaylistsToServerScope(tx: IDBTransaction, db: IDBDatabase): voi
     const cur = legacyTracks.openCursor();
     cur.onsuccess = () => {
       const cursor = cur.result;
-      if (!cursor) return;
-      const row = cursor.value as LegacyTrackListRow;
-      const key = `${row.serverKey}|${row.playlistId}`;
-      if (!seen.has(key)) {
-        seen.add(key);
-        serverPlaylistTracks.put({
-          serverKey: row.serverKey,
-          playlistId: row.playlistId,
-          trackIds: row.trackIds,
-        } satisfies ServerTrackListRow);
+      if (cursor) {
+        const row = cursor.value as LegacyTrackListRow;
+        const key = `${row.serverKey}|${row.playlistId}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          serverPlaylistTracks.put({
+            serverKey: row.serverKey,
+            playlistId: row.playlistId,
+            trackIds: row.trackIds,
+          } satisfies ServerTrackListRow);
+        }
+        cursor.continue();
+      } else {
+        db.deleteObjectStore('playlistTrackLists');
       }
-      cursor.continue();
     };
-    db.deleteObjectStore('playlistTrackLists');
   }
 }
 

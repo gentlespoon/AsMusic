@@ -12,6 +12,7 @@ export type { SongItemProps } from "./types";
 export function SongItem({
   track,
   coverArtId,
+  fallbackCoverArtId,
   api,
   resolveCachedArtwork,
   resolveArtworkLocalFile,
@@ -55,6 +56,7 @@ export function SongItem({
       noWrapSecondary={noWrapSecondary}
       api={api}
       coverArtId={coverArtId}
+      fallbackCoverArtId={fallbackCoverArtId}
       resolveCachedArtwork={resolveCachedArtwork}
       resolveArtworkLocalFile={resolveArtworkLocalFile}
       persistCachedArtwork={persistCachedArtwork}

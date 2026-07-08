@@ -6,6 +6,8 @@ import type { PersistCachedArtwork } from "@ui/shared/libraryArtworkCacheAccess"
 export type SongItemProps = {
   track: Child;
   coverArtId?: string;
+  /** Album-level cover id tried when `coverArtId` cannot be loaded. */
+  fallbackCoverArtId?: string;
   /** When true, row is grayed out (e.g. track from inactive library). */
   unavailable?: boolean;
   /** When null (e.g. server removed), cover art falls back to a placeholder. */
@@ -42,6 +44,7 @@ export type SongItemMainProps = {
   noWrapSecondary: boolean;
   api: SubsonicAPI | null;
   coverArtId?: string;
+  fallbackCoverArtId?: string;
   resolveCachedArtwork: (
     coverArtId: string,
   ) => Promise<LibraryArtworkCacheRow | null>;

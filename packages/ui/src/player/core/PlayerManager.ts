@@ -713,13 +713,22 @@ export class PlayerManager {
     if (!coverArtId) return {};
 
     const scopes = offlineLookupScopes(item.serverUrl, item.username, item.libraryId);
-    const row = await readCachedArtworkBlob(this.host.libraryCache, scopes, coverArtId);
-    if (row?.data?.byteLength && this.host.kind === 'ios-capacitor') {
-      return { artworkDataBase64: uint8ArrayToBase64(row.data) };
+    const fallbackId = item.coverArtFallbackId?.trim();
+    const idsToTry = [coverArtId];
+    if (fallbackId && fallbackId !== coverArtId) {
+      idsToTry.push(fallbackId);
     }
 
-    const artworkUrl = this.deps.getCoverArtUrl(item.serverId, coverArtId);
-    return artworkUrl ? { artworkUrl } : {};
+    for (const id of idsToTry) {
+      const row = await readCachedArtworkBlob(this.host.libraryCache, scopes, id);
+      if (row?.data?.byteLength && this.host.kind === 'ios-capacitor') {
+        return { artworkDataBase64: uint8ArrayToBase64(row.data) };
+      }
+
+      const artworkUrl = this.deps.getCoverArtUrl(item.serverId, id);
+      if (artworkUrl) return { artworkUrl };
+    }
+    return {};
   }
 
   /** Re-push lock-screen / Control Center artwork after cache refresh. */

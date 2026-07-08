@@ -17,6 +17,8 @@ export type PlayerQueueItem = {
   suffix?: string;
   bitRate?: number;
   coverArtId?: string;
+  /** Album-level cover id tried when `coverArtId` cannot be loaded. */
+  coverArtFallbackId?: string;
   /** Snapshot of Subsonic star state when enqueued; updated when toggled from the player. */
   starred?: boolean;
 };

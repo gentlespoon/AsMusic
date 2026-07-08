@@ -8,6 +8,7 @@ export function SongItemMain({
   noWrapSecondary,
   api,
   coverArtId,
+  fallbackCoverArtId,
   resolveCachedArtwork,
   resolveArtworkLocalFile,
   persistCachedArtwork,
@@ -19,6 +20,7 @@ export function SongItemMain({
       <SongItemCover
         api={api}
         coverArtId={coverArtId}
+        fallbackCoverArtId={fallbackCoverArtId}
         resolveCachedArtwork={resolveCachedArtwork}
         resolveArtworkLocalFile={resolveArtworkLocalFile}
         persistCachedArtwork={persistCachedArtwork}

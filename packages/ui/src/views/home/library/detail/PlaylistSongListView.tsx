@@ -19,7 +19,7 @@ import {
   Typography,
 } from '@mui/material';
 import {
-  resolveCoverArtIdForCachedSong,
+  resolveCoverArtIdsForCachedSong,
   isChildStarred,
   loadPlaylistTracks,
   type LibraryArtworkCacheRow,
@@ -354,12 +354,14 @@ export function PlaylistSongListView({
               }
               itemContent={(_index, track) => {
                 if (!track) return null;
-                const coverArtId = resolveCoverArtIdForCachedSong(track, albums);
+                const { primary: coverArtId, fallback: fallbackCoverId } =
+                  resolveCoverArtIdsForCachedSong(track, albums);
                 const starred = isChildStarred(track);
                 return (
                   <SongItem
                     track={track}
                     coverArtId={coverArtId}
+                    fallbackCoverArtId={fallbackCoverId}
                     api={api}
                     resolveCachedArtwork={resolveCachedArtwork}
                     persistCachedArtwork={persistCachedArtwork}

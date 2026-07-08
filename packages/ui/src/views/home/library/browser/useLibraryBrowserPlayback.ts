@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from 'react';
 import type { AlbumID3, Child } from 'subsonic-api';
 import { useT } from '@asmusic/i18n';
-import { libraryCacheScope, resolveCoverArtIdForCachedSong } from '@asmusic/core';
+import { libraryCacheScope, resolveCoverArtIdsForCachedSong } from '@asmusic/core';
 import { usePlayerActions, useServerAndLibrary } from '@ui/contexts';
 import { playerQueueItemFromChild } from '@ui/player/core/playerQueueItemFromChild';
 import {
@@ -75,7 +75,8 @@ export function useLibraryBrowserPlayback(options: {
       if (!meta) return null;
       const scope = libraryCacheScope(meta.serverUrl, meta.username, libraryId);
       const albums = albumsByScope.get(`${scope.serverKey}|${libraryId}`) ?? [];
-      const coverArtId = resolveCoverArtIdForCachedSong(song, albums);
+      const { primary: coverArtId, fallback: coverArtFallbackId } =
+        resolveCoverArtIdsForCachedSong(song, albums);
       return playerQueueItemFromChild({
         song,
         serverId,
@@ -83,6 +84,7 @@ export function useLibraryBrowserPlayback(options: {
         serverUrl: meta.serverUrl,
         username: meta.username,
         coverArtId,
+        coverArtFallbackId,
       });
     },
     [serverMetaById, albumsByScope]
@@ -238,20 +240,26 @@ export function useLibraryBrowserPlayback(options: {
       }
       const meta = serverMetaById[resolvedPlaylist.slice.serverId];
       if (!meta) return [];
+      const scope = libraryCacheScope(meta.serverUrl, meta.username, resolvedPlaylist.slice.libraryId);
+      const albums = albumsByScope.get(`${scope.serverKey}|${scope.libraryId}`) ?? [];
       const items: PlayerQueueItem[] = [];
       for (const track of tracks) {
+        const { primary: coverArtId, fallback: coverArtFallbackId } =
+          resolveCoverArtIdsForCachedSong(track, albums);
         const it = playerQueueItemFromChild({
           song: track,
           serverId: resolvedPlaylist.slice.serverId,
           libraryId: resolvedPlaylist.slice.libraryId,
           serverUrl: meta.serverUrl,
           username: meta.username,
+          coverArtId,
+          coverArtFallbackId,
         });
         items.push(it);
       }
       return items;
     },
-    [resolvedPlaylist, serverMetaById, songsByScope, serverConfigs, unavailableLabel, activeScopeKeys]
+    [resolvedPlaylist, serverMetaById, songsByScope, serverConfigs, unavailableLabel, activeScopeKeys, albumsByScope]
   );
 
   const appendAllPlaylistTracksToQueue = useCallback(

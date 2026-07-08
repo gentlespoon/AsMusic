@@ -21,8 +21,9 @@ export function playerQueueItemFromChild(args: {
   serverUrl: string;
   username: string;
   coverArtId?: string;
+  coverArtFallbackId?: string;
 }): PlayerQueueItem {
-  const { song, serverId, libraryId, serverUrl, username, coverArtId } = args;
+  const { song, serverId, libraryId, serverUrl, username, coverArtId, coverArtFallbackId } = args;
   return {
     rowId: newQueueRowId(),
     serverId,
@@ -37,6 +38,7 @@ export function playerQueueItemFromChild(args: {
     suffix: song.suffix ?? undefined,
     bitRate: song.bitRate ?? undefined,
     coverArtId: coverArtId ?? (song.coverArt?.trim() || undefined),
+    coverArtFallbackId,
     starred: isChildStarred(song),
   };
 }

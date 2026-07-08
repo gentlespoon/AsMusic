@@ -43,6 +43,7 @@ function PlayerCoverArtThumb({
     <CoverArtThumb
       api={api}
       coverArtId={slot.coverArtId}
+      fallbackCoverArtId={slot.coverArtFallbackId}
       resolveCachedArtwork={resolvePlayerCachedArtwork(libraryCache, slot)}
       resolveArtworkLocalFile={resolvePlayerArtworkLocalFile(libraryCache, slot)}
       persistCachedArtwork={persistPlayerCachedArtwork(libraryCache, slot)}

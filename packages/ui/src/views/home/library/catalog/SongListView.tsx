@@ -5,7 +5,7 @@ import Shuffle from "@mui/icons-material/Shuffle";
 import { useT } from "@asmusic/i18n";
 import { Box, IconButton, Stack, TextField, Tooltip, Typography } from "@mui/material";
 import {
-  resolveCoverArtIdForCachedSong,
+  resolveCoverArtIdsForCachedSong,
   isChildStarred,
   type LibraryArtworkCacheRow,
   type LibraryCacheScope,
@@ -29,7 +29,7 @@ export type SongListEntry = {
 
 export function SongListView({
   entries,
-  albums,
+  albumsByScope,
   apiForServer,
   initialReady,
   syncing,
@@ -52,7 +52,7 @@ export function SongListView({
   setTrackStarred,
 }: {
   entries: SongListEntry[];
-  albums: AlbumID3[];
+  albumsByScope: ReadonlyMap<string, AlbumID3[]>;
   apiForServer: (serverId: string) => SubsonicAPI | null;
   initialReady: boolean;
   syncing: boolean;
@@ -203,10 +203,10 @@ export function SongListView({
               components={{ ...virtuosoComponents, List: VirtuosoMuiList }}
               computeItemKey={(_, entry) => entry.rowKey}
               itemContent={(_, entry) => {
-                const coverId = resolveCoverArtIdForCachedSong(
-                  entry.song,
-                  albums,
-                );
+                const scopeKey = `${entry.artworkScope.serverKey}|${entry.artworkScope.libraryId}`;
+                const scopeAlbums = albumsByScope.get(scopeKey) ?? [];
+                const { primary: coverId, fallback: fallbackCoverId } =
+                  resolveCoverArtIdsForCachedSong(entry.song, scopeAlbums);
                 const artworkKey = coverId
                   ? artworkVersionKey
                     ? artworkVersionKey(coverId, entry.artworkScope)
@@ -218,6 +218,7 @@ export function SongListView({
                   <SongItem
                     track={entry.song}
                     coverArtId={coverId}
+                    fallbackCoverArtId={fallbackCoverId}
                     api={api}
                     resolveCachedArtwork={(id) =>
                       resolveCachedArtwork(id, entry.artworkScope)

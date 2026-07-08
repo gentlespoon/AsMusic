@@ -7,6 +7,7 @@ import { COVER_SIZE } from "./constants";
 export function SongItemCover({
   api,
   coverArtId,
+  fallbackCoverArtId,
   resolveCachedArtwork,
   resolveArtworkLocalFile,
   persistCachedArtwork,
@@ -15,6 +16,7 @@ export function SongItemCover({
 }: {
   api: SubsonicAPI | null;
   coverArtId?: string;
+  fallbackCoverArtId?: string;
   resolveCachedArtwork: (
     coverArtId: string,
   ) => Promise<LibraryArtworkCacheRow | null>;
@@ -38,6 +40,7 @@ export function SongItemCover({
         <CoverArtThumb
           api={api ?? undefined}
           coverArtId={coverArtId}
+          fallbackCoverArtId={fallbackCoverArtId}
           resolveCachedArtwork={resolveCachedArtwork}
           resolveArtworkLocalFile={resolveArtworkLocalFile}
           persistCachedArtwork={persistCachedArtwork}

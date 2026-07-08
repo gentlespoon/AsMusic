@@ -34,7 +34,9 @@ export function albumsFromCachedSongs(songs: Child[]): AlbumID3[] {
     const totalDuration = sorted.reduce((acc, s) => acc + (s.duration ?? 0), 0);
     const years = sorted.map((s) => s.year).filter((y): y is number => y != null);
     const year = years.length ? Math.min(...years) : undefined;
-    const cover = sorted.map((s) => s.coverArt).find((c) => c && c.length > 0);
+    const cover =
+      sorted.map((s) => s.coverArt?.trim()).find((c) => c && c.startsWith('al-')) ??
+      sorted.map((s) => s.coverArt).find((c) => c && c.length > 0);
 
     result.push({
       id,
@@ -140,17 +142,33 @@ export function collectCoverArtIdsFromAlbums(albums: AlbumID3[]): string[] {
 
 /** Track `coverArt` when present, otherwise album-derived cover (same as album grid). */
 export function resolveCoverArtIdForCachedSong(song: Child, albums: AlbumID3[]): string | undefined {
+  return resolveCoverArtIdsForCachedSong(song, albums).primary;
+}
+
+/**
+ * Primary cover id for a cached track plus an optional album fallback.
+ * Some servers expose per-track `coverArt` ids that do not resolve via `getCoverArt`;
+ * callers should try `fallback` when the primary fetch fails.
+ */
+export function resolveCoverArtIdsForCachedSong(
+  song: Child,
+  albums: AlbumID3[],
+): { primary?: string; fallback?: string } {
+  const albumCover = coverArtIdFromAlbumsForCachedSong(song, albums);
   const track = song.coverArt?.trim();
-  if (track) return track;
-  return coverArtIdFromAlbumsForCachedSong(song, albums);
+  const primary = track || albumCover;
+  const fallback =
+    primary && albumCover && primary !== albumCover ? albumCover : undefined;
+  return { primary, fallback };
 }
 
 /** Distinct cover ids for background prefetch: album covers plus per-track overrides. */
 export function collectCoverArtIdsFromSongs(songs: Child[], albums: AlbumID3[]): string[] {
   const ids = new Set<string>(collectCoverArtIdsFromAlbums(albums));
   for (const song of songs) {
-    const id = resolveCoverArtIdForCachedSong(song, albums);
-    if (id) ids.add(id);
+    const { primary, fallback } = resolveCoverArtIdsForCachedSong(song, albums);
+    if (primary) ids.add(primary);
+    if (fallback) ids.add(fallback);
   }
   return [...ids];
 }

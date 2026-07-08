@@ -393,6 +393,9 @@ export const zhCNMessages = {
     "在菜单中添加一项，用于复制原生与 JavaScript 播放器日志以便排查问题。",
   "settings.ux.waveform.caption":
     "全屏播放器对本地文件显示波形 scrubber。流式播放始终使用标准滑块。",
+  "settings.ux.playbackFailureAutoSkipLimit": "播放失败时自动跳过上限",
+  "settings.ux.playbackFailureAutoSkipLimit.caption":
+    "曲目加载失败时，最多连续自动跳过这么多首曲目后停止。",
 
   "sleepTimer.dialogTitle": "睡眠定时器",
   "sleepTimer.minutes": "{minutes} 分钟",

@@ -411,6 +411,9 @@ export const enUSMessages = {
     "Adds a menu item to copy native and JavaScript player logs for troubleshooting.",
   "settings.ux.waveform.caption":
     "Full-screen player shows a waveform scrubber for local files. Streaming will always use a standard slider.",
+  "settings.ux.playbackFailureAutoSkipLimit": "Auto-skip limit on playback failure",
+  "settings.ux.playbackFailureAutoSkipLimit.caption":
+    "When a track fails to load, skip forward up to this many consecutive tracks before stopping.",
 
   "sleepTimer.dialogTitle": "Sleep timer",
   "sleepTimer.minutes": "{minutes} min",

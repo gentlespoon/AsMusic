@@ -17,10 +17,12 @@ import {
   type PersistedPlaybackQueueV1,
 } from './playbackQueuePersistence';
 import { playImpactIfEnabled } from '@ui/haptics/playImpactIfEnabled';
+import { getPlaybackFailureAutoSkipLimit } from '@ui/preferences/playbackFailureAutoSkipLimitPreference';
 import {
   getDefaultCoverArtPlaceholderBase64,
   logCoverArtUnavailable,
 } from '@ui/shared/defaultCoverArtPlaceholder';
+import { getPlaybackFailureAutoSkipLimit } from '@ui/preferences/playbackFailureAutoSkipLimitPreference';
 
 /** Coalesce host `onPlaybackState` into fewer React updates while playing (position-only ticks). */
 const PLAYBACK_UI_EMIT_INTERVAL_MS = 200;
@@ -589,7 +591,7 @@ export class PlayerManager {
     }
   }
 
-  /** On load/transport failure, skip forward through the queue until a track plays or the queue ends. */
+  /** On load/transport failure, skip forward through the queue until a track plays, the queue ends, or the failure limit is reached. */
   private async handlePlaybackFailure(errorMessage: string): Promise<void> {
     if (this.handlingPlaybackFailure || this.handlingPlaybackEnded) {
       return;
@@ -597,11 +599,24 @@ export class PlayerManager {
     this.handlingPlaybackFailure = true;
     try {
       let lastError = errorMessage;
+      let consecutiveFailures = 1;
       while (true) {
         const idx = this.currentIndex;
         if (idx === null || this.queue.length === 0) {
           this.loadError = lastError;
           this.emit();
+          return;
+        }
+        if (consecutiveFailures >= getPlaybackFailureAutoSkipLimit()) {
+          this.loadError = lastError;
+          this.isPlaying = false;
+          try {
+            await this.host.playback.pause();
+          } catch {
+            /* ignore */
+          }
+          this.emit();
+          this.schedulePersist();
           return;
         }
         if (idx + 1 >= this.queue.length) {
@@ -623,6 +638,7 @@ export class PlayerManager {
           this.schedulePersist();
           return;
         }
+        consecutiveFailures += 1;
         lastError = this.loadError ?? lastError;
       }
     } finally {
@@ -805,7 +821,6 @@ export class PlayerManager {
       return false;
     }
 
-    playImpactIfEnabled(this.host);
     this.runRevoke();
     try {
       const offlineResolved = await resolvePlaybackSource({
@@ -871,6 +886,9 @@ export class PlayerManager {
       if (loadSeq !== this.loadTrackSeq) return false;
       if (options.autoplay) {
         await this.host.playback.play();
+        if (loadSeq === this.loadTrackSeq) {
+          playImpactIfEnabled(this.host);
+        }
       }
       if (loadSeq === this.loadTrackSeq) {
         this.loadError = null;

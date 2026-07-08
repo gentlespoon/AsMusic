@@ -415,6 +415,9 @@ export const jaJPMessages = {
     "トラブルシューティング用に、ネイティブと JavaScript のプレイヤーログをコピーするメニュー項目を追加します。",
   "settings.ux.waveform.caption":
     "全画面プレイヤーはローカルファイルで波形スクラバーを表示します。ストリーミングでは常に通常のスライダーを使用します。",
+  "settings.ux.playbackFailureAutoSkipLimit": "再生失敗時の自動スキップ上限",
+  "settings.ux.playbackFailureAutoSkipLimit.caption":
+    "曲の読み込みに失敗したとき、連続してこの曲数まで自動スキップし、それ以上は停止します。",
 
   "sleepTimer.dialogTitle": "スリープタイマー",
   "sleepTimer.minutes": "{minutes} 分",

@@ -393,6 +393,9 @@ export const zhTWMessages = {
   "settings.ux.waveform": "波形進度列",
   "settings.ux.waveform.caption":
     "全螢幕播放器對本機檔案顯示波形 scrubber。串流播放一律使用標準滑桿。",
+  "settings.ux.playbackFailureAutoSkipLimit": "播放失敗時自動略過上限",
+  "settings.ux.playbackFailureAutoSkipLimit.caption":
+    "曲目載入失敗時，最多連續自動略過這麼多首曲目後停止。",
 
   "sleepTimer.dialogTitle": "睡眠計時器",
   "sleepTimer.minutes": "{minutes} 分鐘",

@@ -3,6 +3,7 @@ import Box from "@mui/material/Box";
 import type { SubsonicAPI } from "@asmusic/core";
 import type { PlayerQueueItem } from "@ui/player/core/types";
 import { CoverArtThumb } from "@ui/shared/CoverArtThumb";
+import { CoverArtPlaceholder } from "@ui/shared/CoverArtPlaceholder";
 import type { PersistCachedArtwork } from "@ui/shared/libraryArtworkCacheAccess";
 import { useHost } from "@ui/host/HostContext";
 import {
@@ -99,7 +100,9 @@ function DisplaySlot({
             label=""
             sx={{ width: "100%", height: "100%", objectFit: "contain" }}
           />
-        ) : null}
+        ) : (
+          <CoverArtPlaceholder sx={{ width: "100%", height: "100%" }} />
+        )}
       </Box>
     </Box>
   );

@@ -94,6 +94,7 @@ public class AsmusicNativePlugin: CAPPlugin, CAPBridgedPlugin {
 
     private var artworkDataTask: URLSessionDataTask?
     private var artworkEpoch = 0
+    private var artworkPlaceholderData: Data?
 
     deinit {
         cancelArtworkLoad()
@@ -265,12 +266,15 @@ public class AsmusicNativePlugin: CAPPlugin, CAPBridgedPlugin {
 
         cancelArtworkLoad()
         let epoch = artworkEpoch
+        artworkPlaceholderData = Self.decodeArtworkPlaceholder(from: call)
         if let b64 = call.getString("artworkDataBase64")?.trimmingCharacters(in: .whitespacesAndNewlines),
            !b64.isEmpty,
            let data = Data(base64Encoded: b64) {
             applyArtworkData(data, epoch: epoch)
         } else if let artStr = call.getString("artworkUrl"), !artStr.isEmpty, let artUrl = URL(string: artStr) {
             startArtworkLoad(url: artUrl)
+        } else {
+            applyArtworkPlaceholder(epoch: epoch)
         }
 
         call.resolve()
@@ -279,12 +283,15 @@ public class AsmusicNativePlugin: CAPPlugin, CAPBridgedPlugin {
     @objc func playbackUpdateArtwork(_ call: CAPPluginCall) {
         cancelArtworkLoad()
         let epoch = artworkEpoch
+        artworkPlaceholderData = Self.decodeArtworkPlaceholder(from: call)
         if let b64 = call.getString("artworkDataBase64")?.trimmingCharacters(in: .whitespacesAndNewlines),
            !b64.isEmpty,
            let data = Data(base64Encoded: b64) {
             applyArtworkData(data, epoch: epoch)
         } else if let artStr = call.getString("artworkUrl"), !artStr.isEmpty, let artUrl = URL(string: artStr) {
             startArtworkLoad(url: artUrl)
+        } else {
+            applyArtworkPlaceholder(epoch: epoch)
         }
         call.resolve()
     }
@@ -1258,13 +1265,31 @@ public class AsmusicNativePlugin: CAPPlugin, CAPBridgedPlugin {
         artworkEpoch += 1
     }
 
+    private static func decodeArtworkPlaceholder(from call: CAPPluginCall) -> Data? {
+        guard let b64 = call.getString("artworkPlaceholderDataBase64")?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+              !b64.isEmpty else {
+            return nil
+        }
+        return Data(base64Encoded: b64)
+    }
+
     private func startArtworkLoad(url: URL) {
         cancelArtworkLoad()
         let epoch = artworkEpoch
-        let task = URLSession.shared.dataTask(with: url) { [weak self] data, _, _ in
+        let task = URLSession.shared.dataTask(with: url) { [weak self] data, _, error in
             guard let self else { return }
             guard epoch == self.artworkEpoch else { return }
-            guard let data else { return }
+            if let error {
+                NSLog("[AsMusic] lock-screen artwork load failed: %@", error.localizedDescription)
+                self.applyArtworkPlaceholder(epoch: epoch)
+                return
+            }
+            guard let data, !data.isEmpty else {
+                NSLog("[AsMusic] lock-screen artwork load returned empty response")
+                self.applyArtworkPlaceholder(epoch: epoch)
+                return
+            }
             self.applyArtworkData(data, epoch: epoch)
         }
         artworkDataTask = task
@@ -1273,6 +1298,25 @@ public class AsmusicNativePlugin: CAPPlugin, CAPBridgedPlugin {
 
     private func applyArtworkData(_ data: Data, epoch: Int) {
         guard epoch == artworkEpoch else { return }
+        guard let image = UIImage(data: data) else {
+            NSLog("[AsMusic] lock-screen artwork decode failed")
+            applyArtworkPlaceholder(epoch: epoch)
+            return
+        }
+        let artwork = MPMediaItemArtwork(boundsSize: CGSize(width: 512, height: 512)) { _ in image }
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            guard epoch == self.artworkEpoch else { return }
+            guard MPNowPlayingInfoCenter.default().nowPlayingInfo != nil else { return }
+            var info = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
+            info[MPMediaItemPropertyArtwork] = artwork
+            MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+        }
+    }
+
+    private func applyArtworkPlaceholder(epoch: Int) {
+        guard epoch == artworkEpoch else { return }
+        guard let data = artworkPlaceholderData else { return }
         guard let image = UIImage(data: data) else { return }
         let artwork = MPMediaItemArtwork(boundsSize: CGSize(width: 512, height: 512)) { _ in image }
         DispatchQueue.main.async { [weak self] in

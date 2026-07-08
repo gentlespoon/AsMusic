@@ -1,11 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 import Box from '@mui/material/Box';
-import { keyframes, type SxProps, type Theme } from '@mui/material/styles';
+import type { SxProps, Theme } from '@mui/material/styles';
 import { CANONICAL_COVER_ART_SIZE, type SubsonicAPI } from '@asmusic/core';
 import type { LibraryArtworkCacheRow } from '@asmusic/core';
 import type { PersistCachedArtwork } from './libraryArtworkCacheAccess';
 import { artworkDisplayMimeType, isValidImageBytes } from './artworkDisplayMimeType';
+import { CoverArtPlaceholder } from './CoverArtPlaceholder';
+import type { CoverArtFailureReason } from './defaultCoverArtPlaceholder';
+import {
+  logCoverArtUnavailable,
+} from './defaultCoverArtPlaceholder';
 import {
   acquireCoverArtUrl,
   buildCoverArtCacheKey,
@@ -13,10 +18,6 @@ import {
   peekCoverArtUrl,
   releaseCoverArtUrl,
 } from './coverArtObjectUrlCache';
-
-const pulse = keyframes`
-  50% { opacity: 0.65; }
-`;
 
 type Props = {
   /** When omitted, cover art loads from `resolveCachedArtwork` only (offline-safe). */
@@ -48,12 +49,7 @@ const baseCoverSx: SxProps<Theme> = {
   height: '100%',
 };
 
-function coverPlaceholderGradient(theme: Theme): string {
-  if (theme.palette.mode === 'light') {
-    return `linear-gradient(135deg, ${theme.palette.grey[200]} 0%, ${theme.palette.grey[400]} 100%)`;
-  }
-  return `linear-gradient(135deg, ${theme.palette.grey[900]} 0%, ${theme.palette.grey[800]} 100%)`;
-}
+type LoadState = 'idle' | 'loading' | 'ready' | 'failed';
 
 /**
  * Loads cover art through the authenticated Subsonic client (works for Navidrome
@@ -92,7 +88,15 @@ export function CoverArtThumb({
   const [src, setSrc] = useState<string | null>(() =>
     cacheKey ? peekCoverArtUrl(cacheKey) : null,
   );
+  const [loadState, setLoadState] = useState<LoadState>(() =>
+    cacheKey && peekCoverArtUrl(cacheKey) ? 'ready' : 'idle',
+  );
   const srcCacheKeyRef = useRef<string | null>(cacheKey);
+  const loggedFailureRef = useRef(false);
+
+  useEffect(() => {
+    loggedFailureRef.current = false;
+  }, [cacheKey, coverArtId, fallbackCoverArtId, artworkCacheBump, artworkCacheKey]);
 
   useEffect(() => {
     if (!coverArtId || !cacheKey) {
@@ -135,13 +139,24 @@ export function CoverArtThumb({
     if (!coverArtId || !cacheKey || !inView) {
       srcCacheKeyRef.current = null;
       setSrc(null);
+      if (!coverArtId) {
+        setLoadState('failed');
+      } else if (!inView) {
+        setLoadState('idle');
+      }
       return;
     }
 
     let cancelled = false;
     srcCacheKeyRef.current = cacheKey;
     const cached = acquireCoverArtUrl(cacheKey);
-    setSrc(cached);
+    if (cached) {
+      setSrc(cached);
+      setLoadState('ready');
+    } else {
+      setSrc(null);
+      setLoadState('loading');
+    }
 
     const fallbackId = fallbackCoverArtId?.trim();
     const idsToTry = [coverArtId];
@@ -149,7 +164,24 @@ export function CoverArtThumb({
       idsToTry.push(fallbackId);
     }
 
+    const reportFailure = (
+      reason: CoverArtFailureReason,
+      extra?: { attemptedId?: string; detail?: string; error?: unknown },
+    ) => {
+      if (loggedFailureRef.current) return;
+      loggedFailureRef.current = true;
+      logCoverArtUnavailable({
+        coverArtId,
+        fallbackCoverArtId: fallbackId,
+        reason,
+        ...extra,
+      });
+    };
+
     void getOrStartCoverArtLoad(cacheKey, async () => {
+      const failures: Array<{ attemptedId: string; reason: CoverArtFailureReason; detail?: string }> =
+        [];
+
       try {
         for (const id of idsToTry) {
           if (cancelled) return null;
@@ -168,40 +200,75 @@ export function CoverArtThumb({
           const fromDisk = resolve ? await resolve(id) : null;
           if (cancelled) return null;
           if (fromDisk?.data?.byteLength) {
-            if (!isValidImageBytes(fromDisk.data)) continue;
+            if (!isValidImageBytes(fromDisk.data)) {
+              failures.push({ attemptedId: id, reason: 'invalid_image_bytes' });
+              continue;
+            }
             const mimeType = artworkDisplayMimeType(fromDisk.data, fromDisk.mimeType);
             blob = new Blob([fromDisk.data], { type: mimeType });
           } else if (api) {
-            const res = await api.getCoverArt({ id, size: CANONICAL_COVER_ART_SIZE });
-            if (cancelled) return null;
-            if (res.ok) {
-              const raw = new Uint8Array(await res.arrayBuffer());
+            try {
+              const res = await api.getCoverArt({ id, size: CANONICAL_COVER_ART_SIZE });
               if (cancelled) return null;
-              if (!isValidImageBytes(raw)) continue;
-              const mimeType = artworkDisplayMimeType(
-                raw,
-                res.headers.get('content-type') ?? undefined,
-              );
-              const persist = persistCachedArtworkRef.current;
-              if (persist && !cancelled) {
-                // Persist the id that actually loaded (may be the album fallback).
-                void persist(id, { data: raw, mimeType }).catch(() => undefined);
+              if (res.ok) {
+                const raw = new Uint8Array(await res.arrayBuffer());
+                if (cancelled) return null;
+                if (!isValidImageBytes(raw)) {
+                  failures.push({ attemptedId: id, reason: 'invalid_image_bytes' });
+                  continue;
+                }
+                const mimeType = artworkDisplayMimeType(
+                  raw,
+                  res.headers.get('content-type') ?? undefined,
+                );
+                const persist = persistCachedArtworkRef.current;
+                if (persist && !cancelled) {
+                  // Persist the id that actually loaded (may be the album fallback).
+                  void persist(id, { data: raw, mimeType }).catch(() => undefined);
+                }
+                blob = new Blob([raw], { type: mimeType });
+              } else {
+                failures.push({
+                  attemptedId: id,
+                  reason: 'network_not_ok',
+                  detail: `HTTP ${res.status}`,
+                });
               }
-              blob = new Blob([raw], { type: mimeType });
+            } catch (error) {
+              failures.push({
+                attemptedId: id,
+                reason: 'network_error',
+                detail: error instanceof Error ? error.message : String(error),
+              });
             }
+          } else if (!resolve) {
+            failures.push({ attemptedId: id, reason: 'no_api_or_cache' });
           }
+
           if (!blob) continue;
           return URL.createObjectURL(blob);
         }
+
+        reportFailure('all_sources_exhausted', {
+          detail: failures
+            .map((f) => `${f.attemptedId}:${f.reason}${f.detail ? `(${f.detail})` : ''}`)
+            .join(', '),
+        });
         return null;
-      } catch {
+      } catch (error) {
+        reportFailure('unknown', { error });
         return null;
       }
     }).then((url) => {
-      if (!cancelled && url) {
+      if (cancelled) return;
+      if (url) {
         srcCacheKeyRef.current = cacheKey;
         setSrc(url);
+        setLoadState('ready');
+        return;
       }
+      setSrc(null);
+      setLoadState('failed');
     });
 
     return () => {
@@ -213,37 +280,21 @@ export function CoverArtThumb({
   const displaySrc = srcCacheKeyRef.current === cacheKey ? src : null;
   const combinedSx = [...(Array.isArray(sx) ? sx : sx ? [sx] : [])];
 
-  if (!coverArtId) {
+  if (!coverArtId || loadState === 'failed') {
+    return <CoverArtPlaceholder ref={rootRef} label={label} sx={combinedSx} />;
+  }
+
+  if (loadState !== 'ready' || !displaySrc) {
     return (
-      <Box
+      <CoverArtPlaceholder
         ref={rootRef}
-        aria-hidden
-        sx={[
-          baseCoverSx,
-          {
-            background: (theme) => coverPlaceholderGradient(theme),
-          },
-          ...combinedSx,
-        ]}
+        label={label}
+        loading={loadState === 'loading'}
+        sx={combinedSx}
       />
     );
   }
-  if (!displaySrc) {
-    return (
-      <Box
-        ref={rootRef}
-        aria-hidden
-        sx={[
-          baseCoverSx,
-          {
-            background: (theme) => coverPlaceholderGradient(theme),
-            animation: inView ? `${pulse} 1.2s ease-in-out infinite` : undefined,
-          },
-          ...combinedSx,
-        ]}
-      />
-    );
-  }
+
   return (
     <Box
       ref={rootRef}
@@ -251,6 +302,16 @@ export function CoverArtThumb({
       src={displaySrc}
       alt={label ?? ''}
       sx={[baseCoverSx, { objectFit: 'cover' }, ...combinedSx]}
+      onError={() => {
+        logCoverArtUnavailable({
+          coverArtId,
+          fallbackCoverArtId: fallbackCoverArtId?.trim(),
+          reason: 'image_decode_error',
+          detail: displaySrc,
+        });
+        setSrc(null);
+        setLoadState('failed');
+      }}
     />
   );
 }

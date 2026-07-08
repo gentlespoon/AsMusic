@@ -1,6 +1,7 @@
 import Box from "@mui/material/Box";
 import type { SubsonicAPI } from "@asmusic/core";
 import { CoverArtThumb } from "@ui/shared/CoverArtThumb";
+import { CoverArtPlaceholder } from "@ui/shared/CoverArtPlaceholder";
 import { useHost } from "@ui/host/HostContext";
 import type { PlayerQueueItem } from "@ui/player/core/types";
 import { usePlayerArtworkCacheKey } from "@ui/player/shared/usePlayerArtworkCacheKey";
@@ -49,7 +50,7 @@ export function PlayerMiniBarCoverArt({ item, api }: PlayerMiniBarCoverArtProps)
           sx={{ width: COVER_SIZE, height: COVER_SIZE }}
         />
       ) : (
-        <Box sx={{ width: "100%", height: "100%", bgcolor: "action.hover" }} aria-hidden />
+        <CoverArtPlaceholder sx={{ width: COVER_SIZE, height: COVER_SIZE }} />
       )}
     </Box>
   );

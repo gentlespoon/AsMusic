@@ -17,6 +17,10 @@ import {
   type PersistedPlaybackQueueV1,
 } from './playbackQueuePersistence';
 import { playImpactIfEnabled } from '@ui/haptics/playImpactIfEnabled';
+import {
+  getDefaultCoverArtPlaceholderBase64,
+  logCoverArtUnavailable,
+} from '@ui/shared/defaultCoverArtPlaceholder';
 
 /** Coalesce host `onPlaybackState` into fewer React updates while playing (position-only ticks). */
 const PLAYBACK_UI_EMIT_INTERVAL_MS = 200;
@@ -705,12 +709,31 @@ export class PlayerManager {
     };
   }
 
+  private defaultNowPlayingArtwork(): {
+    artworkDataBase64: string;
+    artworkPlaceholderDataBase64: string;
+  } {
+    const artworkDataBase64 = getDefaultCoverArtPlaceholderBase64();
+    return {
+      artworkDataBase64,
+      artworkPlaceholderDataBase64: artworkDataBase64,
+    };
+  }
+
   private async resolveTrackNowPlayingArtwork(item: PlayerQueueItem): Promise<{
     artworkUrl?: string;
     artworkDataBase64?: string;
+    artworkPlaceholderDataBase64: string;
   }> {
+    const placeholder = this.defaultNowPlayingArtwork();
     const coverArtId = item.coverArtId?.trim();
-    if (!coverArtId) return {};
+    if (!coverArtId) {
+      logCoverArtUnavailable({
+        reason: 'missing_cover_art_id',
+        detail: item.title,
+      });
+      return placeholder;
+    }
 
     const scopes = offlineLookupScopes(item.serverUrl, item.username, item.libraryId);
     const fallbackId = item.coverArtFallbackId?.trim();
@@ -722,13 +745,28 @@ export class PlayerManager {
     for (const id of idsToTry) {
       const row = await readCachedArtworkBlob(this.host.libraryCache, scopes, id);
       if (row?.data?.byteLength && this.host.kind === 'ios-capacitor') {
-        return { artworkDataBase64: uint8ArrayToBase64(row.data) };
+        return {
+          artworkDataBase64: uint8ArrayToBase64(row.data),
+          artworkPlaceholderDataBase64: placeholder.artworkPlaceholderDataBase64,
+        };
       }
 
       const artworkUrl = this.deps.getCoverArtUrl(item.serverId, id);
-      if (artworkUrl) return { artworkUrl };
+      if (artworkUrl) {
+        return {
+          artworkUrl,
+          artworkPlaceholderDataBase64: placeholder.artworkPlaceholderDataBase64,
+        };
+      }
     }
-    return {};
+
+    logCoverArtUnavailable({
+      coverArtId,
+      fallbackCoverArtId: fallbackId,
+      reason: 'all_sources_exhausted',
+      detail: 'now playing artwork',
+    });
+    return placeholder;
   }
 
   /** Re-push lock-screen / Control Center artwork after cache refresh. */
@@ -737,7 +775,6 @@ export class PlayerManager {
     const item = idx !== null ? this.queue[idx] : null;
     if (!item?.coverArtId?.trim()) return;
     const art = await this.resolveTrackNowPlayingArtwork(item);
-    if (!art.artworkUrl && !art.artworkDataBase64) return;
     await this.host.playback.updateArtwork?.(art);
   }
 
@@ -814,9 +851,7 @@ export class PlayerManager {
         this.startPersistWhileStreamingIfNeeded(item, streamUrl, playUrl);
       }
 
-      const artwork = item.coverArtId
-        ? await this.resolveTrackNowPlayingArtwork(item)
-        : {};
+      const artwork = await this.resolveTrackNowPlayingArtwork(item);
 
       const playbackRevoke = revoke;
       this.revokePlayback = playbackRevoke;
@@ -830,6 +865,7 @@ export class PlayerManager {
         album: item.album,
         artworkUrl: artwork.artworkUrl,
         artworkDataBase64: artwork.artworkDataBase64,
+        artworkPlaceholderDataBase64: artwork.artworkPlaceholderDataBase64,
         localFilePath: offlineResolved.usedOffline ? localFilePath : undefined,
       });
       if (loadSeq !== this.loadTrackSeq) return false;

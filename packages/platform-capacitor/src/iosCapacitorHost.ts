@@ -92,12 +92,14 @@ function buildPlayback(): PlaybackHost {
         album: meta?.album,
         artworkUrl: meta?.artworkUrl ?? undefined,
         artworkDataBase64: meta?.artworkDataBase64 ?? undefined,
+        artworkPlaceholderDataBase64: meta?.artworkPlaceholderDataBase64 ?? undefined,
       });
     },
     async updateArtwork(meta) {
       await AsmusicNative.playbackUpdateArtwork({
         artworkUrl: meta?.artworkUrl ?? undefined,
         artworkDataBase64: meta?.artworkDataBase64 ?? undefined,
+        artworkPlaceholderDataBase64: meta?.artworkPlaceholderDataBase64 ?? undefined,
       });
     },
     async play() {

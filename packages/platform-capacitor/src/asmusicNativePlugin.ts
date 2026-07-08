@@ -30,10 +30,12 @@ export interface AsmusicNativePlugin {
     album?: string;
     artworkUrl?: string | null;
     artworkDataBase64?: string | null;
+    artworkPlaceholderDataBase64?: string | null;
   }): Promise<void>;
   playbackUpdateArtwork(options: {
     artworkUrl?: string | null;
     artworkDataBase64?: string | null;
+    artworkPlaceholderDataBase64?: string | null;
   }): Promise<void>;
   playbackPlay(): Promise<void>;
   playbackPause(): Promise<void>;

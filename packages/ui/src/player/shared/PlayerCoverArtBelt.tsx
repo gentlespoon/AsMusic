@@ -3,6 +3,7 @@ import Box from '@mui/material/Box';
 import type { SubsonicAPI, LibraryCacheStorage } from '@asmusic/core';
 import type { PlayerQueueItem } from '@ui/player/core/types';
 import { CoverArtThumb } from '@ui/shared/CoverArtThumb';
+import { CoverArtPlaceholder } from '@ui/shared/CoverArtPlaceholder';
 import { useHost } from '@ui/host/HostContext';
 import { usePlayerArtworkCacheKey } from './usePlayerArtworkCacheKey';
 import { usePlayerCoverArtCacheBump } from './usePlayerCoverArtCacheBump';
@@ -36,7 +37,7 @@ function PlayerCoverArtThumb({
   const artworkCacheKey = usePlayerArtworkCacheKey(slot);
 
   if (!slot.coverArtId) {
-    return null;
+    return <CoverArtPlaceholder sx={{ width: '100%', height: '100%' }} />;
   }
 
   return (

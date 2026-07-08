@@ -60,12 +60,10 @@ function buildArtistListVirtuosoRows(filteredRows: ArtistCatalogRow[]): ArtistLi
 export function ArtistListView({
   rows,
   initialReady,
-  syncing,
   onArtistOpen,
 }: {
   rows: ArtistCatalogRow[];
   initialReady: boolean;
-  syncing: boolean;
   onArtistOpen: (row: ArtistCatalogRow) => void;
 }) {
   const t = useT();
@@ -122,7 +120,7 @@ export function ArtistListView({
             {t('library.cache.loading')}
           </Typography>
         )}
-        {initialReady && rows.length === 0 && !syncing && (
+        {initialReady && rows.length === 0 && (
           <Typography variant="body2" color="text.secondary">
             {t('library.artist.noArtistsUntilSync')}
           </Typography>

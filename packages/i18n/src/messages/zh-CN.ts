@@ -133,7 +133,7 @@ export const zhCNMessages = {
   "library.playlist.editor.loadingSongs": "正在加载歌曲…",
   "library.playlist.editor.save": "保存",
   "library.playlist.editor.saveError": "无法保存播放列表",
-  "library.playlist.editor.offlineReadOnly": "离线模式下为只读。请联网后再保存更改。",
+  "library.playlist.editor.offlineReadOnly": "无法从服务器加载最新播放列表，当前为只读。",
   "library.playlist.editor.unsaved": "有未保存的更改",
   "library.playlist.empty":
     "此服务器上尚无播放列表。请同步资料库或创建新播放列表。",

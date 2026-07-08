@@ -36,6 +36,9 @@ import { useLibraryVirtuosoScroller } from '@ui/shared/useLibraryVirtuosoScrolle
 import { VirtuosoMuiList } from '@ui/shared/virtuosoMuiList';
 import { useOfflineDownload } from '@ui/contexts/OfflineDownloadContext';
 import { useHost } from '@ui/host/HostContext';
+import {
+  songHasViewableAlbum,
+  songHasViewableArtist,
 
 export function PlaylistSongListView({
   playlistId,
@@ -45,7 +48,6 @@ export function PlaylistSongListView({
   albums,
   api,
   initialReady,
-  syncing,
   resolveCachedArtwork,
   persistCachedArtworkForTrack,
   coverArtCacheBump,
@@ -73,7 +75,6 @@ export function PlaylistSongListView({
   albums: AlbumID3[];
   api: SubsonicAPI;
   initialReady: boolean;
-  syncing: boolean;
   resolveCachedArtwork: (coverArtId: string, trackId: string) => Promise<LibraryArtworkCacheRow | null>;
   persistCachedArtworkForTrack?: (trackId: string) => PersistCachedArtwork;
   coverArtCacheBump?: (coverArtId: string | undefined, trackId: string) => number;
@@ -335,7 +336,7 @@ export function PlaylistSongListView({
       </Stack>
 
       <Box sx={{ ...libraryFlexFillSx, display: 'flex', flexDirection: 'column' }}>
-        {listReady && tracks.length === 0 && !syncing && (
+        {listReady && tracks.length === 0 && (
           <Typography variant="body2" color="text.secondary">
             This playlist has no tracks.
           </Typography>

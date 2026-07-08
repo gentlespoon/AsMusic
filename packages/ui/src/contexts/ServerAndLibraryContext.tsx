@@ -299,14 +299,18 @@ export function ServerAndLibraryProvider({ children }: { children: ReactNode }) 
     [getApiForServer]
   );
 
-  /** Warm Navidrome stream creds on launch so playback does not wait for a lazy API call. */
+  /** Warm stream creds best-effort — do not gate on navigator.onLine (spotty mobile nets). */
   useEffect(() => {
     if (isRestoring || servers.length === 0) return;
     let cancelled = false;
     void (async () => {
       for (const s of servers) {
         if (cancelled) return;
-        await getApiForServer(s.id);
+        try {
+          await getApiForServer(s.id);
+        } catch {
+          /* keep going; later stream/star/playlist calls will surface failures */
+        }
       }
     })();
     return () => {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useI18n, useT } from '@asmusic/i18n';
+import { useT } from '@asmusic/i18n';
 import { Alert, Box, Typography } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -8,7 +8,6 @@ import {
   cachedSongsForArtistSorted,
   songsInCachedAlbum,
   type LibraryCacheScope,
-  type LibraryRefreshProgress,
   type LocalPlaylistEntry,
 } from '@asmusic/core';
 import { AlbumListView } from './catalog/AlbumListView';
@@ -50,23 +49,9 @@ import { libraryFlexFillSx } from '@ui/shared/LibraryVirtuosoFill';
 
 export function LibraryBrowser() {
   const t = useT();
-  const { format } = useI18n();
   const host = useHost();
   const navigate = useNavigate();
 
-  const progressLabel = useCallback(
-    (p: LibraryRefreshProgress | null): string | null => {
-      if (!p) return null;
-      if (p.phase === 'fetch') {
-        return t('library.sync.fetching', { loaded: format.number(p.loaded) });
-      }
-      if (p.phase === 'write') {
-        return t('library.sync.saving', { written: format.number(p.written) });
-      }
-      return t('library.sync.updatingPlaylists');
-    },
-    [t, format]
-  );
   const { searchParams, setSearchParams, view } = useLibraryBrowserTabBar();
   const {
     scopesToLoad,
@@ -85,9 +70,6 @@ export function LibraryBrowser() {
     readLocalPlaylistEntries,
     initialReady,
     cacheReadError,
-    syncing,
-    syncError,
-    syncProgress,
     apiForServer,
     artworkVersionKey,
     getArtworkCacheBump,
@@ -213,6 +195,7 @@ export function LibraryBrowser() {
     songsByScope,
     albumsByScope,
   });
+
 
   const openAlbum = useCallback(
     (row: AlbumCatalogRow) => {
@@ -403,16 +386,6 @@ export function LibraryBrowser() {
           {cacheReadError}
         </Alert>
       )}
-      {syncError && (
-        <Alert severity="error" sx={{ mb: 1.5, flexShrink: 0 }}>
-          {syncError}
-        </Alert>
-      )}
-      {syncing && syncProgress && (
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, flexShrink: 0 }}>
-          {progressLabel(syncProgress)}
-        </Typography>
-      )}
 
       <Box sx={{ ...libraryFlexFillSx, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {tab === 'albums' &&
@@ -424,7 +397,6 @@ export function LibraryBrowser() {
               albums={artistScopeAlbums}
               api={artistDetailApi}
               initialReady={initialReady}
-              syncing={syncing}
               resolveCachedArtwork={(id) => resolveCachedArtworkForScope(resolvedArtist.slice.scope, id)}
               persistCachedArtwork={persistCachedArtworkForScope(resolvedArtist.slice.scope)}
               coverArtCacheBump={(id) =>
@@ -449,7 +421,6 @@ export function LibraryBrowser() {
               rows={albumCatalogRows}
               apiForServer={apiForServer}
               initialReady={initialReady}
-              syncing={syncing}
               resolveCachedArtworkForScope={resolveCachedArtworkForScope}
               persistCachedArtworkForScope={persistCachedArtworkForScope}
               getArtworkCacheBump={getArtworkCacheBump}
@@ -462,7 +433,6 @@ export function LibraryBrowser() {
           <ArtistListView
             rows={artistCatalogRows}
             initialReady={initialReady}
-            syncing={syncing}
             onArtistOpen={openArtist}
           />
         )}
@@ -502,7 +472,6 @@ export function LibraryBrowser() {
               albumsByScope={albumsByScope}
               apiForServer={apiForServer}
               initialReady={initialReady}
-              syncing={syncing}
               resolveCachedArtworkForScope={resolveCachedArtworkForScope}
               persistCachedArtworkForScope={persistCachedArtworkForScope}
               getArtworkCacheBump={getArtworkCacheBump}
@@ -527,7 +496,6 @@ export function LibraryBrowser() {
               albums={albumsFromCachedSongs(resolvedPlaylist.cachedSongs)}
               api={playlistDetailApi}
               initialReady={initialReady}
-              syncing={syncing}
               resolveCachedArtwork={(id, trackId) => {
                 const scope = resolvedPlaylist.findTrackScope(trackId) ?? slices[0]?.scope;
                 return scope ? resolveCachedArtworkForScope(scope, id) : Promise.resolve(null);
@@ -583,7 +551,6 @@ export function LibraryBrowser() {
               rows={playlistCatalogRows}
               multiLibrary={multiLibrary}
               initialReady={initialReady}
-              syncing={syncing}
               canCreateServerPlaylist={canCreateServerPlaylist}
               canCreateLocalPlaylist={canCreateLocalPlaylist}
               multiServer={multiServer}
@@ -608,7 +575,6 @@ export function LibraryBrowser() {
               albumsByScope={albumsByScope}
             apiForServer={apiForServer}
             initialReady={initialReady}
-            syncing={syncing}
             resolveCachedArtwork={resolveCachedArtwork}
             persistCachedArtworkForScope={persistCachedArtworkForScope}
             artworkVersionKey={artworkVersionKey}
@@ -638,7 +604,6 @@ export function LibraryBrowser() {
               albums={albumsFromCachedSongs(resolvedAlbum.slice.songs)}
               api={albumDetailApi}
               initialReady={initialReady}
-              syncing={syncing}
               resolveCachedArtwork={(id) => resolveCachedArtworkForScope(resolvedAlbum.slice.scope, id)}
               persistCachedArtwork={persistCachedArtworkForScope(resolvedAlbum.slice.scope)}
               coverArtCacheBump={(id) =>
@@ -663,7 +628,6 @@ export function LibraryBrowser() {
               albums={albumsFromCachedSongs(resolvedArtist.slice.songs)}
               api={artistDetailApi}
               initialReady={initialReady}
-              syncing={syncing}
               resolveCachedArtwork={(id) => resolveCachedArtworkForScope(resolvedArtist.slice.scope, id)}
               persistCachedArtwork={persistCachedArtworkForScope(resolvedArtist.slice.scope)}
               coverArtCacheBump={(id) =>
@@ -690,7 +654,6 @@ export function LibraryBrowser() {
               albumsByScope={albumsByScope}
               apiForServer={apiForServer}
               initialReady={initialReady}
-              syncing={syncing}
               resolveCachedArtwork={resolveCachedArtwork}
               persistCachedArtworkForScope={persistCachedArtworkForScope}
               artworkVersionKey={artworkVersionKey}

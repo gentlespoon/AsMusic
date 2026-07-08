@@ -17,8 +17,8 @@ function tracksFromCachedEntryIds(trackIds: string[], cachedSongs: Child[]): Chi
 }
 
 /**
- * Load playlist tracks from the server when online, persisting entry order to cache.
- * Falls back to cached entry ids joined against the server song cache when offline.
+ * Load playlist tracks from the server (always attempted), persisting entry order to cache.
+ * Falls back to cached entry ids joined against the server song cache if the request fails.
  */
 export async function loadPlaylistTracks(args: {
   api: SubsonicAPI;

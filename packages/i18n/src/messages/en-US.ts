@@ -143,7 +143,7 @@ export const enUSMessages = {
   "library.playlist.editor.save": "Save",
   "library.playlist.editor.saveError": "Could not save playlist",
   "library.playlist.editor.offlineReadOnly":
-    "Offline — membership is read-only. Connect to save changes.",
+    "Could not load the latest playlist from the server — membership is read-only.",
   "library.playlist.editor.unsaved": "Unsaved changes",
   "library.playlist.empty":
     "No playlists on this server. Sync your library or create a new playlist.",

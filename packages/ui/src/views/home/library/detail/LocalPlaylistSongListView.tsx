@@ -50,6 +50,9 @@ import {
   useServerAndLibrary,
 } from "@ui/contexts";
 import { libraryRefKey } from "@ui/contexts/LibraryBrowseCacheContext";
+import {
+  songHasViewableAlbum,
+  songHasViewableArtist,
 
 type LocalPlaylistRow = LocalPlaylistResolvedEntry & { rowKey: string };
 
@@ -83,7 +86,6 @@ export function LocalPlaylistSongListView({
   albumsByScope,
   apiForServer,
   initialReady,
-  syncing,
   resolveCachedArtworkForScope,
   persistCachedArtworkForScope,
   getArtworkCacheBump,
@@ -110,7 +112,6 @@ export function LocalPlaylistSongListView({
   >;
   apiForServer: (serverId: string) => SubsonicAPI | null;
   initialReady: boolean;
-  syncing: boolean;
   resolveCachedArtworkForScope: (
     scope: LibraryCacheScope,
     coverArtId: string,
@@ -451,7 +452,7 @@ export function LocalPlaylistSongListView({
       <Box
         sx={{ ...libraryFlexFillSx, display: "flex", flexDirection: "column" }}
       >
-        {listReady && rows.length === 0 && !syncing && (
+        {listReady && rows.length === 0 && (
           <Typography variant="body2" color="text.secondary">
             {t("library.playlist.emptyLocal")}
           </Typography>

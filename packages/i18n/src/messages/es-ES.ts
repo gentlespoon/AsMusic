@@ -145,7 +145,7 @@ export const esESMessages = {
   "library.playlist.editor.save": "Guardar",
   "library.playlist.editor.saveError": "No se pudo guardar la lista",
   "library.playlist.editor.offlineReadOnly":
-    "Sin conexión: la lista es solo de lectura. Conéctate para guardar cambios.",
+    "No se pudo cargar la lista más reciente del servidor: solo lectura.",
   "library.playlist.editor.unsaved": "Cambios sin guardar",
   "library.playlist.empty":
     "No hay listas en este servidor. Sincroniza tu biblioteca o crea una lista nueva.",

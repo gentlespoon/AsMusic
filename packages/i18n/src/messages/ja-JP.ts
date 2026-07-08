@@ -144,7 +144,7 @@ export const jaJPMessages = {
   "library.playlist.editor.save": "保存",
   "library.playlist.editor.saveError": "プレイリストを保存できませんでした",
   "library.playlist.editor.offlineReadOnly":
-    "オフラインのため読み取り専用です。保存するにはネットワークに接続してください。",
+    "サーバーから最新のプレイリストを読み込めなかったため、読み取り専用です。",
   "library.playlist.editor.unsaved": "未保存の変更があります",
   "library.playlist.empty":
     "このサーバーにプレイリストがありません。ライブラリを同期するか、新しいプレイリストを作成してください。",

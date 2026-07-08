@@ -133,7 +133,7 @@ export const zhTWMessages = {
   "library.playlist.editor.loadingSongs": "正在載入歌曲…",
   "library.playlist.editor.save": "儲存",
   "library.playlist.editor.saveError": "無法儲存播放清單",
-  "library.playlist.editor.offlineReadOnly": "離線時為唯讀。請連線後再儲存變更。",
+  "library.playlist.editor.offlineReadOnly": "無法從伺服器載入最新播放清單，目前為唯讀。",
   "library.playlist.editor.unsaved": "有未儲存的變更",
   "library.playlist.empty":
     "此伺服器上尚無播放清單。請同步資料庫或建立新播放清單。",

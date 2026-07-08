@@ -41,7 +41,6 @@ export function AlbumSongListView({
   albums,
   api,
   initialReady,
-  syncing,
   resolveCachedArtwork,
   persistCachedArtwork,
   coverArtCacheBump,
@@ -65,7 +64,6 @@ export function AlbumSongListView({
   albums: AlbumID3[];
   api: SubsonicAPI;
   initialReady: boolean;
-  syncing: boolean;
   resolveCachedArtwork: (
     coverArtId: string,
   ) => Promise<LibraryArtworkCacheRow | null>;
@@ -216,7 +214,7 @@ export function AlbumSongListView({
             {t("library.cache.loading")}
           </Typography>
         )}
-        {initialReady && tracks.length === 0 && !syncing && (
+        {initialReady && tracks.length === 0 && (
           <Typography variant="body2" color="text.secondary">
             {t("library.album.noTracksInCache")}
           </Typography>

@@ -19,6 +19,9 @@ import { LibraryVirtuosoFill, libraryFlexFillSx } from "@ui/shared/LibraryVirtuo
 import { useLibraryScrollRestoration } from "@ui/shared/useLibraryScrollRestoration";
 import { useLibraryVirtuosoScroller } from "@ui/shared/useLibraryVirtuosoScroller";
 import { VirtuosoMuiList } from "@ui/shared/virtuosoMuiList";
+import {
+  songHasViewableAlbum,
+  songHasViewableArtist,
 
 export type SongListEntry = {
   song: Child;
@@ -32,7 +35,6 @@ export function SongListView({
   albumsByScope,
   apiForServer,
   initialReady,
-  syncing,
   resolveCachedArtwork,
   persistCachedArtworkForScope,
   artworkVersionKey,
@@ -55,7 +57,6 @@ export function SongListView({
   albumsByScope: ReadonlyMap<string, AlbumID3[]>;
   apiForServer: (serverId: string) => SubsonicAPI | null;
   initialReady: boolean;
-  syncing: boolean;
   resolveCachedArtwork: (
     coverArtId: string,
     scope: LibraryCacheScope,
@@ -181,7 +182,7 @@ export function SongListView({
             {t("library.cache.loading")}
           </Typography>
         )}
-        {initialReady && entries.length === 0 && !syncing && (
+        {initialReady && entries.length === 0 && (
           <Typography variant="body2" color="text.secondary">
             {resolvedEmptyListMessage}
           </Typography>

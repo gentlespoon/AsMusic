@@ -96,6 +96,17 @@ describe('resolveCoverArt', () => {
       expect(resolved.url).toBe('https://example.test/art/track-1');
     }
   });
+
+  it('skips network URL when network fetch is configured but fails', async () => {
+    const resolved = await resolveCoverArt(
+      ['track-1'],
+      sources({
+        fetchNetwork: async () => null,
+        buildNetworkUrl: (id) => `https://example.test/art/${id}`,
+      }),
+    );
+    expect(resolved.kind).toBe('unavailable');
+  });
 });
 
 describe('toNowPlayingArtwork', () => {

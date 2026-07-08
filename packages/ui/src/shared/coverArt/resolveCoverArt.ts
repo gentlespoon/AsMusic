@@ -123,8 +123,12 @@ export async function resolveCoverArt(
     const localFile = await tryLocalFile(coverArtId, sources);
     if (localFile) return localFile;
 
-    const networkUrl = tryNetworkUrl(coverArtId, sources);
-    if (networkUrl) return networkUrl;
+    // Authenticated URL is only for hosts without byte fetch (e.g. lock screen).
+    // When fetchNetwork exists and failed, the URL would fail the same way offline.
+    if (!sources.fetchNetwork) {
+      const networkUrl = tryNetworkUrl(coverArtId, sources);
+      if (networkUrl) return networkUrl;
+    }
 
     if (!sources.fetchNetwork && !sources.readLocalFile && !sources.buildNetworkUrl) {
       failures.push({ attemptedId: coverArtId, reason: 'no_api_or_cache' });

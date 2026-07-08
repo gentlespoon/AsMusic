@@ -60,6 +60,10 @@ const baseCoverSx: SxProps<Theme> = {
   height: '100%',
 };
 
+function isNetworkImageUrl(url: string): boolean {
+  return url.startsWith('http://') || url.startsWith('https://');
+}
+
 type LoadState = 'idle' | 'loading' | 'ready' | 'failed';
 
 /**
@@ -277,7 +281,11 @@ export function CoverArtThumb({
       alt={label ?? ''}
       sx={[baseCoverSx, { objectFit: 'cover' }, ...combinedSx]}
       onError={() => {
-        if (tryNetworkUrlFallback()) {
+        if (
+          displaySrc &&
+          !isNetworkImageUrl(displaySrc) &&
+          tryNetworkUrlFallback()
+        ) {
           logCoverArtUnavailable({
             coverArtId,
             fallbackCoverArtId: fallbackCoverArtId?.trim(),

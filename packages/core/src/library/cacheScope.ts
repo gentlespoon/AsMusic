@@ -10,6 +10,11 @@ export type LibraryCacheScope = {
   libraryId: string;
 };
 
+/** Server-account scope for Subsonic playlists (not tied to a music folder). */
+export type ServerPlaylistScope = {
+  serverKey: string;
+};
+
 /** Opaque id for a server account (URL + username), shared by all music folders on that account. */
 export function serverAccountKey(serverUrl: string, username: string): string {
   const normalized = serverUrl.trim().replace(/\/+$/, '');

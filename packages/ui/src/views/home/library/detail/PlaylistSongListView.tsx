@@ -23,7 +23,6 @@ import {
   isChildStarred,
   loadPlaylistTracks,
   type LibraryArtworkCacheRow,
-  type LibraryCacheScope,
   type SubsonicAPI,
 } from '@asmusic/core';
 import { PageCloseButton } from '@ui/shared/PageCloseButton';
@@ -48,12 +47,12 @@ export function PlaylistSongListView({
   initialReady,
   syncing,
   resolveCachedArtwork,
-  persistCachedArtwork,
+  persistCachedArtworkForTrack,
   coverArtCacheBump,
   artworkCacheKeyFor,
   serverId,
-  libraryId,
-  scope,
+  serverKey,
+  resolveTrackLibraryId,
   onBack,
   onPlayTrack,
   onPlayNextTrack,
@@ -75,13 +74,13 @@ export function PlaylistSongListView({
   api: SubsonicAPI;
   initialReady: boolean;
   syncing: boolean;
-  resolveCachedArtwork: (coverArtId: string) => Promise<LibraryArtworkCacheRow | null>;
-  persistCachedArtwork?: PersistCachedArtwork;
-  coverArtCacheBump?: (coverArtId: string | undefined) => number;
-  artworkCacheKeyFor?: (coverArtId: string) => string;
+  resolveCachedArtwork: (coverArtId: string, trackId: string) => Promise<LibraryArtworkCacheRow | null>;
+  persistCachedArtworkForTrack?: (trackId: string) => PersistCachedArtwork;
+  coverArtCacheBump?: (coverArtId: string | undefined, trackId: string) => number;
+  artworkCacheKeyFor?: (coverArtId: string, trackId: string) => string;
   serverId: string;
-  libraryId: string;
-  scope: LibraryCacheScope;
+  serverKey: string;
+  resolveTrackLibraryId: (trackId: string) => string | null;
   onBack: () => void;
   onPlayTrack?: (track: Child) => void;
   onPlayNextTrack?: (track: Child) => void;
@@ -121,7 +120,7 @@ export function PlaylistSongListView({
       const result = await loadPlaylistTracks({
         api,
         storage: host.libraryCache,
-        scope,
+        serverKey,
         playlistId,
         playlistTitle,
         cachedSongs,
@@ -133,7 +132,7 @@ export function PlaylistSongListView({
     } finally {
       setLoading(false);
     }
-  }, [api, host.libraryCache, scope, playlistId, cachedSongs, playlistTitle]);
+  }, [api, host.libraryCache, serverKey, playlistId, cachedSongs, playlistTitle]);
 
   useEffect(() => {
     setSearch('');
@@ -162,13 +161,17 @@ export function PlaylistSongListView({
   const listReady = initialReady && !loading && !loadError;
 
   const onDownloadPlaylistOffline = useCallback(() => {
+    const firstLibraryId = tracks
+      .map((track) => resolveTrackLibraryId(String(track.id)))
+      .find((id): id is string => id != null);
+    if (!firstLibraryId) return;
     enqueuePlaylistDownload({
       serverId,
-      libraryId,
+      libraryId: firstLibraryId,
       playlistTitle: resolvedTitle,
       trackIds: tracks.map((track) => String(track.id)),
     });
-  }, [enqueuePlaylistDownload, serverId, libraryId, resolvedTitle, tracks]);
+  }, [enqueuePlaylistDownload, serverId, resolveTrackLibraryId, resolvedTitle, tracks]);
 
   return (
     <Box
@@ -354,20 +357,24 @@ export function PlaylistSongListView({
               }
               itemContent={(_index, track) => {
                 if (!track) return null;
+                const trackId = String(track.id);
                 const { primary: coverArtId, fallback: fallbackCoverId } =
                   resolveCoverArtIdsForCachedSong(track, albums);
                 const starred = isChildStarred(track);
+                const libraryId = resolveTrackLibraryId(trackId);
                 return (
                   <SongItem
                     track={track}
                     coverArtId={coverArtId}
                     fallbackCoverArtId={fallbackCoverId}
                     api={api}
-                    resolveCachedArtwork={resolveCachedArtwork}
-                    persistCachedArtwork={persistCachedArtwork}
-                    artworkCacheBump={bumpFor(coverArtId)}
+                    resolveCachedArtwork={(id) => resolveCachedArtwork(id, trackId)}
+                    persistCachedArtwork={persistCachedArtworkForTrack?.(trackId)}
+                    artworkCacheBump={bumpFor(coverArtId, trackId)}
                     artworkCacheKey={
-                      coverArtId && artworkCacheKeyFor ? artworkCacheKeyFor(coverArtId) : undefined
+                      coverArtId && artworkCacheKeyFor
+                        ? artworkCacheKeyFor(coverArtId, trackId)
+                        : undefined
                     }
                     includeAlbumInSecondary={false}
                     onClick={onPlayTrack ? () => onPlayTrack(track) : undefined}
@@ -375,14 +382,14 @@ export function PlaylistSongListView({
                     onAppendToQueue={
                       onAppendTrackToQueue ? () => onAppendTrackToQueue(track) : undefined
                     }
-                    isStarred={setTrackStarred ? starred : undefined}
+                    isStarred={setTrackStarred && libraryId ? starred : undefined}
                     onToggleStar={
-                      setTrackStarred
+                      setTrackStarred && libraryId
                         ? () =>
                             setTrackStarred({
                               serverId,
                               libraryId,
-                              trackId: String(track.id),
+                              trackId,
                               starred: !starred,
                             })
                         : undefined

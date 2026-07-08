@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import { Box } from '@mui/material';
 import {
   useLibraryBrowseCache,
-  type LibraryBrowseScopeRow,
   type PlaylistCatalogRow,
 } from '@ui/contexts/LibraryBrowseCacheContext';
 import { libraryFlexFillSx } from '@ui/shared/LibraryVirtuosoFill';
@@ -17,6 +16,12 @@ import { PlaylistListViewStatus } from './PlaylistListViewStatus';
 import { PlaylistListViewToolbar } from './PlaylistListViewToolbar';
 import type { CreatePlaylistRequest } from '@ui/views/home/library/browser/useLibraryBrowserPlaylists';
 
+export type ServerCreateOption = {
+  serverId: string;
+  serverUrl: string;
+  username: string;
+};
+
 export function PlaylistListView({
   rows,
   multiLibrary,
@@ -24,8 +29,8 @@ export function PlaylistListView({
   syncing,
   canCreateServerPlaylist,
   canCreateLocalPlaylist,
-  scopesToLoad,
-  singleSlice,
+  multiServer,
+  serversToCreateOn,
   onPlaylistOpen,
   onCreatePlaylist,
   onDeletePlaylist,
@@ -36,13 +41,13 @@ export function PlaylistListView({
   syncing: boolean;
   canCreateServerPlaylist: boolean;
   canCreateLocalPlaylist: boolean;
-  scopesToLoad: LibraryBrowseScopeRow[];
-  singleSlice: LibraryBrowseScopeRow | null;
+  multiServer: boolean;
+  serversToCreateOn: ServerCreateOption[];
   onPlaylistOpen: (row: PlaylistCatalogRow) => void;
   onCreatePlaylist: (request: CreatePlaylistRequest) => Promise<void>;
   onDeletePlaylist: (row: PlaylistCatalogRow) => Promise<void>;
 }) {
-  const { libraryDisplayName } = useLibraryBrowseCache();
+  const { serverDisplayName } = useLibraryBrowseCache();
   const [search, setSearch] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   const [newName, setNewName] = useState('');
@@ -51,8 +56,8 @@ export function PlaylistListView({
   const [createType, setCreateType] = useState<CreatePlaylistType>(
     multiLibrary ? 'local' : 'server'
   );
-  const [selectedServerScope, setSelectedServerScope] = useState<LibraryBrowseScopeRow | null>(
-    singleSlice ?? scopesToLoad[0] ?? null
+  const [selectedServerId, setSelectedServerId] = useState<string>(
+    serversToCreateOn[0]?.serverId ?? ''
   );
   const [pendingDelete, setPendingDelete] = useState<PlaylistCatalogRow | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
@@ -73,7 +78,7 @@ export function PlaylistListView({
     setCreateError(null);
     setNewName('');
     setCreateType(multiLibrary ? 'local' : canCreateServerPlaylist ? 'server' : 'local');
-    setSelectedServerScope(singleSlice ?? scopesToLoad[0] ?? null);
+    setSelectedServerId(serversToCreateOn[0]?.serverId ?? '');
     setCreateOpen(true);
   };
 
@@ -89,13 +94,12 @@ export function PlaylistListView({
       if (createType === 'local') {
         await onCreatePlaylist({ kind: 'local', name });
       } else {
-        const scope = multiLibrary ? selectedServerScope : singleSlice;
-        if (!scope) throw new Error('Select a library for the server playlist');
+        const serverId = multiServer ? selectedServerId : serversToCreateOn[0]?.serverId;
+        if (!serverId) throw new Error('Select a server for the playlist');
         await onCreatePlaylist({
           kind: 'server',
           name,
-          serverId: scope.serverId,
-          libraryId: scope.libraryId,
+          serverId,
         });
       }
       setCreateOpen(false);
@@ -160,16 +164,16 @@ export function PlaylistListView({
         busy={createBusy}
         error={createError}
         createType={createType}
-        selectedServerScope={selectedServerScope}
-        multiLibrary={multiLibrary}
+        selectedServerId={selectedServerId}
+        multiServer={multiServer}
         canCreateServer={canCreateServerPlaylist}
         canCreateLocal={canCreateLocalPlaylist}
-        scopesToLoad={scopesToLoad}
-        libraryDisplayName={libraryDisplayName}
+        serversToCreateOn={serversToCreateOn}
+        serverDisplayName={serverDisplayName}
         onClose={() => setCreateOpen(false)}
         onNameChange={setNewName}
         onCreateTypeChange={setCreateType}
-        onServerScopeChange={setSelectedServerScope}
+        onServerChange={setSelectedServerId}
         onSubmit={() => void handleCreate()}
       />
 

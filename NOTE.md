@@ -6,16 +6,17 @@ Global EQ for streaming and offline downloads — one global preset/band setting
 
 ## Playlist creation and multiple active libraries
 
-Subsonic playlists are **per server account**, not per music-folder (`libraryId`). The app still caches playlist summaries under each active library scope (`serverUrl` + `username` + `libraryId`), so a full library browse can load several scopes at once (multiple servers, or multiple folders on one server).
+Subsonic playlists are **per server account**, not per music-folder (`libraryId`). The app caches playlist summaries under `serverKey` only (one copy per account). Songs, artwork, and offline media remain per library scope.
 
-**Server playlists:** create (with library picker when multiple libraries are active), edit membership, and add-from-player for server playlists still require **exactly one active library** for edit/add mutations. **Delete** is allowed with multiple libraries active.
+**Server playlists:** create uses a **server picker** when multiple servers are active; no library picker. Edit membership and add-from-player use all cached songs on that server across active libraries.
 
 **Local playlists (on device):** cross-library playlists stored in `LocalPlaylistStore`. Create, edit, delete, and add-from-player work with any number of active libraries. See [`doc/features/playlist.md`](doc/features/playlist.md).
 
 **UI:**
 
 - Playlists tab **+** opens create dialog: **On server** vs **On this device**.
-- Server playlist detail **Edit** and player add-to-**server**-playlist are disabled when multiple libraries are active.
-- Local playlists are always editable; player add-to-playlist includes all local playlists plus server playlists for the current track's library.
+- Server create: server picker only when multiple servers are active.
+- Playlist detail resolves tracks against merged song caches for that server.
+- Player **Add to playlist** lists server playlists for the current track's server plus all local playlists.
 
 Relevant code: `PlaylistListView.tsx`, `PlaylistListViewCreateDialog.tsx`, `LocalPlaylistSongListView.tsx`, `useLibraryBrowserPlaylists.tsx`, `usePlayerFullScreenTrackActions.ts`, `LibraryBrowseCacheContext.tsx`, `packages/core/src/localPlaylists/*`.

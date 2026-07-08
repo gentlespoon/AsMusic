@@ -36,7 +36,6 @@ enum LibraryCacheSQLiteStore {
                 throw StoreError.prepareFailed
             }
             sqlite3_bind_text(stmt, 1, serverKey, -1, transientDestructor)
-            sqlite3_bind_text(stmt, 2, libraryId, -1, transientDestructor)
 
             var parts: [String] = []
             parts.reserveCapacity(256)
@@ -264,14 +263,14 @@ enum LibraryCacheSQLiteStore {
         }
     }
 
-    static func readPlaylistSummariesJson(serverKey: String, libraryId: String) throws -> String {
+    static func readPlaylistSummariesJson(serverKey: String) throws -> String {
         try queue.sync {
             try openIfNeeded()
             guard let db else { throw StoreError.databaseUnavailable }
 
             let sql = """
-                SELECT playlist_id, name, song_count FROM library_playlists
-                WHERE server_key = ? AND library_id = ?
+                SELECT playlist_id, name, song_count FROM server_playlists
+                WHERE server_key = ?
                 ORDER BY sort_index ASC;
                 """
             var stmt: OpaquePointer?
@@ -280,7 +279,6 @@ enum LibraryCacheSQLiteStore {
                 throw StoreError.prepareFailed
             }
             sqlite3_bind_text(stmt, 1, serverKey, -1, transientDestructor)
-            sqlite3_bind_text(stmt, 2, libraryId, -1, transientDestructor)
 
             var parts: [String] = []
             parts.reserveCapacity(64)
@@ -303,7 +301,7 @@ enum LibraryCacheSQLiteStore {
         }
     }
 
-    static func replacePlaylistSummaries(serverKey: String, libraryId: String, playlistsJson: String) throws {
+    static func replacePlaylistSummaries(serverKey: String, playlistsJson: String) throws {
         try queue.sync {
             try openIfNeeded()
             guard let db else { throw StoreError.databaseUnavailable }
@@ -320,15 +318,14 @@ enum LibraryCacheSQLiteStore {
 
             var del: OpaquePointer?
             defer { sqlite3_finalize(del) }
-            let delSql = "DELETE FROM library_playlists WHERE server_key = ? AND library_id = ?;"
+            let delSql = "DELETE FROM server_playlists WHERE server_key = ?;"
             guard sqlite3_prepare_v2(db, delSql, -1, &del, nil) == SQLITE_OK else { return }
             sqlite3_bind_text(del, 1, serverKey, -1, transientDestructor)
-            sqlite3_bind_text(del, 2, libraryId, -1, transientDestructor)
             guard sqlite3_step(del) == SQLITE_DONE else { return }
 
             let insSql = """
-                INSERT INTO library_playlists(server_key, library_id, playlist_id, sort_index, name, song_count)
-                VALUES(?, ?, ?, ?, ?, ?);
+                INSERT INTO server_playlists(server_key, playlist_id, sort_index, name, song_count)
+                VALUES(?, ?, ?, ?, ?);
                 """
             var ins: OpaquePointer?
             defer { sqlite3_finalize(ins) }
@@ -343,11 +340,10 @@ enum LibraryCacheSQLiteStore {
                 sqlite3_reset(ins)
                 sqlite3_clear_bindings(ins)
                 sqlite3_bind_text(ins, 1, serverKey, -1, transientDestructor)
-                sqlite3_bind_text(ins, 2, libraryId, -1, transientDestructor)
-                sqlite3_bind_text(ins, 3, pid, -1, transientDestructor)
-                sqlite3_bind_int64(ins, 4, Int64(index))
-                sqlite3_bind_text(ins, 5, name, -1, transientDestructor)
-                sqlite3_bind_int64(ins, 6, Int64(sc))
+                sqlite3_bind_text(ins, 2, pid, -1, transientDestructor)
+                sqlite3_bind_int64(ins, 3, Int64(index))
+                sqlite3_bind_text(ins, 4, name, -1, transientDestructor)
+                sqlite3_bind_int64(ins, 5, Int64(sc))
                 guard sqlite3_step(ins) == SQLITE_DONE else { return }
             }
 
@@ -355,14 +351,14 @@ enum LibraryCacheSQLiteStore {
         }
     }
 
-    static func readPlaylistEntryTrackIdsJson(serverKey: String, libraryId: String, playlistId: String) throws -> String {
+    static func readPlaylistEntryTrackIdsJson(serverKey: String, playlistId: String) throws -> String {
         try queue.sync {
             try openIfNeeded()
             guard let db else { throw StoreError.databaseUnavailable }
 
             let sql = """
-                SELECT track_id FROM library_playlist_tracks
-                WHERE server_key = ? AND library_id = ? AND playlist_id = ?
+                SELECT track_id FROM server_playlist_tracks
+                WHERE server_key = ? AND playlist_id = ?
                 ORDER BY sort_index ASC;
                 """
             var stmt: OpaquePointer?
@@ -371,8 +367,7 @@ enum LibraryCacheSQLiteStore {
                 throw StoreError.prepareFailed
             }
             sqlite3_bind_text(stmt, 1, serverKey, -1, transientDestructor)
-            sqlite3_bind_text(stmt, 2, libraryId, -1, transientDestructor)
-            sqlite3_bind_text(stmt, 3, playlistId, -1, transientDestructor)
+            sqlite3_bind_text(stmt, 2, playlistId, -1, transientDestructor)
 
             var parts: [String] = []
             parts.append("[")
@@ -392,7 +387,6 @@ enum LibraryCacheSQLiteStore {
 
     static func replacePlaylistEntryTrackIds(
         serverKey: String,
-        libraryId: String,
         playlistId: String,
         trackIdsJson: String
     ) throws {
@@ -413,18 +407,17 @@ enum LibraryCacheSQLiteStore {
             var del: OpaquePointer?
             defer { sqlite3_finalize(del) }
             let delSql = """
-                DELETE FROM library_playlist_tracks
-                WHERE server_key = ? AND library_id = ? AND playlist_id = ?;
+                DELETE FROM server_playlist_tracks
+                WHERE server_key = ? AND playlist_id = ?;
                 """
             guard sqlite3_prepare_v2(db, delSql, -1, &del, nil) == SQLITE_OK else { return }
             sqlite3_bind_text(del, 1, serverKey, -1, transientDestructor)
-            sqlite3_bind_text(del, 2, libraryId, -1, transientDestructor)
-            sqlite3_bind_text(del, 3, playlistId, -1, transientDestructor)
+            sqlite3_bind_text(del, 2, playlistId, -1, transientDestructor)
             guard sqlite3_step(del) == SQLITE_DONE else { return }
 
             let insSql = """
-                INSERT INTO library_playlist_tracks(server_key, library_id, playlist_id, sort_index, track_id)
-                VALUES(?, ?, ?, ?, ?);
+                INSERT INTO server_playlist_tracks(server_key, playlist_id, sort_index, track_id)
+                VALUES(?, ?, ?, ?);
                 """
             var ins: OpaquePointer?
             defer { sqlite3_finalize(ins) }
@@ -436,10 +429,9 @@ enum LibraryCacheSQLiteStore {
                 sqlite3_reset(ins)
                 sqlite3_clear_bindings(ins)
                 sqlite3_bind_text(ins, 1, serverKey, -1, transientDestructor)
-                sqlite3_bind_text(ins, 2, libraryId, -1, transientDestructor)
-                sqlite3_bind_text(ins, 3, playlistId, -1, transientDestructor)
-                sqlite3_bind_int64(ins, 4, Int64(index))
-                sqlite3_bind_text(ins, 5, tid, -1, transientDestructor)
+                sqlite3_bind_text(ins, 2, playlistId, -1, transientDestructor)
+                sqlite3_bind_int64(ins, 3, Int64(index))
+                sqlite3_bind_text(ins, 4, tid, -1, transientDestructor)
                 guard sqlite3_step(ins) == SQLITE_DONE else { return }
             }
 
@@ -449,7 +441,6 @@ enum LibraryCacheSQLiteStore {
 
     static func purgePlaylistEntryTrackIdsNotIn(
         serverKey: String,
-        libraryId: String,
         playlistIdsJson: String
     ) throws {
         try queue.sync {
@@ -468,14 +459,13 @@ enum LibraryCacheSQLiteStore {
             }
 
             let sql = """
-                SELECT DISTINCT playlist_id FROM library_playlist_tracks
-                WHERE server_key = ? AND library_id = ?;
+                SELECT DISTINCT playlist_id FROM server_playlist_tracks
+                WHERE server_key = ?;
                 """
             var stmt: OpaquePointer?
             defer { sqlite3_finalize(stmt) }
             guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return }
             sqlite3_bind_text(stmt, 1, serverKey, -1, transientDestructor)
-            sqlite3_bind_text(stmt, 2, libraryId, -1, transientDestructor)
 
             var toDelete: [String] = []
             while sqlite3_step(stmt) == SQLITE_ROW {
@@ -489,8 +479,8 @@ enum LibraryCacheSQLiteStore {
             var del: OpaquePointer?
             defer { sqlite3_finalize(del) }
             let delSql = """
-                DELETE FROM library_playlist_tracks
-                WHERE server_key = ? AND library_id = ? AND playlist_id = ?;
+                DELETE FROM server_playlist_tracks
+                WHERE server_key = ? AND playlist_id = ?;
                 """
             guard sqlite3_prepare_v2(db, delSql, -1, &del, nil) == SQLITE_OK else { return }
 
@@ -498,8 +488,7 @@ enum LibraryCacheSQLiteStore {
                 sqlite3_reset(del)
                 sqlite3_clear_bindings(del)
                 sqlite3_bind_text(del, 1, serverKey, -1, transientDestructor)
-                sqlite3_bind_text(del, 2, libraryId, -1, transientDestructor)
-                sqlite3_bind_text(del, 3, pid, -1, transientDestructor)
+                sqlite3_bind_text(del, 2, pid, -1, transientDestructor)
                 guard sqlite3_step(del) == SQLITE_DONE else { return }
             }
 
@@ -1108,7 +1097,7 @@ enum LibraryCacheSQLiteStore {
             offlinePaths = try offlineCollectPathsForScope(db: db, serverKey: serverKey, libraryId: libraryId)
 
             for table in [
-                "library_songs", "library_playlists", "library_playlist_tracks", "library_artworks",
+                "library_songs", "library_artworks",
                 "library_artists", "library_albums", "library_meta", "offline_tracks"
             ] {
                 let sql = "DELETE FROM \(table) WHERE server_key = ? AND library_id = ?;"
@@ -1984,7 +1973,7 @@ enum LibraryCacheSQLiteStore {
             offlinePaths = try offlineCollectPathsForServer(db: db, serverKey: serverKey)
 
             for table in [
-                "library_songs", "library_playlists", "library_playlist_tracks", "library_artworks",
+                "library_songs", "server_playlists", "server_playlist_tracks", "library_artworks",
                 "library_artists", "library_albums", "library_meta", "offline_tracks"
             ] {
                 let sql = "DELETE FROM \(table) WHERE server_key = ?;"
@@ -2144,27 +2133,25 @@ enum LibraryCacheSQLiteStore {
               PRIMARY KEY (server_key, library_id)
             );
 
-            CREATE TABLE IF NOT EXISTS library_playlists (
+            CREATE TABLE IF NOT EXISTS server_playlists (
               server_key TEXT NOT NULL,
-              library_id TEXT NOT NULL,
               playlist_id TEXT NOT NULL,
               sort_index INTEGER NOT NULL,
               name TEXT NOT NULL,
               song_count INTEGER NOT NULL,
-              PRIMARY KEY (server_key, library_id, playlist_id)
+              PRIMARY KEY (server_key, playlist_id)
             );
-            CREATE INDEX IF NOT EXISTS idx_library_playlists_scope ON library_playlists(server_key, library_id);
+            CREATE INDEX IF NOT EXISTS idx_server_playlists_server ON server_playlists(server_key);
 
-            CREATE TABLE IF NOT EXISTS library_playlist_tracks (
+            CREATE TABLE IF NOT EXISTS server_playlist_tracks (
               server_key TEXT NOT NULL,
-              library_id TEXT NOT NULL,
               playlist_id TEXT NOT NULL,
               sort_index INTEGER NOT NULL,
               track_id TEXT NOT NULL,
-              PRIMARY KEY (server_key, library_id, playlist_id, sort_index)
+              PRIMARY KEY (server_key, playlist_id, sort_index)
             );
-            CREATE INDEX IF NOT EXISTS idx_library_playlist_tracks_playlist
-              ON library_playlist_tracks(server_key, library_id, playlist_id);
+            CREATE INDEX IF NOT EXISTS idx_server_playlist_tracks_playlist
+              ON server_playlist_tracks(server_key, playlist_id);
 
             CREATE TABLE IF NOT EXISTS library_artworks (
               server_key TEXT NOT NULL,
@@ -2224,6 +2211,7 @@ enum LibraryCacheSQLiteStore {
         migrateCacheLayoutForAccountServerKeyIfNeeded(h)
         migrateOfflineTracksWaveformColumnsIfNeeded(h)
         migrateLibraryPlaylistTracksTableIfNeeded(h)
+        migrateServerPlaylistsIfNeeded(h)
     }
 
     /// Clears all rows once when upgrading to account-level `server_key` (matches JS `serverAccountKey`).
@@ -2295,6 +2283,60 @@ enum LibraryCacheSQLiteStore {
             """
         _ = execute(h, ddl)
         _ = execute(h, "PRAGMA user_version = 4;")
+    }
+
+    /// Migrate per-library playlist rows to per-server tables (Subsonic playlists are account-wide).
+    private static func migrateServerPlaylistsIfNeeded(_ h: OpaquePointer) {
+        var current: Int32 = 0
+        var verStmt: OpaquePointer?
+        if sqlite3_prepare_v2(h, "PRAGMA user_version;", -1, &verStmt, nil) == SQLITE_OK,
+           sqlite3_step(verStmt) == SQLITE_ROW {
+            current = sqlite3_column_int(verStmt, 0)
+        }
+        if verStmt != nil {
+            sqlite3_finalize(verStmt)
+        }
+
+        guard current < 5 else { return }
+
+        let ddl = """
+            CREATE TABLE IF NOT EXISTS server_playlists (
+              server_key TEXT NOT NULL,
+              playlist_id TEXT NOT NULL,
+              sort_index INTEGER NOT NULL,
+              name TEXT NOT NULL,
+              song_count INTEGER NOT NULL,
+              PRIMARY KEY (server_key, playlist_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_server_playlists_server ON server_playlists(server_key);
+
+            CREATE TABLE IF NOT EXISTS server_playlist_tracks (
+              server_key TEXT NOT NULL,
+              playlist_id TEXT NOT NULL,
+              sort_index INTEGER NOT NULL,
+              track_id TEXT NOT NULL,
+              PRIMARY KEY (server_key, playlist_id, sort_index)
+            );
+            CREATE INDEX IF NOT EXISTS idx_server_playlist_tracks_playlist
+              ON server_playlist_tracks(server_key, playlist_id);
+            """
+        _ = execute(h, ddl)
+
+        let copySummaries = """
+            INSERT OR IGNORE INTO server_playlists(server_key, playlist_id, sort_index, name, song_count)
+            SELECT server_key, playlist_id, sort_index, name, song_count FROM library_playlists;
+            """
+        _ = execute(h, copySummaries)
+
+        let copyTracks = """
+            INSERT OR IGNORE INTO server_playlist_tracks(server_key, playlist_id, sort_index, track_id)
+            SELECT server_key, playlist_id, sort_index, track_id FROM library_playlist_tracks;
+            """
+        _ = execute(h, copyTracks)
+
+        _ = execute(h, "DROP TABLE IF EXISTS library_playlists;")
+        _ = execute(h, "DROP TABLE IF EXISTS library_playlist_tracks;")
+        _ = execute(h, "PRAGMA user_version = 5;")
     }
 
     private static func execute(_ db: OpaquePointer, _ sql: String) -> Bool {

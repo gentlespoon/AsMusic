@@ -1,6 +1,5 @@
 import type { Child } from 'subsonic-api';
 import type { SubsonicAPI } from '../api/client';
-import type { LibraryCacheScope } from './cacheScope';
 import { mergePlaylistEntryWithCachedSongs, playlistEntriesFromGetPlaylistResponse } from './playlistEntries';
 import type { LibraryCacheStorage } from './storage/LibraryCacheStorage';
 
@@ -19,17 +18,18 @@ function tracksFromCachedEntryIds(trackIds: string[], cachedSongs: Child[]): Chi
 
 /**
  * Load playlist tracks from the server when online, persisting entry order to cache.
- * Falls back to cached entry ids joined against the library song cache when offline.
+ * Falls back to cached entry ids joined against the server song cache when offline.
  */
 export async function loadPlaylistTracks(args: {
   api: SubsonicAPI;
   storage: LibraryCacheStorage;
-  scope: LibraryCacheScope;
+  serverKey: string;
   playlistId: string;
   playlistTitle: string;
   cachedSongs: Child[];
 }): Promise<LoadPlaylistTracksResult> {
-  const { api, storage, scope, playlistId, playlistTitle, cachedSongs } = args;
+  const { api, storage, serverKey, playlistId, playlistTitle, cachedSongs } = args;
+  const scope = { serverKey };
 
   try {
     const res = await api.getPlaylist({ id: playlistId });

@@ -105,8 +105,8 @@ export const enUSMessages = {
   "library.playlist.createTypeServer": "On server",
   "library.playlist.createTypeLocal": "On this device",
   "library.playlist.createTypeLocalHint": "Combines tracks from any of your active libraries. Stored only on this device.",
-  "library.playlist.createLibraryLabel": "Library",
-  "library.playlist.createServerPickLibraryHint": "Choose which library should own the server playlist.",
+  "library.playlist.createServerLabel": "Server",
+  "library.playlist.createServerPickServerHint": "Choose which server should host the new playlist.",
   "library.playlist.onDevice": "On this device",
   "library.playlist.trackUnavailable": "Track unavailable",
   "library.playlist.enableLibraryToPlay":

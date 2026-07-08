@@ -33,6 +33,7 @@ import {
   parseLibraryBrowserView,
   encodeLibraryBrowserRef,
   encodeLocalPlaylistRef,
+  encodeServerPlaylistRef,
   decodeLocalPlaylistRef,
 } from './browser/libraryNavigationUrl';
 import { useLibraryBrowserResolvedScopes } from './browser/useLibraryBrowserResolvedScopes';
@@ -78,6 +79,8 @@ export function LibraryBrowser() {
     songEntriesSorted,
     favoriteSongEntriesSorted,
     playlistCatalogRows,
+    serverPlaylistsByServerKey,
+    multiServer,
     localPlaylistSummaries,
     readLocalPlaylistEntries,
     initialReady,
@@ -176,6 +179,7 @@ export function LibraryBrowser() {
     playlistScope,
     slices,
     singleSlice,
+    serverPlaylistsByServerKey,
     localPlaylistSummaries,
     localPlaylistEntriesById,
   });
@@ -269,10 +273,9 @@ export function LibraryBrowser() {
       const playlistUrlId =
         row.kind === 'local'
           ? encodeLocalPlaylistRef(row.playlist.id)
-          : multiLibrary
-            ? encodeLibraryBrowserRef({
-                serverKey: row.artworkScope.serverKey,
-                libraryId: row.artworkScope.libraryId,
+          : multiServer
+            ? encodeServerPlaylistRef({
+                serverKey: row.serverKey,
                 id: row.playlist.id,
               })
             : row.playlist.id;
@@ -287,7 +290,7 @@ export function LibraryBrowser() {
         { replace: false }
       );
     },
-    [multiLibrary, setSearchParams]
+    [multiServer, setSearchParams]
   );
 
   const popPlaylistView = useCallback(() => {
@@ -337,7 +340,7 @@ export function LibraryBrowser() {
   const albumDetailApi = resolvedAlbum ? apiForServer(resolvedAlbum.slice.serverId) : null;
   const artistDetailApi = resolvedArtist ? apiForServer(resolvedArtist.slice.serverId) : null;
   const playlistDetailApi =
-    resolvedPlaylist?.kind === 'server' ? apiForServer(resolvedPlaylist.slice.serverId) : null;
+    resolvedPlaylist?.kind === 'server' ? apiForServer(resolvedPlaylist.serverId) : null;
 
   const playlistHeaderTitle = useMemo(() => {
     if (!playlistScope) return '';
@@ -482,7 +485,7 @@ export function LibraryBrowser() {
                 playlistId={playlistEditorTarget.playlistId}
                 playlistName={playlistEditorTarget.playlistName}
                 cachedSongs={playlistEditorTarget.cachedSongs}
-                scope={playlistEditorTarget.scope}
+                serverKey={playlistEditorTarget.serverKey}
                 storage={host.libraryCache}
                 api={playlistEditorTarget.api}
                 onBack={closePlaylistEditor}
@@ -520,30 +523,48 @@ export function LibraryBrowser() {
               playlistId={resolvedPlaylist.subsonicPlaylistId}
               scrollRestorationKey={playlistScope.id}
               playlistTitle={playlistHeaderTitle}
-              cachedSongs={resolvedPlaylist.slice.songs}
-              albums={albumsFromCachedSongs(resolvedPlaylist.slice.songs)}
+              cachedSongs={resolvedPlaylist.cachedSongs}
+              albums={albumsFromCachedSongs(resolvedPlaylist.cachedSongs)}
               api={playlistDetailApi}
               initialReady={initialReady}
               syncing={syncing}
-              resolveCachedArtwork={(id) => resolveCachedArtworkForScope(resolvedPlaylist.slice.scope, id)}
-              persistCachedArtwork={persistCachedArtworkForScope(resolvedPlaylist.slice.scope)}
-              coverArtCacheBump={(id) =>
-                id ? getArtworkCacheBump(id, resolvedPlaylist.slice.scope) : 0
+              resolveCachedArtwork={(id, trackId) => {
+                const scope = resolvedPlaylist.findTrackScope(trackId) ?? slices[0]?.scope;
+                return scope ? resolveCachedArtworkForScope(scope, id) : Promise.resolve(null);
+              }}
+              persistCachedArtworkForTrack={(trackId) => {
+                const scope = resolvedPlaylist.findTrackScope(trackId) ?? slices[0]?.scope;
+                return scope ? persistCachedArtworkForScope(scope) : async () => {};
+              }}
+              coverArtCacheBump={(id, trackId) => {
+                const scope = resolvedPlaylist.findTrackScope(trackId) ?? slices[0]?.scope;
+                return id && scope ? getArtworkCacheBump(id, scope) : 0;
+              }}
+              artworkCacheKeyFor={(id, trackId) => {
+                const scope = resolvedPlaylist.findTrackScope(trackId) ?? slices[0]?.scope;
+                return scope ? artworkVersionKey(id, scope) : id;
+              }}
+              serverId={resolvedPlaylist.serverId}
+              resolveTrackLibraryId={(trackId) =>
+                resolvedPlaylist.findTrackScope(trackId)?.libraryId ?? null
               }
-              artworkCacheKeyFor={(id) => artworkVersionKey(id, resolvedPlaylist.slice.scope)}
-              serverId={resolvedPlaylist.slice.serverId}
-              libraryId={resolvedPlaylist.slice.libraryId}
-              scope={resolvedPlaylist.slice.scope}
+              serverKey={resolvedPlaylist.serverKey}
               onBack={popPlaylistView}
-              onPlayTrack={(track) =>
-                playTrackNow(resolvedPlaylist.slice.serverId, resolvedPlaylist.slice.libraryId, track)
-              }
-              onPlayNextTrack={(track) =>
-                playNextForTrack(resolvedPlaylist.slice.serverId, resolvedPlaylist.slice.libraryId, track)
-              }
-              onAppendTrackToQueue={(track) =>
-                appendForTrack(resolvedPlaylist.slice.serverId, resolvedPlaylist.slice.libraryId, track)
-              }
+              onPlayTrack={(track) => {
+                const libraryId = resolvedPlaylist.findTrackScope(String(track.id))?.libraryId;
+                if (!libraryId) return;
+                playTrackNow(resolvedPlaylist.serverId, libraryId, track);
+              }}
+              onPlayNextTrack={(track) => {
+                const libraryId = resolvedPlaylist.findTrackScope(String(track.id))?.libraryId;
+                if (!libraryId) return;
+                playNextForTrack(resolvedPlaylist.serverId, libraryId, track);
+              }}
+              onAppendTrackToQueue={(track) => {
+                const libraryId = resolvedPlaylist.findTrackScope(String(track.id))?.libraryId;
+                if (!libraryId) return;
+                appendForTrack(resolvedPlaylist.serverId, libraryId, track);
+              }}
               onAppendAllToQueue={appendAllPlaylistTracksToQueue}
               onShufflePlayAll={shufflePlayAllPlaylistTracks}
               onReplaceQueueAndPlayAll={replaceQueueAndPlayAllPlaylistTracks}
@@ -565,8 +586,16 @@ export function LibraryBrowser() {
               syncing={syncing}
               canCreateServerPlaylist={canCreateServerPlaylist}
               canCreateLocalPlaylist={canCreateLocalPlaylist}
-              scopesToLoad={scopesToLoad}
-              singleSlice={singleSlice}
+              multiServer={multiServer}
+              serversToCreateOn={scopesToLoad.reduce(
+                (acc, sl) => {
+                  if (!acc.some((s) => s.serverId === sl.serverId)) {
+                    acc.push({ serverId: sl.serverId, serverUrl: sl.serverUrl, username: sl.username });
+                  }
+                  return acc;
+                },
+                [] as { serverId: string; serverUrl: string; username: string }[]
+              )}
               onCreatePlaylist={handleCreatePlaylist}
               onDeletePlaylist={handleDeletePlaylistRow}
               onPlaylistOpen={openPlaylist}

@@ -487,15 +487,13 @@ public class AsmusicNativePlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     @objc func libraryCacheReadPlaylistSummaries(_ call: CAPPluginCall) {
-        guard let serverKey = call.getString("serverKey"), !serverKey.isEmpty,
-              let libraryId = call.getString("libraryId") else {
-            call.reject("Missing serverKey or libraryId")
+        guard let serverKey = call.getString("serverKey"), !serverKey.isEmpty else {
+            call.reject("Missing serverKey")
             return
         }
         do {
             let playlistsJson = try LibraryCacheSQLiteStore.readPlaylistSummariesJson(
-                serverKey: serverKey,
-                libraryId: libraryId
+                serverKey: serverKey
             )
             call.resolve(["playlistsJson": playlistsJson])
         } catch {
@@ -505,15 +503,13 @@ public class AsmusicNativePlugin: CAPPlugin, CAPBridgedPlugin {
 
     @objc func libraryCacheReplacePlaylistSummaries(_ call: CAPPluginCall) {
         guard let serverKey = call.getString("serverKey"), !serverKey.isEmpty,
-              let libraryId = call.getString("libraryId"),
               let playlistsJson = call.getString("playlistsJson") else {
-            call.reject("Missing serverKey, libraryId, or playlistsJson")
+            call.reject("Missing serverKey or playlistsJson")
             return
         }
         do {
             try LibraryCacheSQLiteStore.replacePlaylistSummaries(
                 serverKey: serverKey,
-                libraryId: libraryId,
                 playlistsJson: playlistsJson
             )
             call.resolve()
@@ -524,15 +520,13 @@ public class AsmusicNativePlugin: CAPPlugin, CAPBridgedPlugin {
 
     @objc func libraryCacheReadPlaylistEntryTrackIds(_ call: CAPPluginCall) {
         guard let serverKey = call.getString("serverKey"), !serverKey.isEmpty,
-              let libraryId = call.getString("libraryId"),
               let playlistId = call.getString("playlistId"), !playlistId.isEmpty else {
-            call.reject("Missing serverKey, libraryId, or playlistId")
+            call.reject("Missing serverKey or playlistId")
             return
         }
         do {
             let trackIdsJson = try LibraryCacheSQLiteStore.readPlaylistEntryTrackIdsJson(
                 serverKey: serverKey,
-                libraryId: libraryId,
                 playlistId: playlistId
             )
             call.resolve(["trackIdsJson": trackIdsJson])
@@ -543,16 +537,14 @@ public class AsmusicNativePlugin: CAPPlugin, CAPBridgedPlugin {
 
     @objc func libraryCacheReplacePlaylistEntryTrackIds(_ call: CAPPluginCall) {
         guard let serverKey = call.getString("serverKey"), !serverKey.isEmpty,
-              let libraryId = call.getString("libraryId"),
               let playlistId = call.getString("playlistId"), !playlistId.isEmpty,
               let trackIdsJson = call.getString("trackIdsJson") else {
-            call.reject("Missing serverKey, libraryId, playlistId, or trackIdsJson")
+            call.reject("Missing serverKey, playlistId, or trackIdsJson")
             return
         }
         do {
             try LibraryCacheSQLiteStore.replacePlaylistEntryTrackIds(
                 serverKey: serverKey,
-                libraryId: libraryId,
                 playlistId: playlistId,
                 trackIdsJson: trackIdsJson
             )
@@ -564,15 +556,13 @@ public class AsmusicNativePlugin: CAPPlugin, CAPBridgedPlugin {
 
     @objc func libraryCachePurgePlaylistEntryTrackIdsNotIn(_ call: CAPPluginCall) {
         guard let serverKey = call.getString("serverKey"), !serverKey.isEmpty,
-              let libraryId = call.getString("libraryId"),
               let playlistIdsJson = call.getString("playlistIdsJson") else {
-            call.reject("Missing serverKey, libraryId, or playlistIdsJson")
+            call.reject("Missing serverKey or playlistIdsJson")
             return
         }
         do {
             try LibraryCacheSQLiteStore.purgePlaylistEntryTrackIdsNotIn(
                 serverKey: serverKey,
-                libraryId: libraryId,
                 playlistIdsJson: playlistIdsJson
             )
             call.resolve()

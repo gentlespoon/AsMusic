@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { useT } from '@asmusic/i18n';
-import { libraryCacheScope, refreshLibraryCache } from '@asmusic/core';
+import { libraryCacheScope, refreshLibraryCache, refreshPlaylistCacheForServer } from '@asmusic/core';
 import { useServerAndLibrary, useLibraryBrowseCache } from '@ui/contexts';
 import { useHost } from '@ui/host/HostContext';
 import { libraryRowKey } from './libraryRowKey';
@@ -35,6 +35,7 @@ export function useRefreshLibraryRow() {
         await refreshLibraryCache(api, host.libraryCache, scope, undefined, {
           offlineMedia: host.offlineMedia,
         });
+        await refreshPlaylistCacheForServer(api, host.libraryCache, { serverKey: scope.serverKey });
         void reloadCachedSongsFromDisk();
       } catch (e) {
         setRefreshError(e instanceof Error ? e.message : t('servers.error.syncFailed'));

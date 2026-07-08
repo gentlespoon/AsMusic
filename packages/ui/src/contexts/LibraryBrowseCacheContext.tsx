@@ -19,7 +19,7 @@ import {
   refreshLibraryCache,
   fetchMusicFolders,
   type LibraryCacheScope,
-  refreshPlaylistCacheForScope,
+  refreshPlaylistCacheForServer,
   updatePlaylistTracks,
   PENDING_STAR_MUTATIONS_STORAGE_KEY,
   coalescePendingStarMutations,
@@ -54,7 +54,6 @@ export type LibraryBrowseSlice = {
   libraryId: string;
   scope: LibraryCacheScope;
   songs: Child[];
-  playlists: LibraryPlaylistSummary[];
 };
 
 export type PlaylistCatalogRow =
@@ -62,8 +61,7 @@ export type PlaylistCatalogRow =
       kind: 'server';
       playlist: LibraryPlaylistSummary;
       serverId: string;
-      libraryId: string;
-      artworkScope: LibraryCacheScope;
+      serverKey: string;
       rowKey: string;
     }
   | {
@@ -105,6 +103,8 @@ type LibraryBrowseCacheContextValue = {
   songEntriesSorted: SongListEntry[];
   favoriteSongEntriesSorted: SongListEntry[];
   playlistCatalogRows: PlaylistCatalogRow[];
+  serverPlaylistsByServerKey: Record<string, LibraryPlaylistSummary[]>;
+  multiServer: boolean;
   localPlaylistSummaries: LocalPlaylistSummary[];
   canCreateServerPlaylist: boolean;
   canCreateLocalPlaylist: boolean;
@@ -135,18 +135,16 @@ type LibraryBrowseCacheContextValue = {
     trackId: string;
     starred: boolean;
   }) => Promise<void>;
-  refreshPlaylistSummariesForScope: (args: { serverId: string; libraryId: string }) => Promise<void>;
-  createPlaylist: (args: { serverId: string; libraryId: string; name: string }) => Promise<void>;
-  deletePlaylist: (args: { serverId: string; libraryId: string; playlistId: string }) => Promise<void>;
+  refreshPlaylistCacheForServer: (args: { serverId: string }) => Promise<void>;
+  createPlaylist: (args: { serverId: string; name: string }) => Promise<void>;
+  deletePlaylist: (args: { serverId: string; playlistId: string }) => Promise<void>;
   addTrackToPlaylist: (args: {
     serverId: string;
-    libraryId: string;
     playlistId: string;
     trackId: string;
   }) => Promise<void>;
   updatePlaylistMembership: (args: {
     serverId: string;
-    libraryId: string;
     playlistId: string;
     songIdsToAdd: string[];
     songIndexesToRemove: number[];
@@ -193,12 +191,26 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
 
   const scopesKey = useMemo(() => scopeListKey(scopesToLoad), [scopesToLoad]);
   const multiLibrary = scopesToLoad.length > 1;
+  const multiServer = useMemo(() => new Set(scopesToLoad.map((s) => s.serverId)).size > 1, [scopesToLoad]);
   const singleScopeRow = scopesToLoad.length === 1 ? scopesToLoad[0] : null;
+
+  const uniqueServers = useMemo(() => {
+    const seen = new Map<string, { serverId: string; serverKey: string }>();
+    for (const sl of scopesToLoad) {
+      if (!seen.has(sl.scope.serverKey)) {
+        seen.set(sl.scope.serverKey, { serverId: sl.serverId, serverKey: sl.scope.serverKey });
+      }
+    }
+    return [...seen.values()];
+  }, [scopesToLoad]);
 
   const scopesToLoadRef = useRef(scopesToLoad);
   scopesToLoadRef.current = scopesToLoad;
 
   const [slices, setSlices] = useState<LibraryBrowseSlice[]>([]);
+  const [serverPlaylistsByServerKey, setServerPlaylistsByServerKey] = useState<
+    Record<string, LibraryPlaylistSummary[]>
+  >({});
   const slicesRef = useRef(slices);
   slicesRef.current = slices;
   const [cacheReadError, setCacheReadError] = useState<string | null>(null);
@@ -459,22 +471,18 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
 
   const playlistCatalogRows = useMemo(() => {
     const out: PlaylistCatalogRow[] = [];
-    const seenServerPlaylists = new Set<string>();
-    for (const sl of slices) {
-      const sorted = [...sl.playlists].sort((a, b) =>
+    for (const { serverId, serverKey } of uniqueServers) {
+      const playlists = serverPlaylistsByServerKey[serverKey] ?? [];
+      const sorted = [...playlists].sort((a, b) =>
         a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
       );
       for (const playlist of sorted) {
-        const dedupeKey = `${sl.serverId}|${playlist.id}`;
-        if (seenServerPlaylists.has(dedupeKey)) continue;
-        seenServerPlaylists.add(dedupeKey);
         out.push({
           kind: 'server',
           playlist,
-          serverId: sl.serverId,
-          libraryId: sl.libraryId,
-          artworkScope: sl.scope,
-          rowKey: `${sl.scope.serverKey}|${playlist.id}`,
+          serverId,
+          serverKey,
+          rowKey: `${serverKey}|${playlist.id}`,
         });
       }
     }
@@ -495,7 +503,7 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
       return a.rowKey.localeCompare(b.rowKey);
     });
     return out;
-  }, [slices, localPlaylistSummaries]);
+  }, [uniqueServers, serverPlaylistsByServerKey, localPlaylistSummaries]);
 
   const canCreateServerPlaylist = scopesToLoad.length > 0;
   const canCreateLocalPlaylist = scopesToLoad.length > 0;
@@ -680,6 +688,19 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
     setArtworkCacheEpoch((epoch) => epoch + 1);
   }, [host.libraryCache, clearArtworkVersionThrottle]);
 
+  const loadServerPlaylistsFromDisk = useCallback(async () => {
+    const servers = uniqueServers.length > 0 ? uniqueServers : uniqueServersRef.current;
+    const next: Record<string, LibraryPlaylistSummary[]> = {};
+    for (const { serverKey } of servers) {
+      next[serverKey] = await host.libraryCache.readPlaylistSummaries({ serverKey });
+    }
+    setServerPlaylistsByServerKey(next);
+    return next;
+  }, [host.libraryCache, uniqueServers]);
+
+  const uniqueServersRef = useRef(uniqueServers);
+  uniqueServersRef.current = uniqueServers;
+
   const runRefresh = useCallback(async () => {
     if (scopesToLoad.length === 0) return;
     clearArtworkVersionThrottle();
@@ -690,6 +711,7 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
     try {
       await flushPendingStarMutations();
       const built: LibraryBrowseSlice[] = [];
+      const refreshedServerKeys = new Set<string>();
 
       for (const sl of scopesToLoad) {
         const api = await getApiForServer(sl.serverId);
@@ -699,7 +721,6 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
         const { songs } = await refreshLibraryCache(api, host.libraryCache, sl.scope, (p) => setSyncProgress(p), {
           offlineMedia: host.offlineMedia,
         });
-        const playlists = await host.libraryCache.readPlaylistSummaries(sl.scope);
         built.push({
           serverId: sl.serverId,
           serverUrl: sl.serverUrl,
@@ -707,8 +728,16 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
           libraryId: sl.libraryId,
           scope: sl.scope,
           songs,
-          playlists,
         });
+
+        if (!refreshedServerKeys.has(sl.scope.serverKey)) {
+          refreshedServerKeys.add(sl.scope.serverKey);
+          setSyncProgress({ phase: 'playlists' });
+          const playlists = await refreshPlaylistCacheForServer(api, host.libraryCache, {
+            serverKey: sl.scope.serverKey,
+          });
+          setServerPlaylistsByServerKey((prev) => ({ ...prev, [sl.scope.serverKey]: playlists }));
+        }
       }
 
       setSlices(built);
@@ -736,14 +765,12 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
     const toLoad = scopesToLoadRef.current;
     if (toLoad.length === 0) {
       setSlices([]);
+      setServerPlaylistsByServerKey({});
       return;
     }
     const nextSlices: LibraryBrowseSlice[] = [];
     for (const sl of toLoad) {
-      const [songs, playlists] = await Promise.all([
-        host.libraryCache.readSongList(sl.scope),
-        host.libraryCache.readPlaylistSummaries(sl.scope),
-      ]);
+      const songs = await host.libraryCache.readSongList(sl.scope);
       nextSlices.push({
         serverId: sl.serverId,
         serverUrl: sl.serverUrl,
@@ -751,11 +778,11 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
         libraryId: sl.libraryId,
         scope: sl.scope,
         songs,
-        playlists,
       });
     }
     setSlices(nextSlices);
-  }, [host.libraryCache]);
+    await loadServerPlaylistsFromDisk();
+  }, [host.libraryCache, loadServerPlaylistsFromDisk]);
 
   useEffect(() => {
     let cancelled = false;
@@ -764,6 +791,7 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
     const toLoad = scopesToLoadRef.current;
     if (toLoad.length === 0) {
       setSlices([]);
+      setServerPlaylistsByServerKey({});
       setInitialReady(true);
       return () => {
         cancelled = true;
@@ -772,11 +800,10 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
     void (async () => {
       try {
         const nextSlices: LibraryBrowseSlice[] = [];
+        const playlistMap: Record<string, LibraryPlaylistSummary[]> = {};
+        const loadedServerKeys = new Set<string>();
         for (const sl of toLoad) {
-          const [songs, playlists] = await Promise.all([
-            host.libraryCache.readSongList(sl.scope),
-            host.libraryCache.readPlaylistSummaries(sl.scope),
-          ]);
+          const songs = await host.libraryCache.readSongList(sl.scope);
           nextSlices.push({
             serverId: sl.serverId,
             serverUrl: sl.serverUrl,
@@ -784,11 +811,17 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
             libraryId: sl.libraryId,
             scope: sl.scope,
             songs,
-            playlists,
           });
+          if (!loadedServerKeys.has(sl.scope.serverKey)) {
+            loadedServerKeys.add(sl.scope.serverKey);
+            playlistMap[sl.scope.serverKey] = await host.libraryCache.readPlaylistSummaries({
+              serverKey: sl.scope.serverKey,
+            });
+          }
         }
         if (cancelled) return;
         setSlices(nextSlices);
+        setServerPlaylistsByServerKey(playlistMap);
         setInitialReady(true);
         if (nextSlices.every((s) => s.songs.length === 0)) {
           void runRefreshRef.current();
@@ -806,56 +839,50 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
     };
   }, [scopesKey, host.libraryCache]);
 
-  const applyPlaylistsToSlice = useCallback((serverId: string, libraryId: string, playlists: LibraryPlaylistSummary[]) => {
-    setSlices((prev) =>
-      prev.map((s) => (s.serverId === serverId && s.libraryId === libraryId ? { ...s, playlists } : s))
-    );
-  }, []);
-
-  const refreshPlaylistSummariesForScope = useCallback(
-    async (args: { serverId: string; libraryId: string }) => {
+  const refreshPlaylistCacheForServerFn = useCallback(
+    async (args: { serverId: string }) => {
       const { serverId } = args;
       const api = await getApiForServer(serverId);
       if (!api) throw new Error('Could not open a session for this server');
-      const scopesForServer = scopesToLoadRef.current.filter((s) => s.serverId === serverId);
-      if (scopesForServer.length === 0) throw new Error('Library is not available');
-      for (const sl of scopesForServer) {
-        const playlists = await refreshPlaylistCacheForScope(api, host.libraryCache, sl.scope);
-        applyPlaylistsToSlice(sl.serverId, sl.libraryId, playlists);
-      }
+      const scopeRow = scopesToLoadRef.current.find((s) => s.serverId === serverId);
+      if (!scopeRow) throw new Error('Server is not available');
+      const playlists = await refreshPlaylistCacheForServer(api, host.libraryCache, {
+        serverKey: scopeRow.scope.serverKey,
+      });
+      setServerPlaylistsByServerKey((prev) => ({ ...prev, [scopeRow.scope.serverKey]: playlists }));
     },
-    [getApiForServer, host.libraryCache, applyPlaylistsToSlice]
+    [getApiForServer, host.libraryCache]
   );
 
   const createPlaylist = useCallback(
-    async (args: { serverId: string; libraryId: string; name: string }) => {
-      const { serverId, libraryId, name } = args;
+    async (args: { serverId: string; name: string }) => {
+      const { serverId, name } = args;
       const trimmed = name.trim();
       if (!trimmed) throw new Error('Playlist name cannot be empty');
       const api = await getApiForServer(serverId);
       if (!api) throw new Error('Could not open a session for this server');
       const res = await api.createPlaylist({ name: trimmed });
       if (res.status !== 'ok') throw new Error('Could not create playlist');
-      await refreshPlaylistSummariesForScope({ serverId, libraryId });
+      await refreshPlaylistCacheForServerFn({ serverId });
     },
-    [getApiForServer, refreshPlaylistSummariesForScope]
+    [getApiForServer, refreshPlaylistCacheForServerFn]
   );
 
   const deletePlaylist = useCallback(
-    async (args: { serverId: string; libraryId: string; playlistId: string }) => {
-      const { serverId, libraryId, playlistId } = args;
+    async (args: { serverId: string; playlistId: string }) => {
+      const { serverId, playlistId } = args;
       const api = await getApiForServer(serverId);
       if (!api) throw new Error('Could not open a session for this server');
       const res = await api.deletePlaylist({ id: playlistId });
       if (res.status !== 'ok') throw new Error('Could not delete playlist');
-      await refreshPlaylistSummariesForScope({ serverId, libraryId });
+      await refreshPlaylistCacheForServerFn({ serverId });
     },
-    [getApiForServer, refreshPlaylistSummariesForScope]
+    [getApiForServer, refreshPlaylistCacheForServerFn]
   );
 
   const addTrackToPlaylist = useCallback(
-    async (args: { serverId: string; libraryId: string; playlistId: string; trackId: string }) => {
-      const { serverId, libraryId, playlistId, trackId } = args;
+    async (args: { serverId: string; playlistId: string; trackId: string }) => {
+      const { serverId, playlistId, trackId } = args;
       const api = await getApiForServer(serverId);
       if (!api) throw new Error('Could not open a session for this server');
       await updatePlaylistTracks(api, {
@@ -863,26 +890,25 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
         songIdsToAdd: [trackId],
         songIndexesToRemove: [],
       });
-      await refreshPlaylistSummariesForScope({ serverId, libraryId });
+      await refreshPlaylistCacheForServerFn({ serverId });
     },
-    [getApiForServer, refreshPlaylistSummariesForScope]
+    [getApiForServer, refreshPlaylistCacheForServerFn]
   );
 
   const updatePlaylistMembership = useCallback(
     async (args: {
       serverId: string;
-      libraryId: string;
       playlistId: string;
       songIdsToAdd: string[];
       songIndexesToRemove: number[];
     }) => {
-      const { serverId, libraryId, playlistId, songIdsToAdd, songIndexesToRemove } = args;
+      const { serverId, playlistId, songIdsToAdd, songIndexesToRemove } = args;
       const api = await getApiForServer(serverId);
       if (!api) throw new Error('Could not open a session for this server');
       await updatePlaylistTracks(api, { playlistId, songIdsToAdd, songIndexesToRemove });
-      await refreshPlaylistSummariesForScope({ serverId, libraryId });
+      await refreshPlaylistCacheForServerFn({ serverId });
     },
-    [getApiForServer, refreshPlaylistSummariesForScope]
+    [getApiForServer, refreshPlaylistCacheForServerFn]
   );
 
   const createLocalPlaylistFn = useCallback(
@@ -964,6 +990,8 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
       songEntriesSorted,
       favoriteSongEntriesSorted,
       playlistCatalogRows,
+      serverPlaylistsByServerKey,
+      multiServer,
       localPlaylistSummaries,
       canCreateServerPlaylist,
       canCreateLocalPlaylist,
@@ -987,7 +1015,7 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
       serverDisplayName,
       ensureLibraryNames,
       setTrackStarred,
-      refreshPlaylistSummariesForScope,
+      refreshPlaylistCacheForServer: refreshPlaylistCacheForServerFn,
       createPlaylist,
       deletePlaylist,
       addTrackToPlaylist,
@@ -1010,6 +1038,8 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
       songEntriesSorted,
       favoriteSongEntriesSorted,
       playlistCatalogRows,
+      serverPlaylistsByServerKey,
+      multiServer,
       localPlaylistSummaries,
       canCreateServerPlaylist,
       canCreateLocalPlaylist,
@@ -1033,7 +1063,7 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
       serverDisplayName,
       ensureLibraryNames,
       setTrackStarred,
-      refreshPlaylistSummariesForScope,
+      refreshPlaylistCacheForServerFn,
       createPlaylist,
       deletePlaylist,
       addTrackToPlaylist,

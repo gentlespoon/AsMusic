@@ -13,7 +13,6 @@ import type { Child, SubsonicAPI } from 'subsonic-api';
 import {
   localPlaylistRefFromKey,
   localPlaylistTrackRefFromChild,
-  type LibraryCacheScope,
 } from '@asmusic/core';
 import {
   useLibraryBrowseCache,
@@ -26,11 +25,10 @@ import type { LibraryBrowserResolvedPlaylist } from './useLibraryBrowserResolved
 type ServerPlaylistEditorTarget = {
   kind: 'server';
   serverId: string;
-  libraryId: string;
+  serverKey: string;
   playlistId: string;
   playlistName: string;
   cachedSongs: Child[];
-  scope: LibraryCacheScope;
   api: SubsonicAPI;
 };
 
@@ -44,7 +42,7 @@ type LocalPlaylistEditorTarget = {
 export type PlaylistEditorTarget = ServerPlaylistEditorTarget | LocalPlaylistEditorTarget;
 
 export type CreatePlaylistRequest =
-  | { kind: 'server'; name: string; serverId: string; libraryId: string }
+  | { kind: 'server'; name: string; serverId: string }
   | { kind: 'local'; name: string };
 
 /**
@@ -93,7 +91,6 @@ export function useLibraryBrowserPlaylists(options: {
       }
       await createPlaylist({
         serverId: request.serverId,
-        libraryId: request.libraryId,
         name: request.name,
       });
     },
@@ -108,7 +105,6 @@ export function useLibraryBrowserPlaylists(options: {
       }
       await deletePlaylist({
         serverId: row.serverId,
-        libraryId: row.libraryId,
         playlistId: row.playlist.id,
       });
     },
@@ -131,12 +127,11 @@ export function useLibraryBrowserPlaylists(options: {
     if (!playlistDetailApi) return;
     setPlaylistEditorTarget({
       kind: 'server',
-      serverId: resolvedPlaylist.slice.serverId,
-      libraryId: resolvedPlaylist.slice.libraryId,
+      serverId: resolvedPlaylist.serverId,
+      serverKey: resolvedPlaylist.serverKey,
       playlistId: resolvedPlaylist.subsonicPlaylistId,
       playlistName: playlistHeaderTitle,
-      cachedSongs: resolvedPlaylist.slice.songs,
-      scope: resolvedPlaylist.slice.scope,
+      cachedSongs: resolvedPlaylist.cachedSongs,
       api: playlistDetailApi,
     });
   }, [resolvedPlaylist, playlistDetailApi, playlistHeaderTitle, songEntries]);
@@ -165,7 +160,6 @@ export function useLibraryBrowserPlaylists(options: {
       } else {
         await updatePlaylistMembership({
           serverId: playlistEditorTarget.serverId,
-          libraryId: playlistEditorTarget.libraryId,
           playlistId: playlistEditorTarget.playlistId,
           songIdsToAdd: diff.songIdsToAdd,
           songIndexesToRemove: diff.songIndexesToRemove,
@@ -194,8 +188,7 @@ export function useLibraryBrowserPlaylists(options: {
         await deleteLocalPlaylist(resolvedPlaylist.localId);
       } else {
         await deletePlaylist({
-          serverId: resolvedPlaylist.slice.serverId,
-          libraryId: resolvedPlaylist.slice.libraryId,
+          serverId: resolvedPlaylist.serverId,
           playlistId: resolvedPlaylist.subsonicPlaylistId,
         });
       }

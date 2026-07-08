@@ -17,7 +17,6 @@ import {
   allCachedSongsSorted,
   loadPlaylistTracks,
   playlistEditDiff,
-  type LibraryCacheScope,
   type LibraryCacheStorage,
   type SubsonicAPI,
 } from '@asmusic/core';
@@ -31,7 +30,7 @@ export function PlaylistEditorView({
   playlistId,
   playlistName,
   cachedSongs,
-  scope,
+  serverKey,
   storage,
   api,
   onBack,
@@ -40,7 +39,7 @@ export function PlaylistEditorView({
   playlistId: string;
   playlistName: string;
   cachedSongs: Child[];
-  scope: LibraryCacheScope;
+  serverKey: string;
   storage: LibraryCacheStorage;
   api: SubsonicAPI;
   onBack: () => void;
@@ -70,7 +69,7 @@ export function PlaylistEditorView({
         const result = await loadPlaylistTracks({
           api,
           storage,
-          scope,
+          serverKey,
           playlistId,
           playlistTitle: playlistName,
           cachedSongs,
@@ -95,7 +94,7 @@ export function PlaylistEditorView({
     return () => {
       cancelled = true;
     };
-  }, [api, storage, scope, playlistId, playlistName, cachedSongs, t]);
+  }, [api, storage, serverKey, playlistId, playlistName, cachedSongs, t]);
 
   const filteredSongs = useMemo(
     () => songs.filter((s) => songMatchesQuery(s, search)),

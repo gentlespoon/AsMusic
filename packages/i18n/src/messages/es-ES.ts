@@ -105,8 +105,8 @@ export const esESMessages = {
   "library.playlist.createTypeServer": "En el servidor",
   "library.playlist.createTypeLocal": "En este dispositivo",
   "library.playlist.createTypeLocalHint": "Combina pistas de cualquier biblioteca activa. Solo se guarda en este dispositivo.",
-  "library.playlist.createLibraryLabel": "Biblioteca",
-  "library.playlist.createServerPickLibraryHint": "Elige en qué biblioteca crear la lista del servidor.",
+  "library.playlist.createServerLabel": "Servidor",
+  "library.playlist.createServerPickServerHint": "Elige en qué servidor crear la lista.",
   "library.playlist.onDevice": "En este dispositivo",
   "library.playlist.trackUnavailable": "Pista no disponible",
   "library.playlist.enableLibraryToPlay":

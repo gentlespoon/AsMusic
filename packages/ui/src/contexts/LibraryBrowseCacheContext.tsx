@@ -168,7 +168,7 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
   const { isOnline } = useNetworkStatus();
   const isOnlineRef = useRef(isOnline);
   isOnlineRef.current = isOnline;
-  const { servers, activeLibraryRefs, getApiForServer } = useServerAndLibrary();
+  const { servers, activeLibraryRefs, getApiForServer, isRestoring } = useServerAndLibrary();
 
   const pendingStarQueueRef = useRef<PendingStarMutation[]>([]);
   const flushPendingStarsInFlightRef = useRef(false);
@@ -758,9 +758,6 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
     reapplyPendingStarsToSlices,
   ]);
 
-  const runRefreshRef = useRef(runRefresh);
-  runRefreshRef.current = runRefresh;
-
   const reloadCachedSongsFromDisk = useCallback(async () => {
     const toLoad = scopesToLoadRef.current;
     if (toLoad.length === 0) {
@@ -785,6 +782,7 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
   }, [host.libraryCache, loadServerPlaylistsFromDisk]);
 
   useEffect(() => {
+    if (isRestoring) return;
     let cancelled = false;
     setInitialReady(false);
     setCacheReadError(null);
@@ -798,11 +796,11 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
       };
     }
     void (async () => {
-      try {
-        const nextSlices: LibraryBrowseSlice[] = [];
-        const playlistMap: Record<string, LibraryPlaylistSummary[]> = {};
-        const loadedServerKeys = new Set<string>();
-        for (const sl of toLoad) {
+      const nextSlices: LibraryBrowseSlice[] = [];
+      let songReadError: string | null = null;
+
+      for (const sl of toLoad) {
+        try {
           const songs = await host.libraryCache.readSongList(sl.scope);
           nextSlices.push({
             serverId: sl.serverId,
@@ -812,32 +810,44 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
             scope: sl.scope,
             songs,
           });
-          if (!loadedServerKeys.has(sl.scope.serverKey)) {
-            loadedServerKeys.add(sl.scope.serverKey);
-            playlistMap[sl.scope.serverKey] = await host.libraryCache.readPlaylistSummaries({
-              serverKey: sl.scope.serverKey,
-            });
-          }
-        }
-        if (cancelled) return;
-        setSlices(nextSlices);
-        setServerPlaylistsByServerKey(playlistMap);
-        setInitialReady(true);
-        if (nextSlices.every((s) => s.songs.length === 0)) {
-          void runRefreshRef.current();
-        }
-      } catch (e) {
-        if (!cancelled) {
-          setCacheReadError(e instanceof Error ? e.message : 'Could not open local library cache');
-          setInitialReady(true);
-          void runRefreshRef.current();
+        } catch (e) {
+          songReadError =
+            e instanceof Error ? e.message : 'Could not open local library cache';
+          nextSlices.push({
+            serverId: sl.serverId,
+            serverUrl: sl.serverUrl,
+            username: sl.username,
+            libraryId: sl.libraryId,
+            scope: sl.scope,
+            songs: [],
+          });
         }
       }
+
+      const playlistMap: Record<string, LibraryPlaylistSummary[]> = {};
+      const loadedServerKeys = new Set<string>();
+      for (const sl of toLoad) {
+        if (loadedServerKeys.has(sl.scope.serverKey)) continue;
+        loadedServerKeys.add(sl.scope.serverKey);
+        try {
+          playlistMap[sl.scope.serverKey] = await host.libraryCache.readPlaylistSummaries({
+            serverKey: sl.scope.serverKey,
+          });
+        } catch {
+          playlistMap[sl.scope.serverKey] = [];
+        }
+      }
+
+      if (cancelled) return;
+      setSlices(nextSlices);
+      setServerPlaylistsByServerKey(playlistMap);
+      setCacheReadError(songReadError);
+      setInitialReady(true);
     })();
     return () => {
       cancelled = true;
     };
-  }, [scopesKey, host.libraryCache]);
+  }, [scopesKey, host.libraryCache, isRestoring]);
 
   const refreshPlaylistCacheForServerFn = useCallback(
     async (args: { serverId: string }) => {

@@ -73,7 +73,6 @@ export function LibraryBrowser() {
     slices,
     multiLibrary,
     singleSlice,
-    albums,
     albumCatalogRows,
     artistCatalogRows,
     songEntriesSorted,
@@ -575,9 +574,9 @@ export function LibraryBrowser() {
           ))}
 
         {tab === 'favorites' && (
-          <SongListView
-            entries={favoriteSongEntriesSorted}
-            albums={albums}
+            <SongListView
+              entries={favoriteSongEntriesSorted}
+              albumsByScope={albumsByScope}
             apiForServer={apiForServer}
             initialReady={initialReady}
             syncing={syncing}
@@ -659,7 +658,7 @@ export function LibraryBrowser() {
           ) : (
             <SongListView
               entries={songEntriesSorted}
-              albums={albums}
+              albumsByScope={albumsByScope}
               apiForServer={apiForServer}
               initialReady={initialReady}
               syncing={syncing}

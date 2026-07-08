@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useT } from "@asmusic/i18n";
 import { CANONICAL_COVER_ART_SIZE, libraryCacheScope, localPlaylistTrackRefFromChild } from "@asmusic/core";
+import { artworkDisplayMimeType, isValidImageBytes } from "@ui/shared/artworkDisplayMimeType";
 import { useLibraryBrowseCache } from "@ui/contexts";
 import type { PlaylistCatalogRow } from "@ui/contexts/LibraryBrowseCacheContext";
 import { usePlayerActions } from "@ui/contexts/PlayerContext";
@@ -102,26 +103,34 @@ export function usePlayerFullScreenTrackActions(
         if (!api) {
           throw new Error(t("servers.error.noSession", { url: item.serverUrl }));
         }
-        const res = await api.getCoverArt({
-          id: coverArtId,
-          size: CANONICAL_COVER_ART_SIZE,
-        });
-        if (!res.ok) {
-          throw new Error(t("player.coverArt.couldNotRefresh"));
+        const fallbackId = item.coverArtFallbackId?.trim();
+        const idsToTry = [coverArtId];
+        if (fallbackId && fallbackId !== coverArtId) {
+          idsToTry.push(fallbackId);
         }
-        const buf = new Uint8Array(await res.arrayBuffer());
-        if (buf.length === 0) {
-          throw new Error(t("player.coverArt.couldNotRefresh"));
+        for (const tryId of idsToTry) {
+          const res = await api.getCoverArt({
+            id: tryId,
+            size: CANONICAL_COVER_ART_SIZE,
+          });
+          if (!res.ok) continue;
+          const buf = new Uint8Array(await res.arrayBuffer());
+          if (buf.length === 0) continue;
+          if (!isValidImageBytes(buf)) continue;
+          const mimeType = artworkDisplayMimeType(
+            buf,
+            res.headers.get("content-type") ?? undefined,
+          );
+          await host.libraryCache.putArtworkBlob(scope, {
+            coverArtId,
+            data: buf,
+            mimeType,
+          });
+          notifyArtworkCached(artworkVersionKey(coverArtId, scope));
+          await syncCurrentTrackNowPlayingArtwork();
+          return;
         }
-        const mimeType =
-          res.headers.get("content-type")?.split(";")[0]?.trim() || "image/jpeg";
-        await host.libraryCache.putArtworkBlob(scope, {
-          coverArtId,
-          data: buf,
-          mimeType,
-        });
-        notifyArtworkCached(artworkVersionKey(coverArtId, scope));
-        await syncCurrentTrackNowPlayingArtwork();
+        throw new Error(t("player.coverArt.couldNotRefresh"));
       } catch (e: unknown) {
         setRefreshCoverArtError(
           e instanceof Error ? e.message : t("player.coverArt.couldNotRefresh"),

@@ -5,6 +5,7 @@ import { keyframes, type SxProps, type Theme } from '@mui/material/styles';
 import { CANONICAL_COVER_ART_SIZE, type SubsonicAPI } from '@asmusic/core';
 import type { LibraryArtworkCacheRow } from '@asmusic/core';
 import type { PersistCachedArtwork } from './libraryArtworkCacheAccess';
+import { artworkDisplayMimeType, isValidImageBytes } from './artworkDisplayMimeType';
 import {
   acquireCoverArtUrl,
   buildCoverArtCacheKey,
@@ -33,6 +34,8 @@ type Props = {
   artworkCacheBump?: number;
   /** Scope/library disambiguator for multi-library artwork caches. */
   artworkCacheKey?: string;
+  /** When the primary `coverArtId` cannot be loaded, try this id (e.g. album art). */
+  fallbackCoverArtId?: string;
   /** Display-only hint (network always uses {@link CANONICAL_COVER_ART_SIZE}). */
   size?: number;
   sx?: SxProps<Theme>;
@@ -59,6 +62,7 @@ function coverPlaceholderGradient(theme: Theme): string {
 export function CoverArtThumb({
   api,
   coverArtId,
+  fallbackCoverArtId,
   resolveCachedArtwork,
   resolveArtworkLocalFile,
   persistCachedArtwork,
@@ -96,36 +100,50 @@ export function CoverArtThumb({
     const cached = acquireCoverArtUrl(cacheKey);
     setSrc(cached);
 
+    const fallbackId = fallbackCoverArtId?.trim();
+    const idsToTry = [coverArtId];
+    if (fallbackId && fallbackId !== coverArtId) {
+      idsToTry.push(fallbackId);
+    }
+
     void getOrStartCoverArtLoad(cacheKey, async () => {
       try {
-        const resolveLocal = resolveArtworkLocalFileRef.current;
-        if (resolveLocal) {
-          const local = await resolveLocal(coverArtId);
-          if (local?.localFilePath) {
-            return Capacitor.convertFileSrc(local.localFilePath);
+        for (const id of idsToTry) {
+          const resolveLocal = resolveArtworkLocalFileRef.current;
+          if (resolveLocal) {
+            const local = await resolveLocal(id);
+            if (local?.localFilePath) {
+              return Capacitor.convertFileSrc(local.localFilePath);
+            }
           }
-        }
 
-        let blob: Blob | null = null;
-        const resolve = resolveCachedArtworkRef.current;
-        const fromDisk = resolve ? await resolve(coverArtId) : null;
-        if (fromDisk?.data?.byteLength) {
-          blob = new Blob([fromDisk.data], { type: fromDisk.mimeType || 'image/jpeg' });
-        } else if (api) {
-          const res = await api.getCoverArt({ id: coverArtId, size: CANONICAL_COVER_ART_SIZE });
-          if (!res.ok) return null;
-          blob = await res.blob();
-          const persist = persistCachedArtworkRef.current;
-          if (persist && blob.size > 0) {
-            const mimeType = blob.type?.split(';')[0]?.trim() || 'image/jpeg';
-            void persist(coverArtId, {
-              data: new Uint8Array(await blob.arrayBuffer()),
-              mimeType,
-            }).catch(() => undefined);
+          let blob: Blob | null = null;
+          const resolve = resolveCachedArtworkRef.current;
+          const fromDisk = resolve ? await resolve(id) : null;
+          if (fromDisk?.data?.byteLength) {
+            if (!isValidImageBytes(fromDisk.data)) continue;
+            const mimeType = artworkDisplayMimeType(fromDisk.data, fromDisk.mimeType);
+            blob = new Blob([fromDisk.data], { type: mimeType });
+          } else if (api) {
+            const res = await api.getCoverArt({ id, size: CANONICAL_COVER_ART_SIZE });
+            if (res.ok) {
+              const raw = new Uint8Array(await res.arrayBuffer());
+              if (!isValidImageBytes(raw)) continue;
+              const mimeType = artworkDisplayMimeType(
+                raw,
+                res.headers.get('content-type') ?? undefined,
+              );
+              const persist = persistCachedArtworkRef.current;
+              if (persist) {
+                void persist(coverArtId, { data: raw, mimeType }).catch(() => undefined);
+              }
+              blob = new Blob([raw], { type: mimeType });
+            }
           }
+          if (!blob) continue;
+          return URL.createObjectURL(blob);
         }
-        if (!blob) return null;
-        return URL.createObjectURL(blob);
+        return null;
       } catch {
         return null;
       }
@@ -140,7 +158,7 @@ export function CoverArtThumb({
       cancelled = true;
       releaseCoverArtUrl(cacheKey);
     };
-  }, [api, cacheKey, coverArtId, artworkCacheBump, artworkCacheKey]);
+  }, [api, cacheKey, coverArtId, fallbackCoverArtId, artworkCacheBump, artworkCacheKey]);
 
   const displaySrc = srcCacheKeyRef.current === cacheKey ? src : null;
 

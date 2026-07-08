@@ -89,6 +89,7 @@ function DisplaySlot({
           <CoverArtThumb
             api={api}
             coverArtId={item.coverArtId}
+            fallbackCoverArtId={item.coverArtFallbackId}
             resolveCachedArtwork={resolveCachedArtwork}
             resolveArtworkLocalFile={resolveArtworkLocalFile}
             persistCachedArtwork={persistCachedArtwork}

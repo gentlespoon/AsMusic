@@ -38,6 +38,7 @@ export function PlayerMiniBarCoverArt({ item, api }: PlayerMiniBarCoverArtProps)
           key={item.rowId}
           api={api ?? undefined}
           coverArtId={item.coverArtId}
+          fallbackCoverArtId={item.coverArtFallbackId}
           resolveCachedArtwork={resolvePlayerCachedArtwork(host.libraryCache, item)}
           resolveArtworkLocalFile={resolvePlayerArtworkLocalFile(host.libraryCache, item)}
           persistCachedArtwork={persistPlayerCachedArtwork(host.libraryCache, item)}

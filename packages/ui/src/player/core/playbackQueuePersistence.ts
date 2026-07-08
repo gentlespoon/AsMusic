@@ -47,6 +47,8 @@ export function parsePersistedQueue(raw: string | null): PersistedPlaybackQueueV
           suffix: typeof r.suffix === 'string' ? r.suffix : undefined,
           bitRate: typeof r.bitRate === 'number' ? r.bitRate : undefined,
           coverArtId: typeof r.coverArtId === 'string' ? r.coverArtId : undefined,
+          coverArtFallbackId:
+            typeof r.coverArtFallbackId === 'string' ? r.coverArtFallbackId : undefined,
           starred: typeof r.starred === 'boolean' ? r.starred : undefined,
         });
       }

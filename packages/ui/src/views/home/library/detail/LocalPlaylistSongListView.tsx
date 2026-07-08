@@ -20,7 +20,7 @@ import {
   Typography,
 } from "@mui/material";
 import {
-  resolveCoverArtIdForCachedSong,
+  resolveCoverArtIdsForCachedSong,
   isChildStarred,
   libraryCacheScope,
   resolveLocalPlaylistEntries,
@@ -529,16 +529,15 @@ export function LocalPlaylistSongListView({
                   albumsByScope.get(
                     `${row.scope.serverKey}|${row.scope.libraryId}`,
                   ) ?? [];
-                const coverArtId = resolveCoverArtIdForCachedSong(
-                  track,
-                  albums,
-                );
+                const { primary: coverArtId, fallback: fallbackCoverId } =
+                  resolveCoverArtIdsForCachedSong(track, albums);
                 const api = apiForServer(row.serverId);
                 const starred = isChildStarred(track);
                 return (
                   <SongItem
                     track={track}
                     coverArtId={coverArtId}
+                    fallbackCoverArtId={fallbackCoverId}
                     api={api ?? null}
                     resolveCachedArtwork={(id) =>
                       resolveCachedArtworkForScope(row.scope, id)

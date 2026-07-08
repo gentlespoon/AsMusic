@@ -7,7 +7,7 @@ import { Box, IconButton, Stack, TextField, Tooltip, Typography } from "@mui/mat
 import { PageCloseButton } from "@ui/shared/PageCloseButton";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import {
-  resolveCoverArtIdForCachedSong,
+  resolveCoverArtIdsForCachedSong,
   isChildStarred,
   type LibraryArtworkCacheRow,
   type SubsonicAPI,
@@ -205,14 +205,13 @@ export function ArtistAllSongListView({
               components={{ ...virtuosoComponents, List: VirtuosoMuiList }}
               computeItemKey={(_, track) => String(track.id)}
               itemContent={(_, track) => {
-                const coverId = resolveCoverArtIdForCachedSong(
-                  track,
-                  albums,
-                );
+                const { primary: coverId, fallback: fallbackCoverId } =
+                  resolveCoverArtIdsForCachedSong(track, albums);
                 return (
                   <SongItem
                     track={track}
                     coverArtId={coverId}
+                    fallbackCoverArtId={fallbackCoverId}
                     api={api}
                     resolveCachedArtwork={resolveCachedArtwork}
                     persistCachedArtwork={persistCachedArtwork}

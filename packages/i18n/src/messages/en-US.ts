@@ -46,6 +46,8 @@ export const enUSMessages = {
   "home.appBar.playlists": "Playlists",
   "home.appBar.songs": "Songs",
 
+  "library.action.viewAlbum": "View album",
+  "library.action.viewArtist": "View artist",
   "library.activeScope.emptyNeedLibrary":
     "Add a Subsonic-compatible server and activate a library to browse cached music here.",
   "library.activeScope.emptyNeedServer":

@@ -33,6 +33,8 @@ export type SongItemProps = {
   onClick?: () => void;
   onPlayNext?: () => void;
   onAppendToQueue?: () => void;
+  onViewArtist?: () => void;
+  onViewAlbum?: () => void;
   /** When set with `onToggleStar`, shows a favorites control. */
   isStarred?: boolean;
   onToggleStar?: () => void | Promise<void>;

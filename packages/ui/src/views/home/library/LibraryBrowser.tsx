@@ -38,6 +38,7 @@ import {
 import { useLibraryBrowserResolvedScopes } from './browser/useLibraryBrowserResolvedScopes';
 import { useLibraryBrowserTabBar } from './browser/useLibraryBrowserTabBar';
 import { useLibraryBrowserPlayback } from './browser/useLibraryBrowserPlayback';
+import { useSongLibraryNavigation } from './browser/useSongLibraryNavigation';
 import {
   LibraryBrowserPlaylistDeleteDialog,
   useLibraryBrowserPlaylists,
@@ -194,6 +195,21 @@ export function LibraryBrowser() {
     albumsByScope,
   });
 
+  const { openArtistForSong, openAlbumForSong } = useSongLibraryNavigation();
+
+  const viewArtistForSongEntry = useCallback(
+    (entry: { serverId: string; artworkScope: LibraryCacheScope; song: import('subsonic-api').Child }) => {
+      openArtistForSong(entry.serverId, entry.artworkScope.libraryId, entry.song);
+    },
+    [openArtistForSong],
+  );
+
+  const viewAlbumForSongEntry = useCallback(
+    (entry: { serverId: string; artworkScope: LibraryCacheScope; song: import('subsonic-api').Child }) => {
+      openAlbumForSong(entry.serverId, entry.artworkScope.libraryId, entry.song);
+    },
+    [openAlbumForSong],
+  );
 
   const openAlbum = useCallback(
     (row: AlbumCatalogRow) => {
@@ -477,6 +493,14 @@ export function LibraryBrowser() {
               onPlayResolvedRow={playLocalResolvedRow}
               onPlayNextResolvedRow={playNextLocalResolvedRow}
               onAppendResolvedRowToQueue={appendLocalResolvedRowToQueue}
+              onViewArtistResolvedRow={(row) => {
+                if (row.status !== 'available') return;
+                openArtistForSong(row.serverId, row.libraryId, row.song);
+              }}
+              onViewAlbumResolvedRow={(row) => {
+                if (row.status !== 'available') return;
+                openAlbumForSong(row.serverId, row.libraryId, row.song);
+              }}
               onAppendAllToQueue={appendAllLocalPlaylistToQueue}
               onShufflePlayAll={shufflePlayAllLocalPlaylist}
               onReplaceQueueAndPlayAll={replaceQueueAndPlayAllLocalPlaylist}
@@ -530,6 +554,16 @@ export function LibraryBrowser() {
                 const libraryId = resolvedPlaylist.findTrackScope(String(track.id))?.libraryId;
                 if (!libraryId) return;
                 appendForTrack(resolvedPlaylist.serverId, libraryId, track);
+              }}
+              onViewArtist={(track) => {
+                const libraryId = resolvedPlaylist.findTrackScope(String(track.id))?.libraryId;
+                if (!libraryId) return;
+                openArtistForSong(resolvedPlaylist.serverId, libraryId, track);
+              }}
+              onViewAlbum={(track) => {
+                const libraryId = resolvedPlaylist.findTrackScope(String(track.id))?.libraryId;
+                if (!libraryId) return;
+                openAlbumForSong(resolvedPlaylist.serverId, libraryId, track);
               }}
               onAppendAllToQueue={appendAllPlaylistTracksToQueue}
               onShufflePlayAll={shufflePlayAllPlaylistTracks}
@@ -586,6 +620,8 @@ export function LibraryBrowser() {
             onPlaySong={playSongEntryNow}
             onPlayNextSong={playNextForSongEntry}
             onAppendSongToQueue={appendForSongEntry}
+            onViewArtist={viewArtistForSongEntry}
+            onViewAlbum={viewAlbumForSongEntry}
             onAppendAllToQueue={appendAllSongEntriesToQueue}
             onShufflePlayAll={shufflePlayAllSongEntries}
             setTrackStarred={setTrackStarred}
@@ -613,6 +649,9 @@ export function LibraryBrowser() {
               onPlayTrack={(t) => playTrackNow(resolvedAlbum.slice.serverId, resolvedAlbum.slice.libraryId, t)}
               onPlayNextTrack={(t) => playNextForTrack(resolvedAlbum.slice.serverId, resolvedAlbum.slice.libraryId, t)}
               onAppendTrackToQueue={(t) => appendForTrack(resolvedAlbum.slice.serverId, resolvedAlbum.slice.libraryId, t)}
+              onViewArtist={(t) =>
+                openArtistForSong(resolvedAlbum.slice.serverId, resolvedAlbum.slice.libraryId, t)
+              }
               onBack={popAlbumView}
               onAppendAllToQueue={appendAllAlbumTracksToQueue}
               onShufflePlayAll={shufflePlayAllAlbumTracks}
@@ -635,6 +674,9 @@ export function LibraryBrowser() {
               onPlayTrack={(t) => playTrackNow(resolvedArtist.slice.serverId, resolvedArtist.slice.libraryId, t)}
               onPlayNextTrack={(t) => playNextForTrack(resolvedArtist.slice.serverId, resolvedArtist.slice.libraryId, t)}
               onAppendTrackToQueue={(t) => appendForTrack(resolvedArtist.slice.serverId, resolvedArtist.slice.libraryId, t)}
+              onViewAlbum={(t) =>
+                openAlbumForSong(resolvedArtist.slice.serverId, resolvedArtist.slice.libraryId, t)
+              }
               onAppendAllToQueue={appendAllArtistTracksToQueue}
               onShufflePlayAll={shufflePlayAllArtistTracks}
               onBack={popArtistView}
@@ -659,6 +701,8 @@ export function LibraryBrowser() {
               onPlaySong={playSongEntryNow}
               onPlayNextSong={playNextForSongEntry}
               onAppendSongToQueue={appendForSongEntry}
+              onViewArtist={viewArtistForSongEntry}
+              onViewAlbum={viewAlbumForSongEntry}
               onAppendAllToQueue={appendAllSongEntriesToQueue}
               onShufflePlayAll={shufflePlayAllSongEntries}
               setTrackStarred={setTrackStarred}

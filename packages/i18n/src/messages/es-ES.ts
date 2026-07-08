@@ -45,6 +45,8 @@ export const esESMessages = {
   "home.appBar.playlists": "Listas",
   "home.appBar.songs": "Canciones",
 
+  "library.action.viewAlbum": "Ver álbum",
+  "library.action.viewArtist": "Ver artista",
   "library.activeScope.emptyNeedLibrary":
     "Añade un servidor compatible con Subsonic y activa una biblioteca para explorar aquí la música en caché.",
   "library.activeScope.emptyNeedServer":

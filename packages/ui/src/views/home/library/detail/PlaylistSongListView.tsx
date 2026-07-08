@@ -39,6 +39,7 @@ import { useHost } from '@ui/host/HostContext';
 import {
   songHasViewableAlbum,
   songHasViewableArtist,
+} from '../browser/useSongLibraryNavigation';
 
 export function PlaylistSongListView({
   playlistId,
@@ -59,6 +60,8 @@ export function PlaylistSongListView({
   onPlayTrack,
   onPlayNextTrack,
   onAppendTrackToQueue,
+  onViewArtist,
+  onViewAlbum,
   onAppendAllToQueue,
   onShufflePlayAll,
   onReplaceQueueAndPlayAll,
@@ -86,6 +89,8 @@ export function PlaylistSongListView({
   onPlayTrack?: (track: Child) => void;
   onPlayNextTrack?: (track: Child) => void;
   onAppendTrackToQueue?: (track: Child) => void;
+  onViewArtist?: (track: Child) => void;
+  onViewAlbum?: (track: Child) => void;
   onAppendAllToQueue?: (tracks: Child[]) => void;
   onShufflePlayAll?: (tracks: Child[]) => void;
   onReplaceQueueAndPlayAll?: (tracks: Child[]) => void;
@@ -382,6 +387,16 @@ export function PlaylistSongListView({
                     onPlayNext={onPlayNextTrack ? () => onPlayNextTrack(track) : undefined}
                     onAppendToQueue={
                       onAppendTrackToQueue ? () => onAppendTrackToQueue(track) : undefined
+                    }
+                    onViewArtist={
+                      onViewArtist && songHasViewableArtist(track)
+                        ? () => onViewArtist(track)
+                        : undefined
+                    }
+                    onViewAlbum={
+                      onViewAlbum && songHasViewableAlbum(track)
+                        ? () => onViewAlbum(track)
+                        : undefined
                     }
                     isStarred={setTrackStarred && libraryId ? starred : undefined}
                     onToggleStar={

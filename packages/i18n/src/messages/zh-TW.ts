@@ -45,6 +45,8 @@ export const zhTWMessages = {
   "home.appBar.playlists": "播放清單",
   "home.appBar.songs": "歌曲",
 
+  "library.action.viewAlbum": "檢視專輯",
+  "library.action.viewArtist": "檢視藝人",
   "library.activeScope.emptyNeedLibrary":
     "新增相容 Subsonic 的伺服器並啟用資料庫，即可在此瀏覽快取的音樂。",
   "library.activeScope.emptyNeedServer":

@@ -21,6 +21,7 @@ import { useLibraryVirtuosoScroller } from "@ui/shared/useLibraryVirtuosoScrolle
 import { VirtuosoMuiList } from "@ui/shared/virtuosoMuiList";
 import {
   songHasViewableAlbum,
+} from "../browser/useSongLibraryNavigation";
 
 export function ArtistAllSongListView({
   artistName,
@@ -37,6 +38,7 @@ export function ArtistAllSongListView({
   onPlayTrack,
   onPlayNextTrack,
   onAppendTrackToQueue,
+  onViewAlbum,
   onAppendAllToQueue,
   onShufflePlayAll,
   serverId,
@@ -61,6 +63,7 @@ export function ArtistAllSongListView({
   onPlayTrack?: (track: Child) => void;
   onPlayNextTrack?: (track: Child) => void;
   onAppendTrackToQueue?: (track: Child) => void;
+  onViewAlbum?: (track: Child) => void;
   /** Append every track currently shown (respects the search filter). */
   onAppendAllToQueue?: (tracks: Child[]) => void;
   /** Replace the queue with a shuffled copy of the tracks currently shown, then play. */
@@ -227,6 +230,11 @@ export function ArtistAllSongListView({
                     onAppendToQueue={
                       onAppendTrackToQueue
                         ? () => onAppendTrackToQueue(track)
+                        : undefined
+                    }
+                    onViewAlbum={
+                      onViewAlbum && songHasViewableAlbum(track)
+                        ? () => onViewAlbum(track)
                         : undefined
                     }
                     isStarred={setTrackStarred ? isChildStarred(track) : undefined}

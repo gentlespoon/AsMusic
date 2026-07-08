@@ -53,6 +53,7 @@ import { libraryRefKey } from "@ui/contexts/LibraryBrowseCacheContext";
 import {
   songHasViewableAlbum,
   songHasViewableArtist,
+} from "../browser/useSongLibraryNavigation";
 
 type LocalPlaylistRow = LocalPlaylistResolvedEntry & { rowKey: string };
 
@@ -93,6 +94,8 @@ export function LocalPlaylistSongListView({
   onPlayResolvedRow,
   onPlayNextResolvedRow,
   onAppendResolvedRowToQueue,
+  onViewArtistResolvedRow,
+  onViewAlbumResolvedRow,
   onAppendAllToQueue,
   onShufflePlayAll,
   onReplaceQueueAndPlayAll,
@@ -124,6 +127,8 @@ export function LocalPlaylistSongListView({
   onPlayResolvedRow: (row: LocalPlaylistResolvedEntry) => void;
   onPlayNextResolvedRow: (row: LocalPlaylistResolvedEntry) => void;
   onAppendResolvedRowToQueue: (row: LocalPlaylistResolvedEntry) => void;
+  onViewArtistResolvedRow?: (row: LocalPlaylistResolvedEntry) => void;
+  onViewAlbumResolvedRow?: (row: LocalPlaylistResolvedEntry) => void;
   onAppendAllToQueue: () => void;
   onShufflePlayAll: () => void;
   onReplaceQueueAndPlayAll: () => void;
@@ -553,6 +558,16 @@ export function LocalPlaylistSongListView({
                     onClick={() => onPlayResolvedRow(row)}
                     onPlayNext={() => onPlayNextResolvedRow(row)}
                     onAppendToQueue={() => onAppendResolvedRowToQueue(row)}
+                    onViewArtist={
+                      onViewArtistResolvedRow && songHasViewableArtist(track)
+                        ? () => onViewArtistResolvedRow(row)
+                        : undefined
+                    }
+                    onViewAlbum={
+                      onViewAlbumResolvedRow && songHasViewableAlbum(track)
+                        ? () => onViewAlbumResolvedRow(row)
+                        : undefined
+                    }
                     isStarred={setTrackStarred ? starred : undefined}
                     onToggleStar={
                       setTrackStarred

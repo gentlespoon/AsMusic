@@ -45,6 +45,8 @@ export const jaJPMessages = {
   "home.appBar.playlists": "プレイリスト",
   "home.appBar.songs": "曲",
 
+  "library.action.viewAlbum": "アルバムを表示",
+  "library.action.viewArtist": "アーティストを表示",
   "library.activeScope.emptyNeedLibrary":
     "Subsonic 互換サーバーを追加し、ライブラリを有効にすると、ここでキャッシュ済みの音楽を閲覧できます。",
   "library.activeScope.emptyNeedServer":

@@ -45,6 +45,8 @@ export const zhCNMessages = {
   "home.appBar.playlists": "播放列表",
   "home.appBar.songs": "歌曲",
 
+  "library.action.viewAlbum": "查看专辑",
+  "library.action.viewArtist": "查看艺术家",
   "library.activeScope.emptyNeedLibrary":
     "添加兼容 Subsonic 的服务器并启用资料库，即可在此浏览缓存的音乐。",
   "library.activeScope.emptyNeedServer":

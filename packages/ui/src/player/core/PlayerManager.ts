@@ -145,6 +145,8 @@ export class PlayerManager {
   private loadTrackSeq = 0;
   private handlingPlaybackEnded = false;
   private handlingPlaybackFailure = false;
+  /** Consecutive track failures without confirmed playback; survives async iOS AVPlayer errors. */
+  private consecutivePlaybackFailures = 0;
 
   private toastSeq = 0;
   private toastSnapshot: PlayerToastEvent | null = null;
@@ -213,6 +215,10 @@ export class PlayerManager {
     this.positionSeconds = s.positionSeconds;
     this.durationSeconds = s.durationSeconds;
     this.isPlaying = s.isPlaying;
+
+    if (s.isPlaying && s.durationSeconds > 0) {
+      this.consecutivePlaybackFailures = 0;
+    }
 
     const urgent =
       prevPlaying !== this.isPlaying ||
@@ -562,6 +568,7 @@ export class PlayerManager {
       return;
     }
     this.handlingPlaybackEnded = true;
+    this.consecutivePlaybackFailures = 0;
     try {
       const idx = this.currentIndex;
       if (idx === null || this.queue.length === 0) {
@@ -627,10 +634,14 @@ export class PlayerManager {
     if (this.handlingPlaybackFailure || this.handlingPlaybackEnded) {
       return;
     }
+    const failureLimit = getPlaybackFailureAutoSkipLimit();
+    if (this.consecutivePlaybackFailures >= failureLimit) {
+      return;
+    }
     this.handlingPlaybackFailure = true;
     try {
+      this.consecutivePlaybackFailures += 1;
       let lastError = errorMessage;
-      let consecutiveFailures = 1;
       while (true) {
         const idx = this.currentIndex;
         if (idx === null || this.queue.length === 0) {
@@ -638,7 +649,7 @@ export class PlayerManager {
           this.emit();
           return;
         }
-        if (consecutiveFailures >= getPlaybackFailureAutoSkipLimit()) {
+        if (this.consecutivePlaybackFailures >= failureLimit) {
           this.loadError = lastError;
           this.isPlaying = false;
           try {
@@ -669,7 +680,7 @@ export class PlayerManager {
           this.schedulePersist();
           return;
         }
-        consecutiveFailures += 1;
+        this.consecutivePlaybackFailures += 1;
         lastError = this.loadError ?? lastError;
       }
     } finally {
@@ -931,6 +942,7 @@ export class PlayerManager {
     this.queue = ensureQueueRowIds(items.slice());
     this.currentIndex = clamped;
     this.loadError = null;
+    this.consecutivePlaybackFailures = 0;
     this.emit();
     await this.loadCurrentTrack({ autoplay: true });
     this.schedulePersist();
@@ -1003,6 +1015,7 @@ export class PlayerManager {
     if (idx + 1 < this.queue.length) {
       this.currentIndex = idx + 1;
       this.loadError = null;
+      this.consecutivePlaybackFailures = 0;
       this.emit();
       await this.loadCurrentTrack({ autoplay: true });
       this.schedulePersist();
@@ -1011,6 +1024,7 @@ export class PlayerManager {
     if (this.loopQueue) {
       this.currentIndex = 0;
       this.loadError = null;
+      this.consecutivePlaybackFailures = 0;
       this.emit();
       await this.loadCurrentTrack({ autoplay: true });
       this.schedulePersist();
@@ -1025,6 +1039,7 @@ export class PlayerManager {
     if (idx > 0) {
       this.currentIndex = idx - 1;
       this.loadError = null;
+      this.consecutivePlaybackFailures = 0;
       this.emit();
       await this.loadCurrentTrack({ autoplay: true });
       this.schedulePersist();
@@ -1033,6 +1048,7 @@ export class PlayerManager {
     if (this.loopQueue) {
       this.currentIndex = this.queue.length - 1;
       this.loadError = null;
+      this.consecutivePlaybackFailures = 0;
       this.emit();
       await this.loadCurrentTrack({ autoplay: true });
       this.schedulePersist();
@@ -1051,6 +1067,7 @@ export class PlayerManager {
       this.queue = normalized;
       this.currentIndex = 0;
       this.loadError = null;
+      this.consecutivePlaybackFailures = 0;
       this.emit();
       await this.loadCurrentTrack({ autoplay: true });
       this.schedulePersist();
@@ -1088,6 +1105,7 @@ export class PlayerManager {
     if (playFirst) {
       this.currentIndex = insertAt;
       this.loadError = null;
+      this.consecutivePlaybackFailures = 0;
       this.emit();
       await this.loadCurrentTrack({ autoplay: true });
     } else {
@@ -1102,6 +1120,7 @@ export class PlayerManager {
     }
     this.currentIndex = index;
     this.loadError = null;
+    this.consecutivePlaybackFailures = 0;
     this.emit();
     await this.loadCurrentTrack({ autoplay: true });
     this.schedulePersist();

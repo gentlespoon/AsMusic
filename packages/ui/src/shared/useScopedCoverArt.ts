@@ -1,7 +1,8 @@
 import { useCallback, useMemo } from 'react';
-import type { LibraryCacheScope } from '@asmusic/core';
+import type { LibraryCacheScope, SubsonicAPI } from '@asmusic/core';
 import { useLibraryBrowseCache } from '@ui/contexts/LibraryBrowseCacheContext';
 import { useHost } from '@ui/host/HostContext';
+import { buildCoverArtSources } from '@ui/shared/coverArt';
 import { createResolveCachedArtwork } from './createResolveCachedArtwork';
 import { createPersistCachedArtworkForScope } from './libraryArtworkCacheAccess';
 
@@ -10,8 +11,10 @@ export function useScopedCoverArt(args: {
   serverUrl: string;
   username: string;
   libraryId: string;
+  api?: SubsonicAPI | null;
+  getCoverArtUrl?: (coverArtId: string) => string | null;
 }) {
-  const { scope, serverUrl, username, libraryId } = args;
+  const { scope, serverUrl, username, libraryId, api, getCoverArtUrl } = args;
   const host = useHost();
   const { artworkVersionKey, getArtworkCacheBump } = useLibraryBrowseCache();
 
@@ -25,10 +28,23 @@ export function useScopedCoverArt(args: {
     return (coverArtId: string) => host.libraryCache.readArtworkLocalFile!(scope, coverArtId);
   }, [host.libraryCache, scope]);
 
-  // Disk writes are best-effort; do not bump UI cache keys (avoids remount storms).
   const persistCachedArtwork = useMemo(
     () => createPersistCachedArtworkForScope(host.libraryCache, scope),
     [host.libraryCache, scope],
+  );
+
+  const sources = useMemo(
+    () =>
+      buildCoverArtSources({
+        libraryCache: host.libraryCache,
+        serverUrl,
+        username,
+        libraryId,
+        scope,
+        api,
+        getCoverArtUrl,
+      }),
+    [api, getCoverArtUrl, host.libraryCache, libraryId, scope, serverUrl, username],
   );
 
   const artworkCacheKeyFor = useCallback(
@@ -42,10 +58,12 @@ export function useScopedCoverArt(args: {
   );
 
   return {
+    sources,
     resolveCachedArtwork,
     resolveArtworkLocalFile,
     persistCachedArtwork,
     artworkCacheKeyFor,
     artworkCacheBumpFor,
+    buildNetworkUrl: getCoverArtUrl,
   };
 }

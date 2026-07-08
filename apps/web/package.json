@@ -9,7 +9,9 @@
     "cap:sync": "pnpm run build && pnpm exec cap sync ios",
     "cap:open:ios": "pnpm exec cap open ios",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "pnpm -w vitest run --project asmusic-web",
+    "test:watch": "pnpm -w vitest --project asmusic-web"
   },
   "dependencies": {
     "@asmusic/ui": "workspace:*",

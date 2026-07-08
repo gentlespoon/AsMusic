@@ -1,17 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
-import type { SubsonicAPI, LibraryCacheStorage } from '@asmusic/core';
+import type { SubsonicAPI } from '@asmusic/core';
 import type { PlayerQueueItem } from '@ui/player/core/types';
 import { CoverArtThumb } from '@ui/shared/CoverArtThumb';
 import { CoverArtPlaceholder } from '@ui/shared/CoverArtPlaceholder';
-import { useHost } from '@ui/host/HostContext';
-import { usePlayerArtworkCacheKey } from './usePlayerArtworkCacheKey';
-import { usePlayerCoverArtCacheBump } from './usePlayerCoverArtCacheBump';
-import {
-  persistPlayerCachedArtwork,
-  resolvePlayerArtworkLocalFile,
-  resolvePlayerCachedArtwork,
-} from './resolvePlayerCachedArtwork';
+import { usePlayerCoverArt } from './usePlayerCoverArt';
 
 export type PlayerCoverArtBeltProps = {
   slots: PlayerQueueItem[];
@@ -26,30 +19,26 @@ function PlayerCoverArtThumb({
   slot,
   api,
   coverSizePx,
-  libraryCache,
 }: {
   slot: PlayerQueueItem;
   api: SubsonicAPI | undefined;
   coverSizePx: number;
-  libraryCache: LibraryCacheStorage;
 }) {
-  const artworkCacheBump = usePlayerCoverArtCacheBump(slot);
-  const artworkCacheKey = usePlayerArtworkCacheKey(slot);
+  const cover = usePlayerCoverArt(slot, api);
 
-  if (!slot.coverArtId) {
+  if (!slot.coverArtId || !cover.sources) {
     return <CoverArtPlaceholder sx={{ width: '100%', height: '100%' }} />;
   }
 
   return (
     <CoverArtThumb
       api={api}
+      sources={cover.sources}
       coverArtId={slot.coverArtId}
       fallbackCoverArtId={slot.coverArtFallbackId}
-      resolveCachedArtwork={resolvePlayerCachedArtwork(libraryCache, slot)}
-      resolveArtworkLocalFile={resolvePlayerArtworkLocalFile(libraryCache, slot)}
-      persistCachedArtwork={persistPlayerCachedArtwork(libraryCache, slot)}
-      artworkCacheKey={artworkCacheKey}
-      artworkCacheBump={artworkCacheBump}
+      artworkCacheKey={cover.artworkCacheKey}
+      artworkCacheBump={cover.artworkCacheBump}
+      loadImmediately
       size={coverSizePx}
       label=""
       sx={{ width: '100%', height: '100%', objectFit: 'contain' }}
@@ -65,7 +54,6 @@ export function PlayerCoverArtBelt({
   coverSizePx,
   getApiForServer,
 }: PlayerCoverArtBeltProps) {
-  const host = useHost();
   const serverIds = useMemo(
     () => [...new Set(slots.map((s) => s.serverId))],
     [slots],
@@ -110,12 +98,7 @@ export function PlayerCoverArtBelt({
           justifyContent: 'center',
         }}
       >
-        <PlayerCoverArtThumb
-          slot={slot}
-          api={api}
-          coverSizePx={coverSizePx}
-          libraryCache={host.libraryCache}
-        />
+        <PlayerCoverArtThumb slot={slot} api={api} coverSizePx={coverSizePx} />
       </Box>
     );
   }
@@ -149,12 +132,7 @@ export function PlayerCoverArtBelt({
                 boxSizing: 'border-box',
               }}
             >
-              <PlayerCoverArtThumb
-                slot={slot}
-                api={api}
-                coverSizePx={coverSizePx}
-                libraryCache={host.libraryCache}
-              />
+              <PlayerCoverArtThumb slot={slot} api={api} coverSizePx={coverSizePx} />
             </Box>
           );
         })}

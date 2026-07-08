@@ -2,15 +2,8 @@ import Box from "@mui/material/Box";
 import type { SubsonicAPI } from "@asmusic/core";
 import { CoverArtThumb } from "@ui/shared/CoverArtThumb";
 import { CoverArtPlaceholder } from "@ui/shared/CoverArtPlaceholder";
-import { useHost } from "@ui/host/HostContext";
 import type { PlayerQueueItem } from "@ui/player/core/types";
-import { usePlayerArtworkCacheKey } from "@ui/player/shared/usePlayerArtworkCacheKey";
-import { usePlayerCoverArtCacheBump } from "@ui/player/shared/usePlayerCoverArtCacheBump";
-import {
-  persistPlayerCachedArtwork,
-  resolvePlayerArtworkLocalFile,
-  resolvePlayerCachedArtwork,
-} from "@ui/player/shared/resolvePlayerCachedArtwork";
+import { usePlayerCoverArt } from "@ui/player/shared/usePlayerCoverArt";
 
 const COVER_SIZE = 40;
 
@@ -20,9 +13,7 @@ export type PlayerMiniBarCoverArtProps = {
 };
 
 export function PlayerMiniBarCoverArt({ item, api }: PlayerMiniBarCoverArtProps) {
-  const host = useHost();
-  const artworkCacheBump = usePlayerCoverArtCacheBump(item);
-  const artworkCacheKey = usePlayerArtworkCacheKey(item);
+  const cover = usePlayerCoverArt(item, api);
 
   return (
     <Box
@@ -34,17 +25,16 @@ export function PlayerMiniBarCoverArt({ item, api }: PlayerMiniBarCoverArtProps)
         flexShrink: 0,
       }}
     >
-      {item?.coverArtId ? (
+      {cover.coverArtId && cover.sources ? (
         <CoverArtThumb
-          key={item.rowId}
+          key={item?.rowId}
           api={api ?? undefined}
-          coverArtId={item.coverArtId}
-          fallbackCoverArtId={item.coverArtFallbackId}
-          resolveCachedArtwork={resolvePlayerCachedArtwork(host.libraryCache, item)}
-          resolveArtworkLocalFile={resolvePlayerArtworkLocalFile(host.libraryCache, item)}
-          persistCachedArtwork={persistPlayerCachedArtwork(host.libraryCache, item)}
-          artworkCacheKey={artworkCacheKey}
-          artworkCacheBump={artworkCacheBump}
+          sources={cover.sources}
+          coverArtId={cover.coverArtId}
+          fallbackCoverArtId={cover.fallbackCoverArtId}
+          artworkCacheKey={cover.artworkCacheKey}
+          artworkCacheBump={cover.artworkCacheBump}
+          loadImmediately
           size={COVER_SIZE}
           label=""
           sx={{ width: COVER_SIZE, height: COVER_SIZE }}

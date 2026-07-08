@@ -1,25 +1,29 @@
-import { useEffect, useRef, useState } from 'react';
-import { Capacitor } from '@capacitor/core';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Box from '@mui/material/Box';
 import type { SxProps, Theme } from '@mui/material/styles';
-import { CANONICAL_COVER_ART_SIZE, type SubsonicAPI } from '@asmusic/core';
+import type { SubsonicAPI } from '@asmusic/core';
 import type { LibraryArtworkCacheRow } from '@asmusic/core';
 import type { PersistCachedArtwork } from './libraryArtworkCacheAccess';
-import { artworkDisplayMimeType, isValidImageBytes } from './artworkDisplayMimeType';
 import { CoverArtPlaceholder } from './CoverArtPlaceholder';
-import type { CoverArtFailureReason } from './defaultCoverArtPlaceholder';
 import {
+  buildCoverArtSourcesFromThumbProps,
   logCoverArtUnavailable,
-} from './defaultCoverArtPlaceholder';
+  resolveCoverArt,
+  toThumbDisplayUrl,
+  type CoverArtSources,
+} from './coverArt';
 import {
   acquireCoverArtUrl,
   buildCoverArtCacheKey,
   getOrStartCoverArtLoad,
+  invalidateCoverArtUrl,
   peekCoverArtUrl,
   releaseCoverArtUrl,
 } from './coverArtObjectUrlCache';
 
 type Props = {
+  /** Prebuilt resolver sources (preferred over individual callbacks). */
+  sources?: CoverArtSources;
   /** When omitted, cover art loads from `resolveCachedArtwork` only (offline-safe). */
   api?: SubsonicAPI | null;
   coverArtId?: string;
@@ -29,6 +33,11 @@ type Props = {
   resolveArtworkLocalFile?: (
     coverArtId: string,
   ) => Promise<{ localFilePath: string; mimeType: string } | null>;
+  /**
+   * Authenticated cover-art URL (e.g. `getCoverArt.view` with token params).
+   * Matches the lock-screen fallback when blob/local paths fail in the WebView.
+   */
+  resolveCoverArtNetworkUrl?: (coverArtId: string) => string | null;
   /** When set with `resolveCachedArtwork`, successful network fetches are written here. */
   persistCachedArtwork?: PersistCachedArtwork;
   /** Increment when this id was written to local cache so the image reloads from storage. */
@@ -37,7 +46,9 @@ type Props = {
   artworkCacheKey?: string;
   /** When the primary `coverArtId` cannot be loaded, try this id (e.g. album art). */
   fallbackCoverArtId?: string;
-  /** Display-only hint (network always uses {@link CANONICAL_COVER_ART_SIZE}). */
+  /** Skip viewport lazy-load (player chrome is always on-screen). */
+  loadImmediately?: boolean;
+  /** Display-only hint (network always uses canonical 512px fetch). */
   size?: number;
   sx?: SxProps<Theme>;
   label?: string;
@@ -60,31 +71,51 @@ type LoadState = 'idle' | 'loading' | 'ready' | 'failed';
  * native artwork writes during library refresh.
  */
 export function CoverArtThumb({
+  sources: sourcesProp,
   api,
   coverArtId,
   fallbackCoverArtId,
   resolveCachedArtwork,
   resolveArtworkLocalFile,
+  resolveCoverArtNetworkUrl,
   persistCachedArtwork,
   artworkCacheBump = 0,
   artworkCacheKey,
+  loadImmediately = false,
   sx,
   label,
 }: Props) {
   const rootRef = useRef<HTMLDivElement | null>(null);
-  const resolveCachedArtworkRef = useRef(resolveCachedArtwork);
-  resolveCachedArtworkRef.current = resolveCachedArtwork;
-  const resolveArtworkLocalFileRef = useRef(resolveArtworkLocalFile);
-  resolveArtworkLocalFileRef.current = resolveArtworkLocalFile;
-  const persistCachedArtworkRef = useRef(persistCachedArtwork);
-  persistCachedArtworkRef.current = persistCachedArtwork;
+  const sources = useMemo(
+    () =>
+      sourcesProp ??
+      buildCoverArtSourcesFromThumbProps({
+        api,
+        resolveCachedArtwork,
+        resolveArtworkLocalFile,
+        resolveCoverArtNetworkUrl,
+        persistCachedArtwork,
+      }),
+    [
+      sourcesProp,
+      api,
+      resolveCachedArtwork,
+      resolveArtworkLocalFile,
+      resolveCoverArtNetworkUrl,
+      persistCachedArtwork,
+    ],
+  );
+  const sourcesRef = useRef(sources);
+  sourcesRef.current = sources;
 
   const cacheKey =
     coverArtId && (api || artworkCacheKey)
       ? buildCoverArtCacheKey(coverArtId, artworkCacheBump, { api, artworkCacheKey })
       : null;
 
-  const [inView, setInView] = useState(() => (cacheKey ? Boolean(peekCoverArtUrl(cacheKey)) : false));
+  const [inView, setInView] = useState(
+    () => loadImmediately || (cacheKey ? Boolean(peekCoverArtUrl(cacheKey)) : false),
+  );
   const [src, setSrc] = useState<string | null>(() =>
     cacheKey ? peekCoverArtUrl(cacheKey) : null,
   );
@@ -92,13 +123,18 @@ export function CoverArtThumb({
     cacheKey && peekCoverArtUrl(cacheKey) ? 'ready' : 'idle',
   );
   const srcCacheKeyRef = useRef<string | null>(cacheKey);
-  const loggedFailureRef = useRef(false);
+  const usedNetworkUrlFallbackRef = useRef(false);
 
   useEffect(() => {
-    loggedFailureRef.current = false;
+    usedNetworkUrlFallbackRef.current = false;
   }, [cacheKey, coverArtId, fallbackCoverArtId, artworkCacheBump, artworkCacheKey]);
 
   useEffect(() => {
+    if (loadImmediately) {
+      setInView(true);
+      return;
+    }
+
     if (!coverArtId || !cacheKey) {
       setInView(false);
       return;
@@ -108,7 +144,6 @@ export function CoverArtThumb({
       return;
     }
 
-    // Virtuoso recycles row components: reset until this id is near the viewport.
     setInView(false);
 
     const el = rootRef.current;
@@ -133,7 +168,7 @@ export function CoverArtThumb({
     );
     io.observe(el);
     return () => io.disconnect();
-  }, [cacheKey, coverArtId]);
+  }, [cacheKey, coverArtId, loadImmediately]);
 
   useEffect(() => {
     if (!coverArtId || !cacheKey || !inView) {
@@ -164,101 +199,16 @@ export function CoverArtThumb({
       idsToTry.push(fallbackId);
     }
 
-    const reportFailure = (
-      reason: CoverArtFailureReason,
-      extra?: { attemptedId?: string; detail?: string; error?: unknown },
-    ) => {
-      if (loggedFailureRef.current) return;
-      loggedFailureRef.current = true;
-      logCoverArtUnavailable({
-        coverArtId,
-        fallbackCoverArtId: fallbackId,
-        reason,
-        ...extra,
-      });
-    };
-
     void getOrStartCoverArtLoad(cacheKey, async () => {
-      const failures: Array<{ attemptedId: string; reason: CoverArtFailureReason; detail?: string }> =
-        [];
-
-      try {
-        for (const id of idsToTry) {
-          if (cancelled) return null;
-
-          const resolveLocal = resolveArtworkLocalFileRef.current;
-          if (resolveLocal) {
-            const local = await resolveLocal(id);
-            if (cancelled) return null;
-            if (local?.localFilePath) {
-              return Capacitor.convertFileSrc(local.localFilePath);
-            }
-          }
-
-          let blob: Blob | null = null;
-          const resolve = resolveCachedArtworkRef.current;
-          const fromDisk = resolve ? await resolve(id) : null;
-          if (cancelled) return null;
-          if (fromDisk?.data?.byteLength) {
-            if (!isValidImageBytes(fromDisk.data)) {
-              failures.push({ attemptedId: id, reason: 'invalid_image_bytes' });
-              continue;
-            }
-            const mimeType = artworkDisplayMimeType(fromDisk.data, fromDisk.mimeType);
-            blob = new Blob([fromDisk.data], { type: mimeType });
-          } else if (api) {
-            try {
-              const res = await api.getCoverArt({ id, size: CANONICAL_COVER_ART_SIZE });
-              if (cancelled) return null;
-              if (res.ok) {
-                const raw = new Uint8Array(await res.arrayBuffer());
-                if (cancelled) return null;
-                if (!isValidImageBytes(raw)) {
-                  failures.push({ attemptedId: id, reason: 'invalid_image_bytes' });
-                  continue;
-                }
-                const mimeType = artworkDisplayMimeType(
-                  raw,
-                  res.headers.get('content-type') ?? undefined,
-                );
-                const persist = persistCachedArtworkRef.current;
-                if (persist && !cancelled) {
-                  // Persist the id that actually loaded (may be the album fallback).
-                  void persist(id, { data: raw, mimeType }).catch(() => undefined);
-                }
-                blob = new Blob([raw], { type: mimeType });
-              } else {
-                failures.push({
-                  attemptedId: id,
-                  reason: 'network_not_ok',
-                  detail: `HTTP ${res.status}`,
-                });
-              }
-            } catch (error) {
-              failures.push({
-                attemptedId: id,
-                reason: 'network_error',
-                detail: error instanceof Error ? error.message : String(error),
-              });
-            }
-          } else if (!resolve) {
-            failures.push({ attemptedId: id, reason: 'no_api_or_cache' });
-          }
-
-          if (!blob) continue;
-          return URL.createObjectURL(blob);
-        }
-
-        reportFailure('all_sources_exhausted', {
-          detail: failures
-            .map((f) => `${f.attemptedId}:${f.reason}${f.detail ? `(${f.detail})` : ''}`)
-            .join(', '),
-        });
-        return null;
-      } catch (error) {
-        reportFailure('unknown', { error });
+      if (cancelled) return null;
+      const resolved = await resolveCoverArt(idsToTry, sourcesRef.current, {
+        logContext: { coverArtId, fallbackCoverArtId: fallbackId },
+      });
+      if (cancelled) return null;
+      if (resolved.kind === 'unavailable' || resolved.kind === 'placeholder') {
         return null;
       }
+      return toThumbDisplayUrl(resolved);
     }).then((url) => {
       if (cancelled) return;
       if (url) {
@@ -275,10 +225,34 @@ export function CoverArtThumb({
       cancelled = true;
       releaseCoverArtUrl(cacheKey);
     };
-  }, [api, cacheKey, coverArtId, fallbackCoverArtId, artworkCacheBump, artworkCacheKey, inView]);
+  }, [api, cacheKey, coverArtId, fallbackCoverArtId, artworkCacheBump, artworkCacheKey, inView, sources]);
 
   const displaySrc = srcCacheKeyRef.current === cacheKey ? src : null;
   const combinedSx = [...(Array.isArray(sx) ? sx : sx ? [sx] : [])];
+
+  const tryNetworkUrlFallback = () => {
+    if (usedNetworkUrlFallbackRef.current) return false;
+    const buildUrl = sourcesRef.current.buildNetworkUrl;
+    if (!buildUrl) return false;
+
+    const ids = [coverArtId, fallbackCoverArtId?.trim()].filter(
+      (id): id is string => Boolean(id?.trim()),
+    );
+    const seen = new Set<string>();
+    for (const id of ids) {
+      const trimmed = id.trim();
+      if (seen.has(trimmed)) continue;
+      seen.add(trimmed);
+      const url = buildUrl(trimmed);
+      if (!url) continue;
+      usedNetworkUrlFallbackRef.current = true;
+      if (cacheKey) invalidateCoverArtUrl(cacheKey);
+      setSrc(url);
+      setLoadState('ready');
+      return true;
+    }
+    return false;
+  };
 
   if (!coverArtId || loadState === 'failed') {
     return <CoverArtPlaceholder ref={rootRef} label={label} sx={combinedSx} />;
@@ -303,12 +277,22 @@ export function CoverArtThumb({
       alt={label ?? ''}
       sx={[baseCoverSx, { objectFit: 'cover' }, ...combinedSx]}
       onError={() => {
+        if (tryNetworkUrlFallback()) {
+          logCoverArtUnavailable({
+            coverArtId,
+            fallbackCoverArtId: fallbackCoverArtId?.trim(),
+            reason: 'image_decode_error',
+            detail: `recovered via network URL after ${displaySrc}`,
+          });
+          return;
+        }
         logCoverArtUnavailable({
           coverArtId,
           fallbackCoverArtId: fallbackCoverArtId?.trim(),
           reason: 'image_decode_error',
           detail: displaySrc,
         });
+        if (cacheKey) invalidateCoverArtUrl(cacheKey);
         setSrc(null);
         setLoadState('failed');
       }}

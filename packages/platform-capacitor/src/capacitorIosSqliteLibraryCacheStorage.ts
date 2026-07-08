@@ -27,6 +27,27 @@ function base64ToUint8(b64: string): Uint8Array {
   return out;
 }
 
+/** Cap concurrent large base64→SQLite artwork writes so they cannot starve library sync RPCs. */
+const MAX_ARTWORK_PUT_INFLIGHT = 2;
+let artworkPutInflight = 0;
+const artworkPutWaiters: Array<() => void> = [];
+
+async function withArtworkPutSlot<T>(fn: () => Promise<T>): Promise<T> {
+  while (artworkPutInflight >= MAX_ARTWORK_PUT_INFLIGHT) {
+    await new Promise<void>((resolve) => {
+      artworkPutWaiters.push(resolve);
+    });
+  }
+  artworkPutInflight += 1;
+  try {
+    return await fn();
+  } finally {
+    artworkPutInflight -= 1;
+    const next = artworkPutWaiters.shift();
+    next?.();
+  }
+}
+
 /**
  * iOS native SQLite library cache via `AsmusicNative` Capacitor plugin.
  * Matches {@link LibraryCacheStorage} semantics used by IndexedDB on web.
@@ -132,13 +153,15 @@ export function createCapacitorIosSqliteLibraryCacheStorage(): LibraryCacheStora
       await AsmusicNative.libraryCachePurgeAllArtwork();
     },
     async putArtworkBlob(scope, entry) {
-      await AsmusicNative.libraryCachePutArtworkBlob({
-        serverKey: scope.serverKey,
-        libraryId: scope.libraryId,
-        coverArtId: entry.coverArtId,
-        mimeType: entry.mimeType,
-        base64: uint8ToBase64(entry.data),
-      });
+      await withArtworkPutSlot(() =>
+        AsmusicNative.libraryCachePutArtworkBlob({
+          serverKey: scope.serverKey,
+          libraryId: scope.libraryId,
+          coverArtId: entry.coverArtId,
+          mimeType: entry.mimeType,
+          base64: uint8ToBase64(entry.data),
+        }),
+      );
     },
     async readArtworkBlob(scope, coverArtId) {
       const r = await AsmusicNative.libraryCacheReadArtworkBlob({

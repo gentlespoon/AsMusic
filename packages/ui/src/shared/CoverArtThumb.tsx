@@ -58,6 +58,10 @@ function coverPlaceholderGradient(theme: Theme): string {
 /**
  * Loads cover art through the authenticated Subsonic client (works for Navidrome
  * token auth and standard password token/salt URLs).
+ *
+ * Network + disk work starts only after the thumb intersects the viewport (or has a
+ * warm in-memory URL), so background tabs / off-screen Virtuoso rows do not flood
+ * native artwork writes during library refresh.
  */
 export function CoverArtThumb({
   api,
@@ -71,6 +75,7 @@ export function CoverArtThumb({
   sx,
   label,
 }: Props) {
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const resolveCachedArtworkRef = useRef(resolveCachedArtwork);
   resolveCachedArtworkRef.current = resolveCachedArtwork;
   const resolveArtworkLocalFileRef = useRef(resolveArtworkLocalFile);
@@ -83,6 +88,7 @@ export function CoverArtThumb({
       ? buildCoverArtCacheKey(coverArtId, artworkCacheBump, { api, artworkCacheKey })
       : null;
 
+  const [inView, setInView] = useState(() => (cacheKey ? Boolean(peekCoverArtUrl(cacheKey)) : false));
   const [src, setSrc] = useState<string | null>(() =>
     cacheKey ? peekCoverArtUrl(cacheKey) : null,
   );
@@ -90,6 +96,43 @@ export function CoverArtThumb({
 
   useEffect(() => {
     if (!coverArtId || !cacheKey) {
+      setInView(false);
+      return;
+    }
+    if (peekCoverArtUrl(cacheKey)) {
+      setInView(true);
+      return;
+    }
+
+    // Virtuoso recycles row components: reset until this id is near the viewport.
+    setInView(false);
+
+    const el = rootRef.current;
+    if (!el) return;
+
+    if (typeof IntersectionObserver === 'undefined') {
+      setInView(true);
+      return;
+    }
+
+    let visible = false;
+    const io = new IntersectionObserver(
+      (entries) => {
+        const hit = entries.some((e) => e.isIntersecting || e.intersectionRatio > 0);
+        if (hit && !visible) {
+          visible = true;
+          setInView(true);
+          io.disconnect();
+        }
+      },
+      { root: null, rootMargin: '120px 0px', threshold: 0 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [cacheKey, coverArtId]);
+
+  useEffect(() => {
+    if (!coverArtId || !cacheKey || !inView) {
       srcCacheKeyRef.current = null;
       setSrc(null);
       return;
@@ -109,9 +152,12 @@ export function CoverArtThumb({
     void getOrStartCoverArtLoad(cacheKey, async () => {
       try {
         for (const id of idsToTry) {
+          if (cancelled) return null;
+
           const resolveLocal = resolveArtworkLocalFileRef.current;
           if (resolveLocal) {
             const local = await resolveLocal(id);
+            if (cancelled) return null;
             if (local?.localFilePath) {
               return Capacitor.convertFileSrc(local.localFilePath);
             }
@@ -120,22 +166,26 @@ export function CoverArtThumb({
           let blob: Blob | null = null;
           const resolve = resolveCachedArtworkRef.current;
           const fromDisk = resolve ? await resolve(id) : null;
+          if (cancelled) return null;
           if (fromDisk?.data?.byteLength) {
             if (!isValidImageBytes(fromDisk.data)) continue;
             const mimeType = artworkDisplayMimeType(fromDisk.data, fromDisk.mimeType);
             blob = new Blob([fromDisk.data], { type: mimeType });
           } else if (api) {
             const res = await api.getCoverArt({ id, size: CANONICAL_COVER_ART_SIZE });
+            if (cancelled) return null;
             if (res.ok) {
               const raw = new Uint8Array(await res.arrayBuffer());
+              if (cancelled) return null;
               if (!isValidImageBytes(raw)) continue;
               const mimeType = artworkDisplayMimeType(
                 raw,
                 res.headers.get('content-type') ?? undefined,
               );
               const persist = persistCachedArtworkRef.current;
-              if (persist) {
-                void persist(coverArtId, { data: raw, mimeType }).catch(() => undefined);
+              if (persist && !cancelled) {
+                // Persist the id that actually loaded (may be the album fallback).
+                void persist(id, { data: raw, mimeType }).catch(() => undefined);
               }
               blob = new Blob([raw], { type: mimeType });
             }
@@ -158,20 +208,22 @@ export function CoverArtThumb({
       cancelled = true;
       releaseCoverArtUrl(cacheKey);
     };
-  }, [api, cacheKey, coverArtId, fallbackCoverArtId, artworkCacheBump, artworkCacheKey]);
+  }, [api, cacheKey, coverArtId, fallbackCoverArtId, artworkCacheBump, artworkCacheKey, inView]);
 
   const displaySrc = srcCacheKeyRef.current === cacheKey ? src : null;
+  const combinedSx = [...(Array.isArray(sx) ? sx : sx ? [sx] : [])];
 
   if (!coverArtId) {
     return (
       <Box
+        ref={rootRef}
         aria-hidden
         sx={[
           baseCoverSx,
           {
             background: (theme) => coverPlaceholderGradient(theme),
           },
-          ...(Array.isArray(sx) ? sx : sx ? [sx] : []),
+          ...combinedSx,
         ]}
       />
     );
@@ -179,24 +231,26 @@ export function CoverArtThumb({
   if (!displaySrc) {
     return (
       <Box
+        ref={rootRef}
         aria-hidden
         sx={[
           baseCoverSx,
           {
             background: (theme) => coverPlaceholderGradient(theme),
-            animation: `${pulse} 1.2s ease-in-out infinite`,
+            animation: inView ? `${pulse} 1.2s ease-in-out infinite` : undefined,
           },
-          ...(Array.isArray(sx) ? sx : sx ? [sx] : []),
+          ...combinedSx,
         ]}
       />
     );
   }
   return (
     <Box
+      ref={rootRef}
       component="img"
       src={displaySrc}
       alt={label ?? ''}
-      sx={[baseCoverSx, { objectFit: 'cover' }, ...(Array.isArray(sx) ? sx : sx ? [sx] : [])]}
+      sx={[baseCoverSx, { objectFit: 'cover' }, ...combinedSx]}
     />
   );
 }

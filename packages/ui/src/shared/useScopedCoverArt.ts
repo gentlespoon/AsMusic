@@ -13,7 +13,7 @@ export function useScopedCoverArt(args: {
 }) {
   const { scope, serverUrl, username, libraryId } = args;
   const host = useHost();
-  const { artworkVersionKey, notifyArtworkCached, getArtworkCacheBump } = useLibraryBrowseCache();
+  const { artworkVersionKey, getArtworkCacheBump } = useLibraryBrowseCache();
 
   const resolveCachedArtwork = useMemo(
     () => createResolveCachedArtwork(host.libraryCache, serverUrl, username, libraryId),
@@ -25,12 +25,10 @@ export function useScopedCoverArt(args: {
     return (coverArtId: string) => host.libraryCache.readArtworkLocalFile!(scope, coverArtId);
   }, [host.libraryCache, scope]);
 
+  // Disk writes are best-effort; do not bump UI cache keys (avoids remount storms).
   const persistCachedArtwork = useMemo(
-    () =>
-      createPersistCachedArtworkForScope(host.libraryCache, scope, {
-        onCached: (coverArtId) => notifyArtworkCached(artworkVersionKey(coverArtId, scope)),
-      }),
-    [host.libraryCache, scope, notifyArtworkCached, artworkVersionKey],
+    () => createPersistCachedArtworkForScope(host.libraryCache, scope),
+    [host.libraryCache, scope],
   );
 
   const artworkCacheKeyFor = useCallback(

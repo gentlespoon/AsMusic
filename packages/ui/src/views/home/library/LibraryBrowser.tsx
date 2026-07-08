@@ -73,7 +73,6 @@ export function LibraryBrowser() {
     apiForServer,
     artworkVersionKey,
     getArtworkCacheBump,
-    notifyArtworkCached,
     setTrackStarred,
   } = useLibraryBrowseCache();
 
@@ -123,12 +122,11 @@ export function LibraryBrowser() {
     [resolveCachedArtworkForScope],
   );
 
+  // Persist lazily without bumping artworkCacheBump — remounting every Visible CoverArtThumb
+  // on each write floods Capacitor (libraryCachePutArtworkBlob) and starves library refresh UI.
   const persistCachedArtworkForScope = useCallback(
-    (sc: LibraryCacheScope) =>
-      createPersistCachedArtworkForScope(host.libraryCache, sc, {
-        onCached: (coverArtId) => notifyArtworkCached(artworkVersionKey(coverArtId, sc)),
-      }),
-    [host.libraryCache, notifyArtworkCached, artworkVersionKey]
+    (sc: LibraryCacheScope) => createPersistCachedArtworkForScope(host.libraryCache, sc),
+    [host.libraryCache]
   );
 
   const libraryScopeKeyRef = useRef<string | null>(null);

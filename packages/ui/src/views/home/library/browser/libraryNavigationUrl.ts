@@ -17,8 +17,14 @@
 
 const LIBRARY_BROWSER_REF_PREFIX = 'lb1.';
 const LOCAL_PLAYLIST_REF_PREFIX = 'lpl1.';
+const SERVER_PLAYLIST_REF_PREFIX = 'lp1.';
 
 export type LocalPlaylistEncodedRef = {
+  id: string;
+};
+
+export type ServerPlaylistEncodedRef = {
+  serverKey: string;
   id: string;
 };
 
@@ -65,6 +71,24 @@ export function decodeLocalPlaylistRef(param: string): LocalPlaylistEncodedRef |
 
 export function isLocalPlaylistRef(param: string): boolean {
   return param.startsWith(LOCAL_PLAYLIST_REF_PREFIX);
+}
+
+export function encodeServerPlaylistRef(ref: ServerPlaylistEncodedRef): string {
+  return SERVER_PLAYLIST_REF_PREFIX + utf8ToB64Url(JSON.stringify(ref));
+}
+
+export function decodeServerPlaylistRef(param: string): ServerPlaylistEncodedRef | null {
+  if (!param.startsWith(SERVER_PLAYLIST_REF_PREFIX)) return null;
+  try {
+    const raw = b64UrlToUtf8(param.slice(SERVER_PLAYLIST_REF_PREFIX.length));
+    const o = JSON.parse(raw) as Partial<ServerPlaylistEncodedRef>;
+    if (typeof o.serverKey === 'string' && typeof o.id === 'string') {
+      return { serverKey: o.serverKey, id: o.id };
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
 }
 
 /** Encode scope + entity id for multi-library deep links (single opaque query value). */

@@ -74,27 +74,22 @@ export interface AsmusicNativePlugin {
   }): Promise<void>;
   libraryCacheReadPlaylistSummaries(options: {
     serverKey: string;
-    libraryId: string;
   }): Promise<{ playlistsJson: string }>;
   libraryCacheReplacePlaylistSummaries(options: {
     serverKey: string;
-    libraryId: string;
     playlistsJson: string;
   }): Promise<void>;
   libraryCacheReadPlaylistEntryTrackIds(options: {
     serverKey: string;
-    libraryId: string;
     playlistId: string;
   }): Promise<{ trackIdsJson: string }>;
   libraryCacheReplacePlaylistEntryTrackIds(options: {
     serverKey: string;
-    libraryId: string;
     playlistId: string;
     trackIdsJson: string;
   }): Promise<void>;
   libraryCachePurgePlaylistEntryTrackIdsNotIn(options: {
     serverKey: string;
-    libraryId: string;
     playlistIdsJson: string;
   }): Promise<void>;
   libraryCacheDeleteScope(options: { serverKey: string; libraryId: string }): Promise<void>;

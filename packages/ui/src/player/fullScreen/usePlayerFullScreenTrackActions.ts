@@ -8,7 +8,10 @@ import { usePlayerActions } from "@ui/contexts/PlayerContext";
 import { useServerAndLibrary } from "@ui/contexts/ServerAndLibraryContext";
 import { useHost } from "@ui/host/HostContext";
 import type { PlayerQueueItem } from "@ui/player/core/types";
-import { playerQueueItemArtworkScope } from "@ui/player/shared/resolvePlayerCachedArtwork";
+import {
+  playerQueueItemArtworkScope,
+  resolveCoverArtIdsToTryForQueueItem,
+} from "@ui/player/shared/resolvePlayerCachedArtwork";
 
 export type PlayerFullScreenTrackActions = {
   isStarred: boolean;
@@ -44,6 +47,8 @@ export function usePlayerFullScreenTrackActions(
     addTrackToLocalPlaylist,
     notifyArtworkCached,
     artworkVersionKey,
+    slices,
+    albumCatalogRows,
   } = useLibraryBrowseCache();
 
   const [starError, setStarError] = useState<string | null>(null);
@@ -103,11 +108,10 @@ export function usePlayerFullScreenTrackActions(
         if (!api) {
           throw new Error(t("servers.error.noSession", { url: item.serverUrl }));
         }
-        const fallbackId = item.coverArtFallbackId?.trim();
-        const idsToTry = [coverArtId];
-        if (fallbackId && fallbackId !== coverArtId) {
-          idsToTry.push(fallbackId);
-        }
+        const idsToTry = resolveCoverArtIdsToTryForQueueItem(item, {
+          slices,
+          albumCatalogRows,
+        });
         for (const tryId of idsToTry) {
           const res = await api.getCoverArt({
             id: tryId,
@@ -127,7 +131,11 @@ export function usePlayerFullScreenTrackActions(
             mimeType,
           });
           notifyArtworkCached(artworkVersionKey(coverArtId, scope));
-          await syncCurrentTrackNowPlayingArtwork();
+          try {
+            await syncCurrentTrackNowPlayingArtwork();
+          } catch {
+            // Cache refresh succeeded; lock-screen artwork sync is best-effort.
+          }
           return;
         }
         throw new Error(t("player.coverArt.couldNotRefresh"));
@@ -163,7 +171,6 @@ export function usePlayerFullScreenTrackActions(
           })
         : addTrackToPlaylist({
             serverId: item.serverId,
-            libraryId: item.libraryId,
             playlistId: row.playlist.id,
             trackId: item.trackId,
           });

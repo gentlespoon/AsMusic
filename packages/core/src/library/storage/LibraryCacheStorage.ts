@@ -1,5 +1,5 @@
 import type { Child } from 'subsonic-api';
-import type { LibraryCacheScope } from '../cacheScope';
+import type { LibraryCacheScope, ServerPlaylistScope } from '../cacheScope';
 
 /** Sync metadata for a library scope (backend-agnostic). */
 export type LibraryCacheMeta = {
@@ -47,17 +47,17 @@ export interface LibraryCacheStorage {
   replaceSongList(scope: LibraryCacheScope, songs: Child[], onProgress?: (written: number) => void): Promise<void>;
   /** Upserts one cached track row (e.g. after star/unstar) without rewriting the whole library. */
   patchSong(scope: LibraryCacheScope, song: Child): Promise<void>;
-  readPlaylistSummaries(scope: LibraryCacheScope): Promise<LibraryPlaylistSummary[]>;
-  replacePlaylistSummaries(scope: LibraryCacheScope, playlists: LibraryPlaylistSummary[]): Promise<void>;
+  readPlaylistSummaries(scope: ServerPlaylistScope): Promise<LibraryPlaylistSummary[]>;
+  replacePlaylistSummaries(scope: ServerPlaylistScope, playlists: LibraryPlaylistSummary[]): Promise<void>;
   /** Ordered track ids for a server playlist (cached during library sync or on open). */
-  readPlaylistEntryTrackIds(scope: LibraryCacheScope, playlistId: string): Promise<string[]>;
+  readPlaylistEntryTrackIds(scope: ServerPlaylistScope, playlistId: string): Promise<string[]>;
   replacePlaylistEntryTrackIds(
-    scope: LibraryCacheScope,
+    scope: ServerPlaylistScope,
     playlistId: string,
     trackIds: string[],
   ): Promise<void>;
   /** Drop cached entry rows for playlists no longer in the server catalog. */
-  purgePlaylistEntryTrackIdsNotIn(scope: LibraryCacheScope, playlistIds: string[]): Promise<void>;
+  purgePlaylistEntryTrackIdsNotIn(scope: ServerPlaylistScope, playlistIds: string[]): Promise<void>;
   /** Removes all cached artwork for the scope (e.g. before a background refill). */
   clearArtworkCache(scope: LibraryCacheScope): Promise<void>;
   /** Removes all cached artwork across every library scope. */

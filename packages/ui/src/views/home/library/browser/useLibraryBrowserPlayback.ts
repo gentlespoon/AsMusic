@@ -236,20 +236,23 @@ export function useLibraryBrowserPlayback(options: {
           resolved,
           servers: serverConfigs,
           unavailableLabel,
+          albumsByScope,
         });
       }
-      const meta = serverMetaById[resolvedPlaylist.slice.serverId];
+      const meta = serverMetaById[resolvedPlaylist.serverId];
       if (!meta) return [];
-      const scope = libraryCacheScope(meta.serverUrl, meta.username, resolvedPlaylist.slice.libraryId);
-      const albums = albumsByScope.get(`${scope.serverKey}|${scope.libraryId}`) ?? [];
       const items: PlayerQueueItem[] = [];
       for (const track of tracks) {
+        const libraryId = resolvedPlaylist.findTrackScope(String(track.id))?.libraryId;
+        if (!libraryId) continue;
+        const scope = resolvedPlaylist.findTrackScope(String(track.id));
+        const albums = scope ? albumsByScope.get(`${scope.serverKey}|${scope.libraryId}`) ?? [] : [];
         const { primary: coverArtId, fallback: coverArtFallbackId } =
           resolveCoverArtIdsForCachedSong(track, albums);
         const it = playerQueueItemFromChild({
           song: track,
-          serverId: resolvedPlaylist.slice.serverId,
-          libraryId: resolvedPlaylist.slice.libraryId,
+          serverId: resolvedPlaylist.serverId,
+          libraryId,
           serverUrl: meta.serverUrl,
           username: meta.username,
           coverArtId,
@@ -313,10 +316,11 @@ export function useLibraryBrowserPlayback(options: {
         resolved: [row],
         servers: serverConfigs,
         unavailableLabel,
+        albumsByScope,
       });
       return items[0] ?? null;
     },
-    [serverConfigs, unavailableLabel]
+    [serverConfigs, unavailableLabel, albumsByScope]
   );
 
   const playLocalResolvedRow = useCallback(

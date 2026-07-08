@@ -105,8 +105,8 @@ export const jaJPMessages = {
   "library.playlist.createTypeServer": "サーバー上",
   "library.playlist.createTypeLocal": "このデバイス上",
   "library.playlist.createTypeLocalHint": "有効なライブラリの曲を組み合わせられます。このデバイスにのみ保存されます。",
-  "library.playlist.createLibraryLabel": "ライブラリ",
-  "library.playlist.createServerPickLibraryHint": "サーバープレイリストを作成するライブラリを選んでください。",
+  "library.playlist.createServerLabel": "サーバー",
+  "library.playlist.createServerPickServerHint": "新しいプレイリストを作成するサーバーを選んでください。",
   "library.playlist.onDevice": "このデバイス",
   "library.playlist.trackUnavailable": "曲を利用できません",
   "library.playlist.enableLibraryToPlay":

@@ -1,7 +1,9 @@
 import { useMemo } from 'react';
+import type { Child } from 'subsonic-api';
 import {
   albumsFromCachedSongsForArtist,
   songsInCachedAlbum,
+  type LibraryCacheScope,
   type LibraryPlaylistSummary,
   type LocalPlaylistEntry,
   type LocalPlaylistSummary,
@@ -10,6 +12,7 @@ import type { LibraryBrowseScopeRow, LibraryBrowseSlice } from '@ui/contexts/Lib
 import {
   decodeLibraryBrowserRef,
   decodeLocalPlaylistRef,
+  decodeServerPlaylistRef,
   type LibraryBrowserEncodedRef,
 } from './libraryNavigationUrl';
 
@@ -26,9 +29,13 @@ export type LibraryBrowserResolvedArtist = {
 export type LibraryBrowserResolvedPlaylist =
   | {
       kind: 'server';
-      slice: LibraryBrowseSlice;
+      serverId: string;
+      serverKey: string;
       subsonicPlaylistId: string;
       summary: LibraryPlaylistSummary | undefined;
+      /** All cached songs for this server across active libraries. */
+      cachedSongs: Child[];
+      findTrackScope: (trackId: string) => LibraryCacheScope | null;
     }
   | {
       kind: 'local';
@@ -55,6 +62,36 @@ function findSliceForSingleLibrary(
   );
 }
 
+function mergedSongsForServer(slices: LibraryBrowseSlice[], serverKey: string): Child[] {
+  const out: Child[] = [];
+  const seen = new Set<string>();
+  for (const sl of slices) {
+    if (sl.scope.serverKey !== serverKey) continue;
+    for (const song of sl.songs) {
+      const id = String(song.id);
+      if (seen.has(id)) continue;
+      seen.add(id);
+      out.push(song);
+    }
+  }
+  return out;
+}
+
+function makeTrackScopeFinder(
+  slices: LibraryBrowseSlice[],
+  serverKey: string
+): (trackId: string) => LibraryCacheScope | null {
+  return (trackId: string) => {
+    for (const sl of slices) {
+      if (sl.scope.serverKey !== serverKey) continue;
+      if (sl.songs.some((s) => String(s.id) === trackId)) {
+        return sl.scope;
+      }
+    }
+    return null;
+  };
+}
+
 /**
  * Resolves URL album, artist, and playlist scopes to cached library slices.
  */
@@ -64,6 +101,7 @@ export function useLibraryBrowserResolvedScopes(options: {
   playlistScope: { id: string } | null;
   slices: LibraryBrowseSlice[];
   singleSlice: LibraryBrowseScopeRow | null;
+  serverPlaylistsByServerKey: Record<string, LibraryPlaylistSummary[]>;
   localPlaylistSummaries: LocalPlaylistSummary[];
   localPlaylistEntriesById: Record<string, LocalPlaylistEntry[]>;
 }) {
@@ -73,6 +111,7 @@ export function useLibraryBrowserResolvedScopes(options: {
     playlistScope,
     slices,
     singleSlice,
+    serverPlaylistsByServerKey,
     localPlaylistSummaries,
     localPlaylistEntriesById,
   } = options;
@@ -129,24 +168,75 @@ export function useLibraryBrowserResolvedScopes(options: {
         entries: localPlaylistEntriesById[localDecoded.id] ?? [],
       };
     }
-    const decoded = decodeLibraryBrowserRef(raw);
-    if (decoded) {
-      const sl = findSliceByDecodedRef(slices, decoded);
-      if (!sl) return null;
-      const summary = sl.playlists.find((p) => p.id === decoded.id);
-      return { kind: 'server', slice: sl, subsonicPlaylistId: decoded.id, summary };
+
+    const serverDecoded = decodeServerPlaylistRef(raw);
+    if (serverDecoded) {
+      const slice = slices.find((s) => s.scope.serverKey === serverDecoded.serverKey);
+      if (!slice) return null;
+      const summary = (serverPlaylistsByServerKey[serverDecoded.serverKey] ?? []).find(
+        (p) => p.id === serverDecoded.id
+      );
+      return {
+        kind: 'server',
+        serverId: slice.serverId,
+        serverKey: serverDecoded.serverKey,
+        subsonicPlaylistId: serverDecoded.id,
+        summary,
+        cachedSongs: mergedSongsForServer(slices, serverDecoded.serverKey),
+        findTrackScope: makeTrackScopeFinder(slices, serverDecoded.serverKey),
+      };
     }
+
+    const legacyDecoded = decodeLibraryBrowserRef(raw);
+    if (legacyDecoded) {
+      const slice = slices.find((s) => s.scope.serverKey === legacyDecoded.serverKey);
+      if (!slice) return null;
+      const summary = (serverPlaylistsByServerKey[legacyDecoded.serverKey] ?? []).find(
+        (p) => p.id === legacyDecoded.id
+      );
+      return {
+        kind: 'server',
+        serverId: slice.serverId,
+        serverKey: legacyDecoded.serverKey,
+        subsonicPlaylistId: legacyDecoded.id,
+        summary,
+        cachedSongs: mergedSongsForServer(slices, legacyDecoded.serverKey),
+        findTrackScope: makeTrackScopeFinder(slices, legacyDecoded.serverKey),
+      };
+    }
+
     if (singleSlice) {
-      const sl = findSliceForSingleLibrary(slices, singleSlice);
-      if (!sl) return null;
-      const summary = sl.playlists.find((p) => p.id === raw);
-      return { kind: 'server', slice: sl, subsonicPlaylistId: raw, summary };
+      const slice = findSliceForSingleLibrary(slices, singleSlice);
+      if (!slice) return null;
+      const summary = (serverPlaylistsByServerKey[singleSlice.scope.serverKey] ?? []).find(
+        (p) => p.id === raw
+      );
+      return {
+        kind: 'server',
+        serverId: slice.serverId,
+        serverKey: singleSlice.scope.serverKey,
+        subsonicPlaylistId: raw,
+        summary,
+        cachedSongs: mergedSongsForServer(slices, singleSlice.scope.serverKey),
+        findTrackScope: makeTrackScopeFinder(slices, singleSlice.scope.serverKey),
+      };
     }
-    const hit = slices.find((sl) => sl.playlists.some((p) => p.id === raw));
-    if (!hit) return null;
-    const summary = hit.playlists.find((p) => p.id === raw);
-    return { kind: 'server', slice: hit, subsonicPlaylistId: raw, summary };
-  }, [playlistScope, slices, singleSlice, localPlaylistSummaries, localPlaylistEntriesById]);
+
+    for (const sl of slices) {
+      const summary = (serverPlaylistsByServerKey[sl.scope.serverKey] ?? []).find((p) => p.id === raw);
+      if (!summary) continue;
+      return {
+        kind: 'server',
+        serverId: sl.serverId,
+        serverKey: sl.scope.serverKey,
+        subsonicPlaylistId: raw,
+        summary,
+        cachedSongs: mergedSongsForServer(slices, sl.scope.serverKey),
+        findTrackScope: makeTrackScopeFinder(slices, sl.scope.serverKey),
+      };
+    }
+    return null;
+  }, [playlistScope, slices, singleSlice, serverPlaylistsByServerKey, localPlaylistSummaries, localPlaylistEntriesById]);
 
   return { resolvedAlbum, resolvedArtist, resolvedPlaylist };
 }

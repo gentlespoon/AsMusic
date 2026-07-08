@@ -86,10 +86,9 @@ export function createCapacitorIosSqliteLibraryCacheStorage(): LibraryCacheStora
         songJson: JSON.stringify(song),
       });
     },
-    async readPlaylistSummaries(scope: LibraryCacheScope): Promise<LibraryPlaylistSummary[]> {
+    async readPlaylistSummaries(scope) {
       const { playlistsJson } = await AsmusicNative.libraryCacheReadPlaylistSummaries({
         serverKey: scope.serverKey,
-        libraryId: scope.libraryId,
       });
       const parsed = JSON.parse(playlistsJson) as unknown;
       if (!Array.isArray(parsed)) return [];
@@ -98,14 +97,12 @@ export function createCapacitorIosSqliteLibraryCacheStorage(): LibraryCacheStora
     async replacePlaylistSummaries(scope, playlists: LibraryPlaylistSummary[]) {
       await AsmusicNative.libraryCacheReplacePlaylistSummaries({
         serverKey: scope.serverKey,
-        libraryId: scope.libraryId,
         playlistsJson: JSON.stringify(playlists),
       });
     },
     async readPlaylistEntryTrackIds(scope, playlistId) {
       const { trackIdsJson } = await AsmusicNative.libraryCacheReadPlaylistEntryTrackIds({
         serverKey: scope.serverKey,
-        libraryId: scope.libraryId,
         playlistId,
       });
       const parsed = JSON.parse(trackIdsJson) as unknown;
@@ -115,7 +112,6 @@ export function createCapacitorIosSqliteLibraryCacheStorage(): LibraryCacheStora
     async replacePlaylistEntryTrackIds(scope, playlistId, trackIds) {
       await AsmusicNative.libraryCacheReplacePlaylistEntryTrackIds({
         serverKey: scope.serverKey,
-        libraryId: scope.libraryId,
         playlistId,
         trackIdsJson: JSON.stringify(trackIds),
       });
@@ -123,7 +119,6 @@ export function createCapacitorIosSqliteLibraryCacheStorage(): LibraryCacheStora
     async purgePlaylistEntryTrackIdsNotIn(scope, playlistIds) {
       await AsmusicNative.libraryCachePurgePlaylistEntryTrackIdsNotIn({
         serverKey: scope.serverKey,
-        libraryId: scope.libraryId,
         playlistIdsJson: JSON.stringify(playlistIds),
       });
     },

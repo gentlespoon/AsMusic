@@ -1,6 +1,6 @@
 import type { Child } from 'subsonic-api';
 import type { SubsonicAPI } from '../api/client';
-import type { LibraryCacheScope } from './cacheScope';
+import type { ServerPlaylistScope } from './cacheScope';
 import type { LibraryCacheStorage, LibraryPlaylistSummary } from './storage/LibraryCacheStorage';
 import { playlistEntriesFromGetPlaylistResponse } from './playlistEntries';
 
@@ -29,7 +29,7 @@ export async function fetchPlaylistSummariesFromApi(api: SubsonicAPI): Promise<L
 export async function refreshPlaylistSummariesOnly(
   api: SubsonicAPI,
   storage: LibraryCacheStorage,
-  scope: LibraryCacheScope
+  scope: ServerPlaylistScope
 ): Promise<LibraryPlaylistSummary[]> {
   const list = await fetchPlaylistSummariesFromApi(api);
   await storage.replacePlaylistSummaries(scope, list);
@@ -46,11 +46,11 @@ export async function fetchPlaylistEntryTrackIdsFromApi(
   return playlistEntriesFromGetPlaylistResponse(res.playlist).map((e) => String(e.id));
 }
 
-/** Cache entry track ids for every playlist summary in scope (best-effort). */
-export async function refreshPlaylistEntryTrackIdsForScope(
+/** Cache entry track ids for every playlist summary on a server (best-effort). */
+export async function refreshPlaylistEntryTrackIdsForServer(
   api: SubsonicAPI,
   storage: LibraryCacheStorage,
-  scope: LibraryCacheScope,
+  scope: ServerPlaylistScope,
   summaries: LibraryPlaylistSummary[],
 ): Promise<void> {
   const playlistIds: string[] = [];
@@ -67,22 +67,31 @@ export async function refreshPlaylistEntryTrackIdsForScope(
   await storage.purgePlaylistEntryTrackIdsNotIn(scope, playlistIds);
 }
 
-/** Re-fetch summaries and entry track ids for a library scope. */
+/** Re-fetch summaries and entry track ids for a server account. */
+export async function refreshPlaylistCacheForServer(
+  api: SubsonicAPI,
+  storage: LibraryCacheStorage,
+  scope: ServerPlaylistScope,
+): Promise<LibraryPlaylistSummary[]> {
+  const list = await refreshPlaylistSummariesOnly(api, storage, scope);
+  await refreshPlaylistEntryTrackIdsForServer(api, storage, scope, list);
+  return list;
+}
+
+/** @deprecated Use {@link refreshPlaylistCacheForServer}. */
 export async function refreshPlaylistCacheForScope(
   api: SubsonicAPI,
   storage: LibraryCacheStorage,
-  scope: LibraryCacheScope,
+  scope: ServerPlaylistScope,
 ): Promise<LibraryPlaylistSummary[]> {
-  const list = await refreshPlaylistSummariesOnly(api, storage, scope);
-  await refreshPlaylistEntryTrackIdsForScope(api, storage, scope, list);
-  return list;
+  return refreshPlaylistCacheForServer(api, storage, scope);
 }
 
 /** Refresh cached entry track ids for one playlist after a membership mutation. */
 export async function refreshPlaylistEntryTrackIdsOnly(
   api: SubsonicAPI,
   storage: LibraryCacheStorage,
-  scope: LibraryCacheScope,
+  scope: ServerPlaylistScope,
   playlistId: string,
 ): Promise<void> {
   const trackIds = await fetchPlaylistEntryTrackIdsFromApi(api, playlistId);

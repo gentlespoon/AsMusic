@@ -1,6 +1,8 @@
-import type { Child } from 'subsonic-api';
+import type { AlbumID3, Child } from 'subsonic-api';
 import {
+  libraryCacheScope,
   playerQueueItemFromLocalEntry,
+  resolveCoverArtIdsForCachedSong,
   resolveLocalPlaylistEntrySync,
   type LocalPlaylistEntry,
   type LocalPlaylistResolvedEntry,
@@ -32,18 +34,25 @@ export function playerQueueItemsFromLocalResolvedEntries(args: {
   resolved: readonly LocalPlaylistResolvedEntry[];
   servers: readonly ServerConfigForLocalPlaylist[];
   unavailableLabel: string;
+  albumsByScope?: ReadonlyMap<string, AlbumID3[]>;
 }): PlayerQueueItem[] {
   return args.resolved.map((row) => {
     if (row.status === 'available' || row.status === 'libraryDisabled') {
       const server = args.servers.find((s) => s.id === row.serverId);
       const song = row.status === 'available' ? row.song : row.song;
       if (server && song) {
+        const scope = libraryCacheScope(server.serverUrl, server.username, row.libraryId);
+        const albums = args.albumsByScope?.get(`${scope.serverKey}|${row.libraryId}`) ?? [];
+        const { primary: coverArtId, fallback: coverArtFallbackId } =
+          resolveCoverArtIdsForCachedSong(song, albums);
         return playerQueueItemFromChild({
           song,
           serverId: row.serverId,
           libraryId: row.libraryId,
           serverUrl: server.serverUrl,
           username: server.username,
+          coverArtId,
+          coverArtFallbackId,
         });
       }
     }

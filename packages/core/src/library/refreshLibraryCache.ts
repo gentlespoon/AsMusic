@@ -4,11 +4,7 @@ import type { OfflineMediaStore } from '../offline/OfflineMediaStore';
 import type { LibraryCacheScope } from './cacheScope';
 import { DEFAULT_LIBRARY_ID } from './constants';
 import { fetchAllLibrarySongs } from './fetchAllLibrarySongs';
-import {
-  purgeRemovedLibraryCacheEntries,
-  removedSongIdsFromLibraryRefresh,
-} from './purgeRemovedLibraryCacheEntries';
-import { refreshPlaylistCacheForScope } from './playlistMutations';
+import { purgeRemovedLibraryCacheEntries, removedSongIdsFromLibraryRefresh } from './purgeRemovedLibraryCacheEntries';
 import type { LibraryCacheStorage } from './storage/LibraryCacheStorage';
 
 export type RefreshLibraryCacheOptions = {
@@ -22,12 +18,13 @@ export type LibraryRefreshProgress =
   | { phase: 'playlists' };
 
 /**
- * Full library refresh: paginated songs (`search3`, same as legacy iOS), write through {@link LibraryCacheStorage},
- * then playlist summaries. Compares the latest server list to the pre-refresh cache and purges local rows for
+ * Full library refresh: paginated songs (`search3`, same as legacy iOS), write through {@link LibraryCacheStorage}.
+ * Compares the latest server list to the pre-refresh cache and purges local rows for
  * removed tracks (offline downloads when {@link RefreshLibraryCacheOptions.offlineMedia} is provided; library
  * songs via {@link LibraryCacheStorage.replaceSongList}). Derived artist/album index rows stay intact until
  * {@link LibraryCacheStorage.replaceSongList} atomically replaces songs and rebuilds those indexes from the new
  * song list. Cover art is loaded on demand by the UI when thumbnails are shown.
+ * Server playlists are refreshed separately (once per server account, not per music folder).
  */
 export async function refreshLibraryCache(
   api: SubsonicAPI,
@@ -54,7 +51,5 @@ export async function refreshLibraryCache(
     onProgress?.({ phase: 'write', written });
   });
 
-  await refreshPlaylistCacheForScope(api, storage, scope);
-  onProgress?.({ phase: 'playlists' });
   return { songCount: songs.length, songs, removedSongCount: removedTrackIds.length };
 }

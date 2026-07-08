@@ -15,8 +15,8 @@ import {
   Typography,
 } from '@mui/material';
 import { useT } from '@asmusic/i18n';
-import type { LibraryBrowseScopeRow } from '@ui/contexts/LibraryBrowseCacheContext';
 import type { CreatePlaylistRequest } from '@ui/views/home/library/browser/useLibraryBrowserPlaylists';
+import type { ServerCreateOption } from './PlaylistListView';
 
 export type CreatePlaylistType = CreatePlaylistRequest['kind'];
 
@@ -26,16 +26,16 @@ export function PlaylistListViewCreateDialog({
   busy,
   error,
   createType,
-  selectedServerScope,
-  multiLibrary,
+  selectedServerId,
+  multiServer,
   canCreateServer,
   canCreateLocal,
-  scopesToLoad,
-  libraryDisplayName,
+  serversToCreateOn,
+  serverDisplayName,
   onClose,
   onNameChange,
   onCreateTypeChange,
-  onServerScopeChange,
+  onServerChange,
   onSubmit,
 }: {
   open: boolean;
@@ -43,16 +43,16 @@ export function PlaylistListViewCreateDialog({
   busy: boolean;
   error: string | null;
   createType: CreatePlaylistType;
-  selectedServerScope: LibraryBrowseScopeRow | null;
-  multiLibrary: boolean;
+  selectedServerId: string;
+  multiServer: boolean;
   canCreateServer: boolean;
   canCreateLocal: boolean;
-  scopesToLoad: LibraryBrowseScopeRow[];
-  libraryDisplayName: (serverId: string, libraryId: string) => string;
+  serversToCreateOn: ServerCreateOption[];
+  serverDisplayName: (serverId: string) => string;
   onClose: () => void;
   onNameChange: (value: string) => void;
   onCreateTypeChange: (value: CreatePlaylistType) => void;
-  onServerScopeChange: (scope: LibraryBrowseScopeRow) => void;
+  onServerChange: (serverId: string) => void;
   onSubmit: () => void;
 }) {
   const t = useT();
@@ -80,31 +80,24 @@ export function PlaylistListViewCreateDialog({
               label={t('library.playlist.createTypeLocal')}
             />
           </RadioGroup>
-          {createType === 'server' && multiLibrary && !canCreateServer && (
-            <FormHelperText>{t('library.playlist.createServerPickLibraryHint')}</FormHelperText>
-          )}
           {createType === 'local' && (
             <FormHelperText>{t('library.playlist.createTypeLocalHint')}</FormHelperText>
           )}
         </FormControl>
-        {createType === 'server' && multiLibrary && scopesToLoad.length > 1 && (
+        {createType === 'server' && multiServer && serversToCreateOn.length > 1 && (
           <TextField
             select
             fullWidth
             size="small"
-            label={t('library.playlist.createLibraryLabel')}
-            value={selectedServerScope ? `${selectedServerScope.serverId}|${selectedServerScope.libraryId}` : ''}
-            onChange={(e) => {
-              const [serverId, libraryId] = e.target.value.split('|');
-              const scope = scopesToLoad.find((s) => s.serverId === serverId && s.libraryId === libraryId);
-              if (scope) onServerScopeChange(scope);
-            }}
+            label={t('library.playlist.createServerLabel')}
+            value={selectedServerId}
+            onChange={(e) => onServerChange(e.target.value)}
             disabled={busy}
             sx={{ mb: 2 }}
           >
-            {scopesToLoad.map((scope) => (
-              <MenuItem key={`${scope.serverId}|${scope.libraryId}`} value={`${scope.serverId}|${scope.libraryId}`}>
-                {libraryDisplayName(scope.serverId, scope.libraryId)}
+            {serversToCreateOn.map((server) => (
+              <MenuItem key={server.serverId} value={server.serverId}>
+                {serverDisplayName(server.serverId)}
               </MenuItem>
             ))}
           </TextField>

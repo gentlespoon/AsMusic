@@ -45,6 +45,8 @@ export const zhTWMessages = {
   "home.appBar.playlists": "播放清單",
   "home.appBar.songs": "歌曲",
 
+  "library.action.download": "下載",
+  "library.action.removeDownload": "移除下載",
   "library.action.viewAlbum": "檢視專輯",
   "library.action.viewArtist": "檢視藝人",
   "library.activeScope.emptyNeedLibrary":

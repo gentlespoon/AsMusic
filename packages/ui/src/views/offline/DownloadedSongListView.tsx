@@ -373,8 +373,8 @@ export function DownloadedSongListView({ reloadNonce = 0 }: DownloadedSongListVi
                     artworkCacheKey={scopeKey(r.scope)}
                     includeAlbumInSecondary
                     secondaryContent={secondaryContent}
-                    showRemoveButton
-                    onRemove={() => void onDelete(r.key)}
+                    isDownloaded
+                    onRemoveDownload={() => void onDelete(r.key)}
                     onClick={() => playRowNow(rowIndex)}
                     onPlayNext={() => playNextForRow(rowIndex)}
                     onAppendToQueue={() => appendForRow(rowIndex)}

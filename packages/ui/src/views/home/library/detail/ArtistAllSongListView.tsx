@@ -237,6 +237,7 @@ export function ArtistAllSongListView({
                         ? () => onViewAlbum(track)
                         : undefined
                     }
+                    offlineScope={{ serverId, libraryId }}
                     isStarred={setTrackStarred ? isChildStarred(track) : undefined}
                     onToggleStar={
                       setTrackStarred

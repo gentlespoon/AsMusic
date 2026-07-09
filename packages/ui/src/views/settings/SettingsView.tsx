@@ -13,7 +13,7 @@ import { SettingsPageLayout } from "./SettingsPageLayout";
 import {
   SettingsListItemCaption,
   SettingsListItemTitle,
-  SettingsPageDescription,
+  // SettingsPageDescription,
 } from "./SettingsTypography";
 
 export function SettingsView() {

@@ -45,6 +45,8 @@ export const zhCNMessages = {
   "home.appBar.playlists": "播放列表",
   "home.appBar.songs": "歌曲",
 
+  "library.action.download": "下载",
+  "library.action.removeDownload": "移除下载",
   "library.action.viewAlbum": "查看专辑",
   "library.action.viewArtist": "查看艺术家",
   "library.activeScope.emptyNeedLibrary":

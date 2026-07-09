@@ -45,6 +45,8 @@ export const jaJPMessages = {
   "home.appBar.playlists": "プレイリスト",
   "home.appBar.songs": "曲",
 
+  "library.action.download": "ダウンロード",
+  "library.action.removeDownload": "ダウンロードを削除",
   "library.action.viewAlbum": "アルバムを表示",
   "library.action.viewArtist": "アーティストを表示",
   "library.activeScope.emptyNeedLibrary":

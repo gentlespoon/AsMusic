@@ -2,9 +2,11 @@ import { useState, type MouseEvent } from "react";
 import { useT } from "@asmusic/i18n";
 import { SongItemActions } from "./SongItemActions";
 import { SongItemActionsMenu } from "./SongItemActionsMenu";
+import { SongItemDownloadedIndicator } from "./SongItemDownloadedIndicator";
 import { SongItemMain } from "./SongItemMain";
 import { SongItemRow } from "./SongItemRow";
 import { songItemSecondaryLine } from "./songItemSecondaryLine";
+import { useSongItemOfflineActions } from "./useSongItemOfflineActions";
 import type { SongItemProps } from "./types";
 
 export type { SongItemProps } from "./types";
@@ -21,8 +23,8 @@ export function SongItem({
   artworkCacheKey,
   includeAlbumInSecondary,
   secondaryContent,
-  showRemoveButton,
-  onRemove,
+  offlineScope,
+  onRemoveDownload: onRemoveDownloadOverride,
   onClick,
   onPlayNext,
   onAppendToQueue,
@@ -30,17 +32,40 @@ export function SongItem({
   onViewAlbum,
   isStarred,
   onToggleStar,
+  isDownloaded: isDownloadedOverride,
   unavailable = false,
 }: SongItemProps) {
   const t = useT();
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
 
-  const showOverflowMenu = Boolean(
-    onPlayNext || onAppendToQueue || onViewArtist || onViewAlbum || (showRemoveButton && onRemove),
+  const offlineActions = useSongItemOfflineActions(
+    offlineScope
+      ? {
+          serverId: offlineScope.serverId,
+          libraryId: offlineScope.libraryId,
+          trackId: String(track.id),
+          trackTitle: track.title,
+        }
+      : null,
   );
-  const showStar = Boolean(onToggleStar) && isStarred != null;
-  const showDelete = Boolean(showRemoveButton && onRemove);
-  const hasActions = showStar || showOverflowMenu;
+  const menuOnDownload = offlineActions.onDownload;
+  const menuOnRemoveDownload =
+    onRemoveDownloadOverride ?? offlineActions.onRemoveDownload;
+
+  const showStarInMenu = Boolean(onToggleStar) && isStarred != null;
+  const showOverflowMenu = Boolean(
+    onPlayNext ||
+      onAppendToQueue ||
+      onViewArtist ||
+      onViewAlbum ||
+      menuOnDownload ||
+      menuOnRemoveDownload ||
+      showStarInMenu,
+  );
+  const showDownloadIndicator =
+    isDownloadedOverride != null || offlineActions.showDownloadIndicator;
+  const isDownloaded = isDownloadedOverride ?? offlineActions.isDownloaded;
+  const hasTrailing = showDownloadIndicator || showOverflowMenu;
 
   const secondary =
     secondaryContent ??
@@ -68,15 +93,12 @@ export function SongItem({
     />
   );
 
-  const actions = hasActions ? (
+  const indicator = showDownloadIndicator ? (
+    <SongItemDownloadedIndicator isDownloaded={isDownloaded} t={t} />
+  ) : null;
+
+  const actions = showOverflowMenu ? (
     <SongItemActions
-      showStar={showStar}
-      isStarred={isStarred}
-      onStarClick={() => {
-        if (!onToggleStar) return;
-        void Promise.resolve(onToggleStar());
-      }}
-      showOverflowMenu={showOverflowMenu}
       onOpenOverflowMenu={(e) => setMenuAnchor(e.currentTarget)}
       stopRowClick={stopRowClick}
       t={t}
@@ -87,9 +109,10 @@ export function SongItem({
     <>
       <SongItemRow
         main={main}
+        indicator={indicator}
         actions={actions}
         onClick={onClick}
-        hasActions={hasActions}
+        hasTrailing={hasTrailing}
         unavailable={unavailable}
       />
       {showOverflowMenu ? (
@@ -100,7 +123,10 @@ export function SongItem({
           onAppendToQueue={onAppendToQueue}
           onViewArtist={onViewArtist}
           onViewAlbum={onViewAlbum}
-          onRemove={showDelete ? onRemove : undefined}
+          onDownload={menuOnDownload}
+          onRemoveDownload={menuOnRemoveDownload}
+          isStarred={showStarInMenu ? isStarred : undefined}
+          onToggleStar={showStarInMenu ? onToggleStar : undefined}
           t={t}
         />
       ) : null}

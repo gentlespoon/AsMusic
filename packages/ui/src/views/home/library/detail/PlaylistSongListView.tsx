@@ -398,6 +398,9 @@ export function PlaylistSongListView({
                         ? () => onViewAlbum(track)
                         : undefined
                     }
+                    offlineScope={
+                      libraryId ? { serverId, libraryId } : undefined
+                    }
                     isStarred={setTrackStarred && libraryId ? starred : undefined}
                     onToggleStar={
                       setTrackStarred && libraryId

@@ -41,6 +41,12 @@ type OfflineDownloadContextValue = {
     playlistTitle: string;
     trackIds: string[];
   }) => void;
+  enqueueTrackDownload: (opts: {
+    serverId: string;
+    libraryId: string;
+    trackTitle: string;
+    trackId: string;
+  }) => void;
 };
 
 const OfflineDownloadContext = createContext<OfflineDownloadContextValue | null>(null);
@@ -114,7 +120,7 @@ export function OfflineDownloadProvider({ children }: { children: ReactNode }) {
       libraryId: string;
       label: string;
       trackIds: string[];
-      kind: 'album' | 'playlist';
+      kind: 'album' | 'playlist' | 'tracks';
     }) => {
       const server = servers.find((s) => s.id === opts.serverId);
       if (!server) return;
@@ -161,6 +167,19 @@ export function OfflineDownloadProvider({ children }: { children: ReactNode }) {
     [enqueueTracksDownload]
   );
 
+  const enqueueTrackDownload = useCallback(
+    (opts: { serverId: string; libraryId: string; trackTitle: string; trackId: string }) => {
+      enqueueTracksDownload({
+        serverId: opts.serverId,
+        libraryId: opts.libraryId,
+        label: opts.trackTitle,
+        trackIds: [opts.trackId],
+        kind: 'tracks',
+      });
+    },
+    [enqueueTracksDownload]
+  );
+
   const value = useMemo(
     () => ({
       queueSnapshot,
@@ -174,6 +193,7 @@ export function OfflineDownloadProvider({ children }: { children: ReactNode }) {
       retryFailedTracks,
       enqueueAlbumDownload,
       enqueuePlaylistDownload,
+      enqueueTrackDownload,
     }),
     [
       queueSnapshot,
@@ -187,6 +207,7 @@ export function OfflineDownloadProvider({ children }: { children: ReactNode }) {
       retryFailedTracks,
       enqueueAlbumDownload,
       enqueuePlaylistDownload,
+      enqueueTrackDownload,
     ]
   );
 

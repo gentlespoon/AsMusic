@@ -45,6 +45,8 @@ export const esESMessages = {
   "home.appBar.playlists": "Listas",
   "home.appBar.songs": "Canciones",
 
+  "library.action.download": "Descargar",
+  "library.action.removeDownload": "Eliminar descarga",
   "library.action.viewAlbum": "Ver álbum",
   "library.action.viewArtist": "Ver artista",
   "library.activeScope.emptyNeedLibrary":

@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import type { Child } from "subsonic-api";
 import type { LibraryArtworkCacheRow, SubsonicAPI } from "@asmusic/core";
 import type { PersistCachedArtwork } from "@ui/shared/libraryArtworkCacheAccess";
+import type { SongItemOfflineScope } from "./useSongItemOfflineActions";
 
 export type SongItemProps = {
   track: Child;
@@ -26,18 +27,21 @@ export type SongItemProps = {
   includeAlbumInSecondary: boolean;
   /** When set, replaces the default artist/album/duration secondary line. */
   secondaryContent?: ReactNode;
-  /** When true and `onRemove` is set, adds remove-download to the song actions menu. */
-  showRemoveButton?: boolean;
-  onRemove?: () => void;
+  /** When set, shows download/remove in the actions menu based on offline storage. */
+  offlineScope?: SongItemOfflineScope;
+  /** Explicit remove handler (e.g. downloaded list); overrides offline-scope remove. */
+  onRemoveDownload?: () => void;
   /** Primary tap: play this track immediately after the current item (queue-preserving). */
   onClick?: () => void;
   onPlayNext?: () => void;
   onAppendToQueue?: () => void;
   onViewArtist?: () => void;
   onViewAlbum?: () => void;
-  /** When set with `onToggleStar`, shows a favorites control. */
+  /** When set with `onToggleStar`, shows favorites in the actions menu. */
   isStarred?: boolean;
   onToggleStar?: () => void | Promise<void>;
+  /** When set, shows the downloaded indicator (e.g. downloaded tracks list). */
+  isDownloaded?: boolean;
 };
 
 export type SongItemMainProps = {

@@ -46,6 +46,8 @@ export const enUSMessages = {
   "home.appBar.playlists": "Playlists",
   "home.appBar.songs": "Songs",
 
+  "library.action.download": "Download",
+  "library.action.removeDownload": "Remove download",
   "library.action.viewAlbum": "View album",
   "library.action.viewArtist": "View artist",
   "library.activeScope.emptyNeedLibrary":

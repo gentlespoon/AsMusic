@@ -45,6 +45,8 @@ export const zhTWMessages = {
   "home.appBar.playlists": "播放清單",
   "home.appBar.songs": "歌曲",
 
+  "library.action.download": "下載",
+  "library.action.removeDownload": "移除下載",
   "library.action.viewAlbum": "檢視專輯",
   "library.action.viewArtist": "檢視藝人",
   "library.activeScope.emptyNeedLibrary":
@@ -353,9 +355,6 @@ export const zhTWMessages = {
   "servers.manager.username": "使用者名稱",
   "servers.serversLibraries.loadingSaved": "正在載入已儲存的伺服器…",
   "servers.serversLibraries.summary": "{servers} · {libraries}",
-  "servers.serversLibraries.persistWhileStreaming": "串流播放時儲存到裝置",
-  "servers.serversLibraries.persistWhileStreaming.caption":
-    "在支援時，將播放鏡像到離線儲存。部分平台可能消耗額外流量。",
   "servers.serversLibraries.title": "伺服器與資料庫",
   "servers.summary.manyLibraries": "{count} 個已啟用資料庫",
   "servers.summary.manyServers": "{count} 台已儲存伺服器",
@@ -363,12 +362,16 @@ export const zhTWMessages = {
   "servers.summary.oneServer": "1 台已儲存伺服器",
   "servers.tab.servers": "伺服器",
 
-  "settings.description": "使用者體驗、伺服器、資料庫與下載。",
+  "settings.description": "外觀、播放、開發者選項、伺服器、資料庫與下載。",
+  "settings.appearance": "外觀",
+  "settings.appearance.caption": "主題、語言與顯示偏好。",
+  "settings.developer": "開發者",
+  "settings.developer.caption": "播放失敗自動略過上限與偵錯記錄。",
+  "settings.playback": "播放",
+  "settings.playback.caption": "串流離線儲存、播放器手勢、波形進度條與觸覺回饋。",
   "settings.serversLibraries": "伺服器與資料庫",
   "settings.serversLibraries.caption": "設定伺服器並選擇使用中的資料庫",
   "settings.title": "設定",
-  "settings.userExperience": "使用者體驗",
-  "settings.userExperience.caption": "外觀、語言、播放手勢與回饋偏好。",
   "settings.ux.appearance": "外觀",
   "settings.ux.appearance.auto": "自動",
   "settings.ux.appearance.caption": "自動跟隨系統的淺色或深色模式。",
@@ -381,6 +384,9 @@ export const zhTWMessages = {
   "settings.ux.language.currentLanguageAutonym": "繁體中文",
   "settings.ux.language.system": "系統",
   "settings.ux.haptics": "觸覺回饋",
+  "settings.ux.persistWhileStreaming": "串流播放時儲存到裝置",
+  "settings.ux.persistWhileStreaming.caption":
+    "在支援時，將播放鏡像到離線儲存。部分平台可能消耗額外流量。",
   "settings.ux.playerBarSwipe": "在播放列中使用滑動手勢",
   "settings.ux.playerBarSwipe.caption":
     "開啟時迷你播放器使用與舊版 iOS 列類似的滑動；略過與播放按鈕會隱藏。",
@@ -396,6 +402,9 @@ export const zhTWMessages = {
   "settings.ux.playbackFailureAutoSkipLimit": "播放失敗時自動略過上限",
   "settings.ux.playbackFailureAutoSkipLimit.caption":
     "曲目載入失敗時，最多連續自動略過這麼多首曲目後停止。",
+  "settings.ux.textSelection": "允許選取文字",
+  "settings.ux.textSelection.caption":
+    "啟用 CSS user-select，以便從應用程式介面複製文字。",
 
   "sleepTimer.dialogTitle": "睡眠計時器",
   "sleepTimer.minutes": "{minutes} 分鐘",

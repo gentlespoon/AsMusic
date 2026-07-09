@@ -45,6 +45,8 @@ export const zhCNMessages = {
   "home.appBar.playlists": "播放列表",
   "home.appBar.songs": "歌曲",
 
+  "library.action.download": "下载",
+  "library.action.removeDownload": "移除下载",
   "library.action.viewAlbum": "查看专辑",
   "library.action.viewArtist": "查看艺术家",
   "library.activeScope.emptyNeedLibrary":
@@ -353,9 +355,6 @@ export const zhCNMessages = {
   "servers.manager.username": "用户名",
   "servers.serversLibraries.loadingSaved": "正在加载已保存的服务器…",
   "servers.serversLibraries.summary": "{servers} · {libraries}",
-  "servers.serversLibraries.persistWhileStreaming": "流式播放时保存到设备",
-  "servers.serversLibraries.persistWhileStreaming.caption":
-    "在支持时，将播放镜像到离线存储。部分平台可能消耗额外流量。",
   "servers.serversLibraries.title": "服务器与资料库",
   "servers.summary.manyLibraries": "{count} 个已启用资料库",
   "servers.summary.manyServers": "{count} 台已保存服务器",
@@ -363,12 +362,16 @@ export const zhCNMessages = {
   "servers.summary.oneServer": "1 台已保存服务器",
   "servers.tab.servers": "服务器",
 
-  "settings.description": "用户体验、服务器、资料库与下载。",
+  "settings.description": "外观、播放、开发者选项、服务器、资料库与下载。",
+  "settings.appearance": "外观",
+  "settings.appearance.caption": "主题、语言与显示偏好。",
+  "settings.developer": "开发者",
+  "settings.developer.caption": "播放失败自动跳过上限与调试日志。",
+  "settings.playback": "播放",
+  "settings.playback.caption": "流式播放离线保存、播放器手势、波形进度条与触觉反馈。",
   "settings.serversLibraries": "服务器与资料库",
   "settings.serversLibraries.caption": "配置服务器并选择启用的资料库",
   "settings.title": "设置",
-  "settings.userExperience": "用户体验",
-  "settings.userExperience.caption": "外观、语言、播放手势与反馈偏好。",
   "settings.ux.appearance": "外观",
   "settings.ux.appearance.auto": "自动",
   "settings.ux.appearance.caption": "自动跟随系统的浅色或深色模式。",
@@ -381,6 +384,9 @@ export const zhCNMessages = {
   "settings.ux.language.currentLanguageAutonym": "简体中文",
   "settings.ux.language.system": "系统",
   "settings.ux.haptics": "触觉反馈",
+  "settings.ux.persistWhileStreaming": "流式播放时保存到设备",
+  "settings.ux.persistWhileStreaming.caption":
+    "在支持时，将播放镜像到离线存储。部分平台可能消耗额外流量。",
   "settings.ux.playerBarSwipe": "在播放条中使用滑动手势",
   "settings.ux.playerBarSwipe.caption":
     "开启时迷你播放器使用滑动手势；上一曲、下一曲与播放按钮会隐藏。",
@@ -396,6 +402,9 @@ export const zhCNMessages = {
   "settings.ux.playbackFailureAutoSkipLimit": "播放失败时自动跳过上限",
   "settings.ux.playbackFailureAutoSkipLimit.caption":
     "曲目加载失败时，最多连续自动跳过这么多首曲目后停止。",
+  "settings.ux.textSelection": "允许选择文本",
+  "settings.ux.textSelection.caption":
+    "启用 CSS user-select，以便从应用界面复制文本。",
 
   "sleepTimer.dialogTitle": "睡眠定时器",
   "sleepTimer.minutes": "{minutes} 分钟",

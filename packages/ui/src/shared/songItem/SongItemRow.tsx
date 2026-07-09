@@ -4,19 +4,21 @@ import { rowSx } from "./constants";
 
 export function SongItemRow({
   main,
+  indicator,
   actions,
   onClick,
-  hasActions,
+  hasTrailing,
   unavailable = false,
 }: {
   main: ReactNode;
+  indicator?: ReactNode;
   actions?: ReactNode;
   onClick?: () => void;
-  hasActions: boolean;
+  hasTrailing: boolean;
   unavailable?: boolean;
 }) {
   const rowStyle = unavailable ? { opacity: 0.55, color: 'text.secondary' } : undefined;
-  if (!hasActions) {
+  if (!hasTrailing) {
     if (onClick) {
       return (
         <ListItemButton divider onClick={onClick} sx={{ ...rowSx, ...rowStyle }}>
@@ -37,7 +39,7 @@ export function SongItemRow({
     <ListItem
       divider
       disablePadding
-      sx={{ alignItems: hasActions ? "center" : "flex-start", ...rowStyle }}
+      sx={{ alignItems: hasTrailing ? "center" : "flex-start", ...rowStyle }}
     >
       {onClick ? (
         <ListItemButton onClick={onClick} sx={mainFlexSx}>
@@ -46,6 +48,7 @@ export function SongItemRow({
       ) : (
         <Box sx={{ ...mainFlexSx, display: "flex" }}>{main}</Box>
       )}
+      {indicator}
       {actions}
     </ListItem>
   );

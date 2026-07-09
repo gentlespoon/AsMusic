@@ -16,7 +16,9 @@ import { OfflineDownloadedView } from "./views/offline/OfflineDownloadedView";
 import { OnboardingPage } from "./views/onboarding/OnboardingPage";
 import { ServersAndLibrariesView } from "./views/servers/ServersAndLibrariesView";
 import { SettingsView } from "./views/settings/SettingsView";
-import { UserExperienceView } from "./views/settings/UserExperienceView";
+import { AppearanceView } from "./views/settings/AppearanceView";
+import { DeveloperView } from "./views/settings/DeveloperView";
+import { PlaybackView } from "./views/settings/PlaybackView";
 import { useEffect } from "react";
 
 export function App() {
@@ -38,8 +40,20 @@ export function App() {
                     <Route path="/about" element={<AboutView />} />
                     <Route path="/settings" element={<SettingsView />} />
                     <Route
+                      path="/settings/appearance"
+                      element={<AppearanceView />}
+                    />
+                    <Route
+                      path="/settings/playback"
+                      element={<PlaybackView />}
+                    />
+                    <Route
                       path="/settings/user-experience"
-                      element={<UserExperienceView />}
+                      element={<Navigate to="/settings/appearance" replace />}
+                    />
+                    <Route
+                      path="/settings/developer"
+                      element={<DeveloperView />}
                     />
                     <Route
                       path="/settings/downloads"

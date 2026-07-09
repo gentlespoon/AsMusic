@@ -46,6 +46,8 @@ export const enUSMessages = {
   "home.appBar.playlists": "Playlists",
   "home.appBar.songs": "Songs",
 
+  "library.action.download": "Download",
+  "library.action.removeDownload": "Remove download",
   "library.action.viewAlbum": "View album",
   "library.action.viewArtist": "View artist",
   "library.activeScope.emptyNeedLibrary":
@@ -366,10 +368,6 @@ export const enUSMessages = {
   "servers.manager.username": "Username",
   "servers.serversLibraries.loadingSaved": "Loading saved servers…",
   "servers.serversLibraries.summary": "{servers} · {libraries}",
-  "servers.serversLibraries.persistWhileStreaming":
-    "Save to device while streaming",
-  "servers.serversLibraries.persistWhileStreaming.caption":
-    "When supported, mirror playback into offline storage. May use extra bandwidth on some platforms.",
   "servers.serversLibraries.title": "Servers & Libraries",
   "servers.summary.manyLibraries": "{count} active libraries",
   "servers.summary.manyServers": "{count} saved servers",
@@ -377,14 +375,19 @@ export const enUSMessages = {
   "servers.summary.oneServer": "1 saved server",
   "servers.tab.servers": "Servers",
 
-  "settings.description": "User experience, servers, libraries, and downloads.",
+  "settings.description": "Appearance, playback, developer options, servers, libraries, and downloads.",
+  "settings.appearance": "Appearance",
+  "settings.appearance.caption": "Theme, language, and display preferences.",
+  "settings.developer": "Developer",
+  "settings.developer.caption":
+    "Playback failure auto-skip limit and debug logging.",
+  "settings.playback": "Playback",
+  "settings.playback.caption":
+    "Offline saving while streaming, player gestures, waveform progress bar, and haptic feedback.",
   "settings.serversLibraries": "Servers & Libraries",
   "settings.serversLibraries.caption":
     "Configure server and select active libraries",
   "settings.title": "Settings",
-  "settings.userExperience": "User Experience",
-  "settings.userExperience.caption":
-    "Appearance, language, playback gestures, and feedback preferences.",
   "settings.ux.appearance": "Appearance",
   "settings.ux.appearance.auto": "Auto",
   "settings.ux.appearance.caption": "Auto follows system light or dark mode.",
@@ -399,6 +402,9 @@ export const enUSMessages = {
   "settings.ux.language.currentLanguageAutonym": "English",
   "settings.ux.language.system": "System",
   "settings.ux.haptics": "Haptic feedback",
+  "settings.ux.persistWhileStreaming": "Save to device while streaming",
+  "settings.ux.persistWhileStreaming.caption":
+    "When supported, mirror playback into offline storage. May use extra bandwidth on some platforms.",
   "settings.ux.playerBarSwipe": "Use swipe gesture in player bar",
   "settings.ux.playerBarSwipe.caption":
     "Mini player uses swipes like the legacy iOS bar when on; skip and play buttons are hidden.",
@@ -414,6 +420,9 @@ export const enUSMessages = {
   "settings.ux.playbackFailureAutoSkipLimit": "Auto-skip limit on playback failure",
   "settings.ux.playbackFailureAutoSkipLimit.caption":
     "When a track fails to load, skip forward up to this many consecutive tracks before stopping.",
+  "settings.ux.textSelection": "Allow text selection",
+  "settings.ux.textSelection.caption":
+    "Enables CSS user-select so you can copy text from the app UI.",
 
   "sleepTimer.dialogTitle": "Sleep timer",
   "sleepTimer.minutes": "{minutes} min",

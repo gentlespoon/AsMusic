@@ -8,7 +8,10 @@ export function SongItemActionsMenu({
   onAppendToQueue,
   onViewArtist,
   onViewAlbum,
-  onRemove,
+  onDownload,
+  onRemoveDownload,
+  isStarred,
+  onToggleStar,
   t,
 }: {
   anchorEl: HTMLElement | null;
@@ -17,7 +20,10 @@ export function SongItemActionsMenu({
   onAppendToQueue?: () => void;
   onViewArtist?: () => void;
   onViewAlbum?: () => void;
-  onRemove?: () => void;
+  onDownload?: () => void;
+  onRemoveDownload?: () => void;
+  isStarred?: boolean;
+  onToggleStar?: () => void | Promise<void>;
   t: ReturnType<typeof useT>;
 }) {
   if (
@@ -25,7 +31,9 @@ export function SongItemActionsMenu({
     !onAppendToQueue &&
     !onViewArtist &&
     !onViewAlbum &&
-    !onRemove
+    !onDownload &&
+    !onRemoveDownload &&
+    !onToggleStar
   ) {
     return null;
   }
@@ -72,15 +80,35 @@ export function SongItemActionsMenu({
           {t("library.action.viewAlbum")}
         </MenuItem>
       ) : null}
-      {onRemove ? (
+      {onToggleStar ? (
         <MenuItem
           onClick={() => {
-            onRemove();
+            void Promise.resolve(onToggleStar());
+            onClose();
+          }}
+        >
+          {isStarred ? t("player.favorite.remove") : t("player.favorite.add")}
+        </MenuItem>
+      ) : null}
+      {onDownload ? (
+        <MenuItem
+          onClick={() => {
+            onDownload();
+            onClose();
+          }}
+        >
+          {t("library.action.download")}
+        </MenuItem>
+      ) : null}
+      {onRemoveDownload ? (
+        <MenuItem
+          onClick={() => {
+            onRemoveDownload();
             onClose();
           }}
           sx={{ color: "error.main" }}
         >
-          <ListItemText>{t("player.offline.removeDownload")}</ListItemText>
+          <ListItemText>{t("library.action.removeDownload")}</ListItemText>
         </MenuItem>
       ) : null}
     </Menu>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Box from '@mui/material/Box';
 import type { SxProps, Theme } from '@mui/material/styles';
 import type { SubsonicAPI } from '@asmusic/core';
@@ -12,6 +12,11 @@ import {
   toThumbDisplayUrl,
   type CoverArtSources,
 } from './coverArt';
+import {
+  COVER_ART_THUMB_ROOT_MARGIN_Y_PX,
+  findCoverArtScrollRoot,
+  isCoverArtThumbIntersecting,
+} from './coverArt/coverArtThumbVisibility';
 import {
   acquireCoverArtUrl,
   buildCoverArtCacheKey,
@@ -89,7 +94,10 @@ export function CoverArtThumb({
   sx,
   label,
 }: Props) {
-  const rootRef = useRef<HTMLDivElement | null>(null);
+  const [rootEl, setRootEl] = useState<HTMLDivElement | null>(null);
+  const setRootRef = useCallback((node: HTMLDivElement | null) => {
+    setRootEl(node);
+  }, []);
   const sources = useMemo(
     () =>
       sourcesProp ??
@@ -128,12 +136,23 @@ export function CoverArtThumb({
   );
   const srcCacheKeyRef = useRef<string | null>(cacheKey);
   const usedNetworkUrlFallbackRef = useRef(false);
+  const [loadRetryNonce, setLoadRetryNonce] = useState(0);
+  const prevApiRef = useRef(api);
+  const loadGenerationRef = useRef(0);
+
+  useEffect(() => {
+    const hadApi = Boolean(prevApiRef.current);
+    prevApiRef.current = api;
+    if (!hadApi && api && inView && loadState !== 'ready' && loadState !== 'loading') {
+      setLoadRetryNonce((n) => n + 1);
+    }
+  }, [api, coverArtId, inView, loadState]);
 
   useEffect(() => {
     usedNetworkUrlFallbackRef.current = false;
   }, [cacheKey, coverArtId, fallbackCoverArtId, artworkCacheBump, artworkCacheKey]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (loadImmediately) {
       setInView(true);
       return;
@@ -147,32 +166,69 @@ export function CoverArtThumb({
       setInView(true);
       return;
     }
+    if (!rootEl) return;
 
+    // Virtuoso recycles row components: reset until this id is near the viewport.
     setInView(false);
 
-    const el = rootRef.current;
-    if (!el) return;
+    const scrollRoot = findCoverArtScrollRoot(rootEl);
+    const intersectionOptions = {
+      root: scrollRoot,
+      rootMarginYPx: COVER_ART_THUMB_ROOT_MARGIN_Y_PX,
+    };
+    const syncHit = isCoverArtThumbIntersecting(rootEl, intersectionOptions);
+
+    let visible = false;
+    const markVisible = () => {
+      if (visible) return;
+      visible = true;
+      setInView(true);
+    };
+
+    if (syncHit) {
+      markVisible();
+      return;
+    }
 
     if (typeof IntersectionObserver === 'undefined') {
       setInView(true);
       return;
     }
 
-    let visible = false;
     const io = new IntersectionObserver(
       (entries) => {
         const hit = entries.some((e) => e.isIntersecting || e.intersectionRatio > 0);
-        if (hit && !visible) {
-          visible = true;
-          setInView(true);
+        if (hit) {
+          markVisible();
           io.disconnect();
         }
       },
-      { root: null, rootMargin: '120px 0px', threshold: 0 },
+      {
+        root: scrollRoot,
+        rootMargin: `${COVER_ART_THUMB_ROOT_MARGIN_Y_PX}px 0px`,
+        threshold: 0,
+      },
     );
-    io.observe(el);
-    return () => io.disconnect();
-  }, [cacheKey, coverArtId, loadImmediately]);
+    io.observe(rootEl);
+
+    // Virtuoso may mount rows before the scroller has its final height on cold start.
+    let raf = 0;
+    const recheckAfterLayout = () => {
+      raf = requestAnimationFrame(() => {
+        if (visible) return;
+        if (isCoverArtThumbIntersecting(rootEl, intersectionOptions)) {
+          markVisible();
+          io.disconnect();
+        }
+      });
+    };
+    recheckAfterLayout();
+
+    return () => {
+      cancelAnimationFrame(raf);
+      io.disconnect();
+    };
+  }, [cacheKey, coverArtId, loadImmediately, rootEl]);
 
   useEffect(() => {
     if (!coverArtId || !cacheKey || !inView) {
@@ -187,6 +243,7 @@ export function CoverArtThumb({
     }
 
     let cancelled = false;
+    const loadGeneration = ++loadGenerationRef.current;
     srcCacheKeyRef.current = cacheKey;
     const cached = acquireCoverArtUrl(cacheKey);
     if (cached) {
@@ -214,7 +271,7 @@ export function CoverArtThumb({
       }
       return toThumbDisplayUrl(resolved);
     }).then((url) => {
-      if (cancelled) return;
+      if (cancelled || loadGeneration !== loadGenerationRef.current) return;
       if (url) {
         srcCacheKeyRef.current = cacheKey;
         setSrc(url);
@@ -222,6 +279,11 @@ export function CoverArtThumb({
         return;
       }
       setSrc(null);
+      // Stay idle when network is not wired yet so apiRetry can re-run the load.
+      if (!sourcesRef.current.fetchNetwork) {
+        setLoadState('idle');
+        return;
+      }
       setLoadState('failed');
     });
 
@@ -229,7 +291,7 @@ export function CoverArtThumb({
       cancelled = true;
       releaseCoverArtUrl(cacheKey);
     };
-  }, [api, cacheKey, coverArtId, fallbackCoverArtId, artworkCacheBump, artworkCacheKey, inView, sources]);
+  }, [cacheKey, coverArtId, fallbackCoverArtId, artworkCacheBump, artworkCacheKey, inView, loadRetryNonce]);
 
   const displaySrc = srcCacheKeyRef.current === cacheKey ? src : null;
   const combinedSx = [...(Array.isArray(sx) ? sx : sx ? [sx] : [])];
@@ -259,13 +321,13 @@ export function CoverArtThumb({
   };
 
   if (!coverArtId || loadState === 'failed') {
-    return <CoverArtPlaceholder ref={rootRef} label={label} sx={combinedSx} />;
+    return <CoverArtPlaceholder ref={setRootRef} label={label} sx={combinedSx} />;
   }
 
   if (loadState !== 'ready' || !displaySrc) {
     return (
       <CoverArtPlaceholder
-        ref={rootRef}
+        ref={setRootRef}
         label={label}
         loading={loadState === 'loading'}
         sx={combinedSx}
@@ -275,7 +337,7 @@ export function CoverArtThumb({
 
   return (
     <Box
-      ref={rootRef}
+      ref={setRootRef}
       component="img"
       src={displaySrc}
       alt={label ?? ''}

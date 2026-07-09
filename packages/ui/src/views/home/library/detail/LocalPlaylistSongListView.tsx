@@ -568,6 +568,10 @@ export function LocalPlaylistSongListView({
                         ? () => onViewAlbumResolvedRow(row)
                         : undefined
                     }
+                    offlineScope={{
+                      serverId: row.serverId,
+                      libraryId: row.libraryId,
+                    }}
                     isStarred={setTrackStarred ? starred : undefined}
                     onToggleStar={
                       setTrackStarred

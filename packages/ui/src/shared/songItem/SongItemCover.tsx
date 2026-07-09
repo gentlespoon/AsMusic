@@ -1,6 +1,7 @@
 import type { LibraryArtworkCacheRow, SubsonicAPI } from "@asmusic/core";
-import { Box, ListItemAvatar } from "@mui/material";
+import { ListItemAvatar } from "@mui/material";
 import { CoverArtThumb } from "@ui/shared/CoverArtThumb";
+import { CoverArtPlaceholder } from "@ui/shared/CoverArtPlaceholder";
 import type { PersistCachedArtwork } from "@ui/shared/libraryArtworkCacheAccess";
 import { COVER_SIZE } from "./constants";
 
@@ -51,7 +52,7 @@ export function SongItemCover({
           sx={coverSx}
         />
       ) : (
-        <Box sx={{ ...coverSx, bgcolor: "action.hover" }} aria-hidden />
+        <CoverArtPlaceholder sx={coverSx} />
       )}
     </ListItemAvatar>
   );

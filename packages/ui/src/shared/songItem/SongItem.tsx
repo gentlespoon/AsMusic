@@ -1,8 +1,8 @@
 import { useState, type MouseEvent } from "react";
 import { useT } from "@asmusic/i18n";
 import { SongItemActions } from "./SongItemActions";
+import { SongItemActionsMenu } from "./SongItemActionsMenu";
 import { SongItemMain } from "./SongItemMain";
-import { SongItemQueueMenu } from "./SongItemQueueMenu";
 import { SongItemRow } from "./SongItemRow";
 import { songItemSecondaryLine } from "./songItemSecondaryLine";
 import type { SongItemProps } from "./types";
@@ -26,6 +26,8 @@ export function SongItem({
   onClick,
   onPlayNext,
   onAppendToQueue,
+  onViewArtist,
+  onViewAlbum,
   isStarred,
   onToggleStar,
   unavailable = false,
@@ -33,11 +35,12 @@ export function SongItem({
   const t = useT();
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
 
-  const showQueueMenu = Boolean(onPlayNext || onAppendToQueue);
+  const showOverflowMenu = Boolean(
+    onPlayNext || onAppendToQueue || onViewArtist || onViewAlbum || (showRemoveButton && onRemove),
+  );
   const showStar = Boolean(onToggleStar) && isStarred != null;
   const showDelete = Boolean(showRemoveButton && onRemove);
-  const showActionsMenu = showQueueMenu || showDelete;
-  const hasActions = showStar || showActionsMenu;
+  const hasActions = showStar || showOverflowMenu;
 
   const secondary =
     secondaryContent ??
@@ -73,9 +76,8 @@ export function SongItem({
         if (!onToggleStar) return;
         void Promise.resolve(onToggleStar());
       }}
-      showDelete={showDelete}
-      showQueueMenu={showQueueMenu}
-      onOpenQueueMenu={(e) => setMenuAnchor(e.currentTarget)}
+      showOverflowMenu={showOverflowMenu}
+      onOpenOverflowMenu={(e) => setMenuAnchor(e.currentTarget)}
       stopRowClick={stopRowClick}
       t={t}
     />
@@ -90,12 +92,14 @@ export function SongItem({
         hasActions={hasActions}
         unavailable={unavailable}
       />
-      {showActionsMenu ? (
-        <SongItemQueueMenu
+      {showOverflowMenu ? (
+        <SongItemActionsMenu
           anchorEl={menuAnchor}
           onClose={() => setMenuAnchor(null)}
           onPlayNext={onPlayNext}
           onAppendToQueue={onAppendToQueue}
+          onViewArtist={onViewArtist}
+          onViewAlbum={onViewAlbum}
           onRemove={showDelete ? onRemove : undefined}
           t={t}
         />

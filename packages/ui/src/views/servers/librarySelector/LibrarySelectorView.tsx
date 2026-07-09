@@ -11,6 +11,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useServerAndLibrary } from '@ui/contexts';
+import { libraryFlexFillSx } from '@ui/shared/LibraryVirtuosoFill';
 import { PageCloseButton } from '@ui/shared/PageCloseButton';
 import { SettingsPageDescription } from '@ui/views/settings/SettingsTypography';
 import { LibrarySelectorList } from './LibrarySelectorList';
@@ -35,7 +36,13 @@ export function LibrarySelectorView({ embedded = false }: LibrarySelectorViewPro
     <Box
       sx={
         embedded
-          ? { minWidth: 0, maxWidth: '100%', overflowX: 'hidden' }
+          ? {
+              ...libraryFlexFillSx,
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+              maxWidth: '100%',
+            }
           : {
               minHeight:
                 'calc(100dvh - var(--safe-area-top) - var(--safe-area-bottom))',
@@ -51,63 +58,85 @@ export function LibrarySelectorView({ embedded = false }: LibrarySelectorViewPro
           px: embedded ? 0 : undefined,
           minWidth: 0,
           maxWidth: '100%',
+          ...(embedded
+            ? {
+                ...libraryFlexFillSx,
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden',
+              }
+            : undefined),
         }}
       >
-        {!embedded && (
-          <Stack direction="row" sx={{ mb: 2, justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h5" component="h1" sx={{ fontWeight: 600 }}>
-              {t('servers.libraries.title')}
+        <Box sx={{ flexShrink: 0 }}>
+          {!embedded && (
+            <Stack direction="row" sx={{ mb: 2, justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography variant="h5" component="h1" sx={{ fontWeight: 600 }}>
+                {t('servers.libraries.title')}
+              </Typography>
+              <PageCloseButton edge="end" onClick={() => navigate('/')} />
+            </Stack>
+          )}
+          <SettingsPageDescription>{t('servers.libraries.description')}</SettingsPageDescription>
+          {!embedded && <LibrarySelectorToolbar />}
+
+          <Paper variant="outlined" sx={{ p: 1.5, mb: 2 }}>
+            <Typography variant="body2">
+              {activeCount === 1 ? (
+                t('servers.libraries.activeCountOne')
+              ) : (
+                t('servers.libraries.activeCount', { count: format.number(activeCount) })
+              )}
             </Typography>
-            <PageCloseButton edge="end" onClick={() => navigate('/')} />
-          </Stack>
-        )}
-        <SettingsPageDescription>{t('servers.libraries.description')}</SettingsPageDescription>
-        {!embedded && <LibrarySelectorToolbar />}
+          </Paper>
 
-        <Paper variant="outlined" sx={{ p: 1.5, mb: 2 }}>
-          <Typography variant="body2">
-            {activeCount === 1 ? (
-              t('servers.libraries.activeCountOne')
-            ) : (
-              t('servers.libraries.activeCount', { count: format.number(activeCount) })
-            )}
-          </Typography>
-        </Paper>
+          {loadError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {loadError}
+            </Alert>
+          )}
+          {refreshError && (
+            <Alert severity="error" sx={{ mb: 2 }} onClose={() => setRefreshError(null)}>
+              {refreshError}
+            </Alert>
+          )}
 
-        {loadError && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {loadError}
-          </Alert>
-        )}
-        {refreshError && (
-          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setRefreshError(null)}>
-            {refreshError}
-          </Alert>
-        )}
+          {loading && rows.length === 0 && (
+            <Stack direction="row" spacing={1} sx={{ py: 2, alignItems: 'center' }}>
+              <CircularProgress size={22} />
+              <Typography variant="body2" color="text.secondary">
+                {t('servers.libraries.loadingFolders')}
+              </Typography>
+            </Stack>
+          )}
 
-        {loading && rows.length === 0 && (
-          <Stack direction="row" spacing={1} sx={{ py: 2, alignItems: 'center' }}>
-            <CircularProgress size={22} />
+          {servers.length === 0 && !loading && (
             <Typography variant="body2" color="text.secondary">
-              {t('servers.libraries.loadingFolders')}
+              {t('servers.libraries.addServerFirst')}
             </Typography>
-          </Stack>
-        )}
-
-        {servers.length === 0 && !loading && (
-          <Typography variant="body2" color="text.secondary">
-            {t('servers.libraries.addServerFirst')}
-          </Typography>
-        )}
+          )}
+        </Box>
 
         {servers.length > 0 && rows.length > 0 && (
-          <LibrarySelectorList
-            rows={rows}
-            cacheStatsByRowKey={cacheStatsByRowKey}
-            refreshingKey={refreshingKey}
-            refreshDisabledGlobal={refreshingKey !== null}
-            onRefreshRow={(row) => void refreshLibraryRow(row)}
-          />
+          <Box
+            sx={
+              embedded
+                ? {
+                    ...libraryFlexFillSx,
+                    overflow: 'auto',
+                    WebkitOverflowScrolling: 'touch',
+                  }
+                : undefined
+            }
+          >
+            <LibrarySelectorList
+              rows={rows}
+              cacheStatsByRowKey={cacheStatsByRowKey}
+              refreshingKey={refreshingKey}
+              refreshDisabledGlobal={refreshingKey !== null}
+              onRefreshRow={(row) => void refreshLibraryRow(row)}
+            />
+          </Box>
         )}
       </Container>
     </Box>

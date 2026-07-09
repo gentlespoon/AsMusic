@@ -192,10 +192,9 @@ export function ServersAndLibrariesView() {
           sx={{
             ...libraryFlexFillSx,
             pt: 2,
-            overflowY: "auto",
-            overflowX: "hidden",
-            WebkitOverflowScrolling: "touch",
-            display: tab === 1 ? "block" : "none",
+            overflow: "hidden",
+            display: tab === 1 ? "flex" : "none",
+            flexDirection: "column",
           }}
         >
           {tab === 1 && <LibrarySelectorView embedded />}

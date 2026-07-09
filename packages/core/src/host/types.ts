@@ -33,6 +33,8 @@ export type PlaybackHost = {
       artworkUrl?: string | null;
       /** iOS native: JPEG/PNG bytes for lock-screen art when `artworkUrl` is unavailable offline. */
       artworkDataBase64?: string | null;
+      /** iOS native: fallback lock-screen art when artwork fetch/decode fails. */
+      artworkPlaceholderDataBase64?: string | null;
       /** iOS native: load from this path instead of parsing `url` (offline downloads). */
       localFilePath?: string;
     }
@@ -41,6 +43,7 @@ export type PlaybackHost = {
   updateArtwork?(meta: {
     artworkUrl?: string | null;
     artworkDataBase64?: string | null;
+    artworkPlaceholderDataBase64?: string | null;
   }): Promise<void>;
   play(): Promise<void>;
   pause(): Promise<void>;

@@ -79,7 +79,7 @@ export function getOrStartCoverArtLoad(
       current.loading = null;
       if (url) {
         if (current.url && current.url !== url) {
-          URL.revokeObjectURL(current.url);
+          if (current.url.startsWith('blob:')) URL.revokeObjectURL(current.url);
         }
         current.url = url;
         current.lastUsed = Date.now();
@@ -101,6 +101,15 @@ export function getOrStartCoverArtLoad(
   return loading;
 }
 
+/** Drops a failed in-memory entry so the next mount/effect can retry loading. */
+export function invalidateCoverArtUrl(key: string): void {
+  const entry = cache.get(key);
+  if (!entry) return;
+  if (entry.url.startsWith('blob:')) URL.revokeObjectURL(entry.url);
+  entry.url = '';
+  entry.loading = null;
+}
+
 function evictIfNeeded(): void {
   if (cache.size <= MAX_ENTRIES) return;
 
@@ -110,7 +119,7 @@ function evictIfNeeded(): void {
 
   for (const [key, entry] of evictable) {
     if (cache.size <= MAX_ENTRIES) break;
-    URL.revokeObjectURL(entry.url);
+    if (entry.url.startsWith('blob:')) URL.revokeObjectURL(entry.url);
     cache.delete(key);
   }
 }
@@ -118,7 +127,7 @@ function evictIfNeeded(): void {
 /** Revokes all in-memory blob URLs (e.g. after a global artwork cache purge). */
 export function clearCoverArtObjectUrlCache(): void {
   for (const [, entry] of cache) {
-    if (entry.url) URL.revokeObjectURL(entry.url);
+    if (entry.url.startsWith('blob:')) URL.revokeObjectURL(entry.url);
   }
   cache.clear();
 }

@@ -5,8 +5,14 @@
     "dev": "pnpm --filter asmusic-web dev",
     "build": "pnpm --filter asmusic-web build",
     "lint": "pnpm --filter asmusic-web lint",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "cap:sync": "pnpm --filter asmusic-web cap:sync",
     "cap:open:ios": "pnpm --filter asmusic-web cap:open:ios",
     "build:release": "bash scripts/build.sh"
+  },
+  "devDependencies": {
+    "happy-dom": "^17.6.3",
+    "vitest": "^3.2.7"
   }
 }

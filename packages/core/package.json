@@ -4,6 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "sideEffects": false,
+  "scripts": {
+    "test": "pnpm -w vitest run --project @asmusic/core",
+    "test:watch": "pnpm -w vitest --project @asmusic/core"
+  },
   "exports": {
     ".": "./src/index.ts"
   },

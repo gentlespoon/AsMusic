@@ -23,6 +23,11 @@ import { createPersistCachedArtworkForScope } from '@ui/shared/libraryArtworkCac
 import { createResolveCachedArtwork } from '@ui/shared/createResolveCachedArtwork';
 import { songMatchesQuery } from '@ui/shared/songSearch';
 import { formatBytes } from '@ui/utils/formatBytes';
+import {
+  songHasViewableAlbum,
+  songHasViewableArtist,
+  useSongLibraryNavigation,
+} from '@ui/views/home/library/browser/useSongLibraryNavigation';
 
 type RowModel = {
   key: OfflineMediaKey;
@@ -73,6 +78,7 @@ export function DownloadedSongListView({ reloadNonce = 0 }: DownloadedSongListVi
   const { slices, apiForServer } = useLibraryBrowseCache();
   const { servers } = useServerAndLibrary();
   const { insertAfterCurrent, appendToQueue, replaceQueueAndPlay } = usePlayerActions();
+  const { openArtistForSong, openAlbumForSong } = useSongLibraryNavigation();
   const [rows, setRows] = useState<RowModel[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -372,6 +378,26 @@ export function DownloadedSongListView({ reloadNonce = 0 }: DownloadedSongListVi
                     onClick={() => playRowNow(rowIndex)}
                     onPlayNext={() => playNextForRow(rowIndex)}
                     onAppendToQueue={() => appendForRow(rowIndex)}
+                    onViewArtist={
+                      r.queueItem && songHasViewableArtist(r.track)
+                        ? () =>
+                            openArtistForSong(
+                              r.queueItem!.serverId,
+                              r.queueItem!.libraryId,
+                              r.track,
+                            )
+                        : undefined
+                    }
+                    onViewAlbum={
+                      r.queueItem && songHasViewableAlbum(r.track)
+                        ? () =>
+                            openAlbumForSong(
+                              r.queueItem!.serverId,
+                              r.queueItem!.libraryId,
+                              r.track,
+                            )
+                        : undefined
+                    }
                   />
                 );
               }}

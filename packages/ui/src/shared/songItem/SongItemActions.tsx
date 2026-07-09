@@ -9,24 +9,20 @@ export function SongItemActions({
   showStar,
   isStarred,
   onStarClick,
-  showDelete,
-  showQueueMenu,
-  onOpenQueueMenu,
+  showOverflowMenu,
+  onOpenOverflowMenu,
   stopRowClick,
   t,
 }: {
   showStar: boolean;
   isStarred?: boolean;
   onStarClick: () => void;
-  showDelete: boolean;
-  showQueueMenu: boolean;
-  onOpenQueueMenu: (e: MouseEvent<HTMLElement>) => void;
+  showOverflowMenu: boolean;
+  onOpenOverflowMenu: (e: MouseEvent<HTMLElement>) => void;
   stopRowClick: (e: MouseEvent<HTMLElement>) => void;
   t: ReturnType<typeof useT>;
 }) {
-  const showActionsMenu = showQueueMenu || showDelete;
-
-  if (!showStar && !showActionsMenu) {
+  if (!showStar && !showOverflowMenu) {
     return null;
   }
 
@@ -71,14 +67,14 @@ export function SongItemActions({
           </span>
         </Tooltip>
       ) : null}
-      {showActionsMenu ? (
+      {showOverflowMenu ? (
         <IconButton
           edge="end"
           size="small"
           aria-label={t("player.action.songActions")}
           onClick={(e) => {
             stopRowClick(e);
-            onOpenQueueMenu(e);
+            onOpenOverflowMenu(e);
           }}
         >
           <MoreVert fontSize="small" />

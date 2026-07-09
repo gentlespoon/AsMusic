@@ -11,12 +11,14 @@ import {
   Divider,
   MenuItem,
   Select,
+  Slider,
   Stack,
   Switch,
   ToggleButton,
   ToggleButtonGroup,
   Toolbar,
   Tooltip,
+  Typography,
 } from "@mui/material";
 import { PageCloseButton } from "@ui/shared/PageCloseButton";
 import { useHost } from "@ui/host/HostContext";
@@ -64,6 +66,12 @@ import {
   setPlayerDebugLogMenuEnabled,
   usePlayerDebugLogMenuEnabled,
 } from "@ui/preferences/playerDebugLogPreference";
+import {
+  PLAYBACK_FAILURE_AUTO_SKIP_LIMIT_MAX,
+  PLAYBACK_FAILURE_AUTO_SKIP_LIMIT_MIN,
+  setPlaybackFailureAutoSkipLimit,
+  usePlaybackFailureAutoSkipLimit,
+} from "@ui/preferences/playbackFailureAutoSkipLimitPreference";
 
 type LanguageOption = { value: DisplayLanguagePreference; label: string };
 
@@ -93,6 +101,7 @@ export function UserExperienceView() {
   const hapticEnabled = useHapticFeedbackEnabled();
   const waveformProgressBar = useWaveformProgressBarEnabled();
   const playerDebugLogMenu = usePlayerDebugLogMenuEnabled();
+  const playbackFailureAutoSkipLimit = usePlaybackFailureAutoSkipLimit();
   const showPlayerDebugLogSetting = host.kind === "ios-capacitor";
   const edgeSwipeBack = useEdgeSwipeBack(() => navigate("/settings"));
 
@@ -276,6 +285,52 @@ export function UserExperienceView() {
                   sx={{ mt: 0.125, flexShrink: 0 }}
                 />
               </SettingsPreferenceRow>
+            </SettingsPreferenceListItem>
+            <Divider component="li" />
+            <SettingsPreferenceListItem>
+              <Box sx={{ px: 2, py: 1.5 }}>
+                <SettingsListItemTitle>
+                  {t("settings.ux.playbackFailureAutoSkipLimit")}
+                </SettingsListItemTitle>
+                <SettingsListItemCaption>
+                  {t("settings.ux.playbackFailureAutoSkipLimit.caption")}
+                </SettingsListItemCaption>
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 2,
+                    mt: 1.25,
+                  }}
+                >
+                  <Slider
+                    value={playbackFailureAutoSkipLimit}
+                    onChange={(_, v) =>
+                      setPlaybackFailureAutoSkipLimit(
+                        Array.isArray(v) ? v[0]! : v,
+                      )
+                    }
+                    min={PLAYBACK_FAILURE_AUTO_SKIP_LIMIT_MIN}
+                    max={PLAYBACK_FAILURE_AUTO_SKIP_LIMIT_MAX}
+                    step={1}
+                    valueLabelDisplay="off"
+                    aria-label={t("settings.ux.playbackFailureAutoSkipLimit")}
+                    sx={{ flex: 1 }}
+                  />
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{
+                      minWidth: 24,
+                      textAlign: "right",
+                      fontVariantNumeric: "tabular-nums",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {playbackFailureAutoSkipLimit}
+                  </Typography>
+                </Box>
+              </Box>
             </SettingsPreferenceListItem>
             <Divider component="li" />
             <SettingsPreferenceListItem>

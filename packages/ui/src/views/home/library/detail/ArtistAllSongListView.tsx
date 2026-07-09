@@ -19,6 +19,9 @@ import { LibraryVirtuosoFill, libraryFlexFillSx } from "@ui/shared/LibraryVirtuo
 import { useLibraryScrollRestoration } from "@ui/shared/useLibraryScrollRestoration";
 import { useLibraryVirtuosoScroller } from "@ui/shared/useLibraryVirtuosoScroller";
 import { VirtuosoMuiList } from "@ui/shared/virtuosoMuiList";
+import {
+  songHasViewableAlbum,
+} from "../browser/useSongLibraryNavigation";
 
 export function ArtistAllSongListView({
   artistName,
@@ -27,7 +30,6 @@ export function ArtistAllSongListView({
   albums,
   api,
   initialReady,
-  syncing,
   resolveCachedArtwork,
   persistCachedArtwork,
   coverArtCacheBump,
@@ -36,6 +38,7 @@ export function ArtistAllSongListView({
   onPlayTrack,
   onPlayNextTrack,
   onAppendTrackToQueue,
+  onViewAlbum,
   onAppendAllToQueue,
   onShufflePlayAll,
   serverId,
@@ -49,7 +52,6 @@ export function ArtistAllSongListView({
   albums: AlbumID3[];
   api: SubsonicAPI;
   initialReady: boolean;
-  syncing: boolean;
   resolveCachedArtwork: (
     coverArtId: string,
   ) => Promise<LibraryArtworkCacheRow | null>;
@@ -61,6 +63,7 @@ export function ArtistAllSongListView({
   onPlayTrack?: (track: Child) => void;
   onPlayNextTrack?: (track: Child) => void;
   onAppendTrackToQueue?: (track: Child) => void;
+  onViewAlbum?: (track: Child) => void;
   /** Append every track currently shown (respects the search filter). */
   onAppendAllToQueue?: (tracks: Child[]) => void;
   /** Replace the queue with a shuffled copy of the tracks currently shown, then play. */
@@ -183,7 +186,7 @@ export function ArtistAllSongListView({
             {t("library.cache.loading")}
           </Typography>
         )}
-        {initialReady && tracks.length === 0 && !syncing && (
+        {initialReady && tracks.length === 0 && (
           <Typography variant="body2" color="text.secondary">
             {t("library.artist.noTracks")}
           </Typography>
@@ -227,6 +230,11 @@ export function ArtistAllSongListView({
                     onAppendToQueue={
                       onAppendTrackToQueue
                         ? () => onAppendTrackToQueue(track)
+                        : undefined
+                    }
+                    onViewAlbum={
+                      onViewAlbum && songHasViewableAlbum(track)
+                        ? () => onViewAlbum(track)
                         : undefined
                     }
                     isStarred={setTrackStarred ? isChildStarred(track) : undefined}

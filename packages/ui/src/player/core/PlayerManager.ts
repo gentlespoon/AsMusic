@@ -1,22 +1,30 @@
 import {
   libraryCacheScope,
-  offlineLookupScopes,
   PERSIST_WHILE_STREAMING_KEY,
-  readCachedArtworkBlob,
   readPersistWhileStreamingEnabled,
   resolvePlaybackSource,
   type PlaybackRemoteSessionPayload,
   type PlatformHost,
   type PlaybackStatePayload,
-} from '@asmusic/core';
-import { ensureQueueRowIds, newQueueRowId } from './playerQueueItemFromChild';
-import type { PlayerQueueItem, PlayerToastEvent, PlayerViewState } from './types';
+} from "@asmusic/core";
+import { ensureQueueRowIds, newQueueRowId } from "./playerQueueItemFromChild";
+import type {
+  PlayerQueueItem,
+  PlayerToastEvent,
+  PlayerViewState,
+} from "./types";
 import {
   PLAYBACK_QUEUE_STATE_KEY,
   parsePersistedQueue,
   type PersistedPlaybackQueueV1,
-} from './playbackQueuePersistence';
-import { playImpactIfEnabled } from '@ui/haptics/playImpactIfEnabled';
+} from "./playbackQueuePersistence";
+import { playImpactIfEnabled } from "@ui/haptics/playImpactIfEnabled";
+import {
+  buildNowPlayingCoverArtSources,
+  resolveCoverArt,
+  toNowPlayingArtwork,
+} from "@ui/shared/coverArt";
+import { getPlaybackFailureAutoSkipLimit } from "@ui/preferences/playbackFailureAutoSkipLimitPreference";
 
 /** Coalesce host `onPlaybackState` into fewer React updates while playing (position-only ticks). */
 const PLAYBACK_UI_EMIT_INTERVAL_MS = 200;
@@ -39,7 +47,7 @@ export type PlayerManagerDeps = {
   getLibraryDisplayName?: (serverId: string, libraryId: string) => string;
   getServerDisplayName?: (serverId: string) => string;
   ensureLibraryNames?: (
-    refs: readonly { serverId: string; libraryId: string }[]
+    refs: readonly { serverId: string; libraryId: string }[],
   ) => Promise<Record<string, string>>;
 };
 
@@ -65,32 +73,36 @@ function emptySnapshot(): PlayerViewState {
 }
 
 function normalizeUrl(u: string): string {
-  return u.replace(/\/$/, '');
+  return u.replace(/\/$/, "");
 }
 
-function filterQueueForKnownServers(queue: PlayerQueueItem[], servers: SavedServerRef[]): PlayerQueueItem[] {
+function filterQueueForKnownServers(
+  queue: PlayerQueueItem[],
+  servers: SavedServerRef[],
+): PlayerQueueItem[] {
   if (servers.length === 0) return [];
   return queue.filter((it) => {
     const s = servers.find((x) => x.id === it.serverId);
     if (!s) return false;
-    return normalizeUrl(s.serverUrl) === normalizeUrl(it.serverUrl) && s.username === it.username;
+    return (
+      normalizeUrl(s.serverUrl) === normalizeUrl(it.serverUrl) &&
+      s.username === it.username
+    );
   });
 }
 
 function arrayMoveOne<T>(arr: T[], from: number, to: number): void {
-  if (from === to || from < 0 || from >= arr.length || to < 0 || to > arr.length) return;
+  if (
+    from === to ||
+    from < 0 ||
+    from >= arr.length ||
+    to < 0 ||
+    to > arr.length
+  )
+    return;
   const [x] = arr.splice(from, 1);
   const insert = to > from ? to - 1 : to;
   arr.splice(insert, 0, x!);
-}
-
-function uint8ArrayToBase64(bytes: Uint8Array): string {
-  const chunk = 0x8000;
-  let binary = '';
-  for (let i = 0; i < bytes.length; i += chunk) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
-  }
-  return btoa(binary);
 }
 
 export class PlayerManager {
@@ -123,7 +135,9 @@ export class PlayerManager {
 
   private sleepEndsAtEpochMs: number | null = null;
   /** Referentially stable for `useSyncExternalStore` while `sleepEndsAtEpochMs` is unchanged. */
-  private sleepTimerSnapshot: PlayerSleepTimerSnapshot = { sleepEndsAtEpochMs: null };
+  private sleepTimerSnapshot: PlayerSleepTimerSnapshot = {
+    sleepEndsAtEpochMs: null,
+  };
   private sleepListeners = new Set<() => void>();
   private unsubSleepTimer: (() => void) | null = null;
 
@@ -131,6 +145,8 @@ export class PlayerManager {
   private loadTrackSeq = 0;
   private handlingPlaybackEnded = false;
   private handlingPlaybackFailure = false;
+  /** Consecutive track failures without confirmed playback; survives async iOS AVPlayer errors. */
+  private consecutivePlaybackFailures = 0;
 
   private toastSeq = 0;
   private toastSnapshot: PlayerToastEvent | null = null;
@@ -139,7 +155,9 @@ export class PlayerManager {
   constructor(host: PlatformHost, deps: PlayerManagerDeps) {
     this.host = host;
     this.deps = deps;
-    this.unsubState = host.playback.onPlaybackState((s) => this.applyHostPlaybackState(s));
+    this.unsubState = host.playback.onPlaybackState((s) =>
+      this.applyHostPlaybackState(s),
+    );
     this.unsubEnded = host.playback.onPlaybackEnded(() => {
       void this.handlePlaybackEnded();
     });
@@ -198,6 +216,10 @@ export class PlayerManager {
     this.durationSeconds = s.durationSeconds;
     this.isPlaying = s.isPlaying;
 
+    if (s.isPlaying && s.durationSeconds > 0) {
+      this.consecutivePlaybackFailures = 0;
+    }
+
     const urgent =
       prevPlaying !== this.isPlaying ||
       (prevDuration <= 0 && this.durationSeconds > 0) ||
@@ -222,7 +244,10 @@ export class PlayerManager {
       return;
     }
     if (!this.playbackThrottleTimer) {
-      const wait = Math.max(0, PLAYBACK_UI_EMIT_INTERVAL_MS - (now - this.lastTransportUiEmitAt));
+      const wait = Math.max(
+        0,
+        PLAYBACK_UI_EMIT_INTERVAL_MS - (now - this.lastTransportUiEmitAt),
+      );
       this.playbackThrottleTimer = setTimeout(() => {
         this.playbackThrottleTimer = null;
         this.lastTransportUiEmitAt = Date.now();
@@ -284,7 +309,7 @@ export class PlayerManager {
   private emitPlaybackSkippedToast(failedTitle: string, error: string): void {
     this.emitToast({
       id: ++this.toastSeq,
-      messageKey: 'player.playback.skippedOnFailure',
+      messageKey: "player.playback.skippedOnFailure",
       params: { title: failedTitle, error },
     });
   }
@@ -294,7 +319,9 @@ export class PlayerManager {
   }
 
   private syncSleepTimerSnapshot(): void {
-    if (this.sleepTimerSnapshot.sleepEndsAtEpochMs !== this.sleepEndsAtEpochMs) {
+    if (
+      this.sleepTimerSnapshot.sleepEndsAtEpochMs !== this.sleepEndsAtEpochMs
+    ) {
       this.sleepTimerSnapshot = { sleepEndsAtEpochMs: this.sleepEndsAtEpochMs };
     }
   }
@@ -333,7 +360,9 @@ export class PlayerManager {
 
   private rebuildSnapshot(): void {
     const currentItem =
-      this.currentIndex !== null && this.queue[this.currentIndex] ? this.queue[this.currentIndex]! : null;
+      this.currentIndex !== null && this.queue[this.currentIndex]
+        ? this.queue[this.currentIndex]!
+        : null;
     const idx = this.currentIndex;
     const len = this.queue.length;
     const hasNext =
@@ -356,7 +385,7 @@ export class PlayerManager {
   }
 
   private maybeSyncIosRemoteSession(): void {
-    if (this.host.kind !== 'ios-capacitor') return;
+    if (this.host.kind !== "ios-capacitor") return;
     const sync = this.host.playback.syncRemoteSession;
     if (!sync) return;
     const s = this.snapshot;
@@ -420,7 +449,10 @@ export class PlayerManager {
       return;
     }
     try {
-      await this.host.secureStorage.set(PLAYBACK_QUEUE_STATE_KEY, JSON.stringify(this.buildPersistPayload()));
+      await this.host.secureStorage.set(
+        PLAYBACK_QUEUE_STATE_KEY,
+        JSON.stringify(this.buildPersistPayload()),
+      );
     } catch {
       /* ignore */
     }
@@ -447,8 +479,11 @@ export class PlayerManager {
       if (filtered.length === 0) return;
       const prevIdx = parsed.currentIndex ?? 0;
       const playingRowId =
-        parsed.queue[Math.min(Math.max(0, prevIdx), parsed.queue.length - 1)]?.rowId ?? null;
-      let idx = playingRowId ? filtered.findIndex((q) => q.rowId === playingRowId) : -1;
+        parsed.queue[Math.min(Math.max(0, prevIdx), parsed.queue.length - 1)]
+          ?.rowId ?? null;
+      let idx = playingRowId
+        ? filtered.findIndex((q) => q.rowId === playingRowId)
+        : -1;
       if (idx < 0) {
         idx = Math.min(Math.max(0, prevIdx), filtered.length - 1);
       }
@@ -459,7 +494,9 @@ export class PlayerManager {
       const restorePositionSeconds = parsed.positionSeconds;
       this.loadError = null;
       this.emit();
-      await Promise.all(servers.map((s) => this.deps.ensureStreamReady(s.id).catch(() => {})));
+      await Promise.all(
+        servers.map((s) => this.deps.ensureStreamReady(s.id).catch(() => {})),
+      );
       await this.loadCurrentTrack({ autoplay: false });
       if (restorePositionSeconds > 0) {
         await this.seek(restorePositionSeconds);
@@ -498,18 +535,24 @@ export class PlayerManager {
   private startPersistWhileStreamingIfNeeded(
     item: PlayerQueueItem,
     streamUrl: string,
-    resolvedPlaybackUrl: string
+    resolvedPlaybackUrl: string,
   ): void {
     if (resolvedPlaybackUrl !== streamUrl) return;
-    if (this.host.offlineMedia.backend === 'noop') return;
+    if (this.host.offlineMedia.backend === "noop") return;
 
     void (async () => {
       try {
-        const persistRaw = await this.host.secureStorage.get(PERSIST_WHILE_STREAMING_KEY);
+        const persistRaw = await this.host.secureStorage.get(
+          PERSIST_WHILE_STREAMING_KEY,
+        );
         if (!readPersistWhileStreamingEnabled(persistRaw)) return;
 
         const key = {
-          scope: libraryCacheScope(item.serverUrl, item.username, item.libraryId),
+          scope: libraryCacheScope(
+            item.serverUrl,
+            item.username,
+            item.libraryId,
+          ),
           trackId: item.trackId,
         };
 
@@ -525,6 +568,7 @@ export class PlayerManager {
       return;
     }
     this.handlingPlaybackEnded = true;
+    this.consecutivePlaybackFailures = 0;
     try {
       const idx = this.currentIndex;
       if (idx === null || this.queue.length === 0) {
@@ -585,19 +629,36 @@ export class PlayerManager {
     }
   }
 
-  /** On load/transport failure, skip forward through the queue until a track plays or the queue ends. */
+  /** On load/transport failure, skip forward through the queue until a track plays, the queue ends, or the failure limit is reached. */
   private async handlePlaybackFailure(errorMessage: string): Promise<void> {
     if (this.handlingPlaybackFailure || this.handlingPlaybackEnded) {
       return;
     }
+    const failureLimit = getPlaybackFailureAutoSkipLimit();
+    if (this.consecutivePlaybackFailures >= failureLimit) {
+      return;
+    }
     this.handlingPlaybackFailure = true;
     try {
+      this.consecutivePlaybackFailures += 1;
       let lastError = errorMessage;
       while (true) {
         const idx = this.currentIndex;
         if (idx === null || this.queue.length === 0) {
           this.loadError = lastError;
           this.emit();
+          return;
+        }
+        if (this.consecutivePlaybackFailures >= failureLimit) {
+          this.loadError = lastError;
+          this.isPlaying = false;
+          try {
+            await this.host.playback.pause();
+          } catch {
+            /* ignore */
+          }
+          this.emit();
+          this.schedulePersist();
           return;
         }
         if (idx + 1 >= this.queue.length) {
@@ -613,12 +674,13 @@ export class PlayerManager {
           return;
         }
         const failedItem = this.queue[idx];
-        this.emitPlaybackSkippedToast(failedItem?.title ?? '', lastError);
+        this.emitPlaybackSkippedToast(failedItem?.title ?? "", lastError);
         const ok = await this.advanceToNextTrack({ autoplay: true });
         if (ok) {
           this.schedulePersist();
           return;
         }
+        this.consecutivePlaybackFailures += 1;
         lastError = this.loadError ?? lastError;
       }
     } finally {
@@ -626,7 +688,9 @@ export class PlayerManager {
     }
   }
 
-  private async advanceToNextTrack(options: { autoplay: boolean }): Promise<boolean> {
+  private async advanceToNextTrack(options: {
+    autoplay: boolean;
+  }): Promise<boolean> {
     const idx = this.currentIndex;
     if (idx === null || idx + 1 >= this.queue.length) {
       return false;
@@ -634,7 +698,10 @@ export class PlayerManager {
     this.currentIndex = idx + 1;
     this.loadError = null;
     this.emit();
-    return this.loadCurrentTrack({ autoplay: options.autoplay, suppressFailureAdvance: true });
+    return this.loadCurrentTrack({
+      autoplay: options.autoplay,
+      suppressFailureAdvance: true,
+    });
   }
 
   private async skipInactiveLibraryTracks(): Promise<void> {
@@ -654,19 +721,20 @@ export class PlayerManager {
           !this.deps.isLibraryActive ||
           this.deps.isLibraryActive(item.serverId, item.libraryId)
         ) {
-          const ok = await this.loadCurrentTrack({ autoplay: true, suppressFailureAdvance: true });
+          const ok = await this.loadCurrentTrack({
+            autoplay: true,
+            suppressFailureAdvance: true,
+          });
           if (ok) {
             this.schedulePersist();
           }
           return;
         }
-        const { serverName, libraryName } = await this.libraryScopeLabelsForToast(
-          item.serverId,
-          item.libraryId
-        );
+        const { serverName, libraryName } =
+          await this.libraryScopeLabelsForToast(item.serverId, item.libraryId);
         this.emitToast({
           id: ++this.toastSeq,
-          messageKey: 'player.playback.skippedLibraryDisabled',
+          messageKey: "player.playback.skippedLibraryDisabled",
           params: { serverName, libraryName },
         });
         if (idx + 1 >= this.queue.length) {
@@ -691,12 +759,15 @@ export class PlayerManager {
 
   private async libraryScopeLabelsForToast(
     serverId: string,
-    libraryId: string
+    libraryId: string,
   ): Promise<{ serverName: string; libraryName: string }> {
     const scopeKey = `${serverId}:${libraryId}`;
-    let libraryName = this.deps.getLibraryDisplayName?.(serverId, libraryId) ?? libraryId;
+    let libraryName =
+      this.deps.getLibraryDisplayName?.(serverId, libraryId) ?? libraryId;
     if (this.deps.ensureLibraryNames) {
-      const names = await this.deps.ensureLibraryNames([{ serverId, libraryId }]);
+      const names = await this.deps.ensureLibraryNames([
+        { serverId, libraryId },
+      ]);
       libraryName = names[scopeKey] ?? libraryName;
     }
     return {
@@ -708,27 +779,31 @@ export class PlayerManager {
   private async resolveTrackNowPlayingArtwork(item: PlayerQueueItem): Promise<{
     artworkUrl?: string;
     artworkDataBase64?: string;
+    artworkPlaceholderDataBase64: string;
   }> {
     const coverArtId = item.coverArtId?.trim();
-    if (!coverArtId) return {};
-
-    const scopes = offlineLookupScopes(item.serverUrl, item.username, item.libraryId);
     const fallbackId = item.coverArtFallbackId?.trim();
-    const idsToTry = [coverArtId];
-    if (fallbackId && fallbackId !== coverArtId) {
-      idsToTry.push(fallbackId);
-    }
+    const idsToTry = [coverArtId, fallbackId].filter(
+      (id): id is string => Boolean(id),
+    );
 
-    for (const id of idsToTry) {
-      const row = await readCachedArtworkBlob(this.host.libraryCache, scopes, id);
-      if (row?.data?.byteLength && this.host.kind === 'ios-capacitor') {
-        return { artworkDataBase64: uint8ArrayToBase64(row.data) };
-      }
+    const sources = buildNowPlayingCoverArtSources({
+      libraryCache: this.host.libraryCache,
+      serverUrl: item.serverUrl,
+      username: item.username,
+      libraryId: item.libraryId,
+      hostKind: this.host.kind,
+      getCoverArtUrl: (id) => this.deps.getCoverArtUrl(item.serverId, id),
+    });
 
-      const artworkUrl = this.deps.getCoverArtUrl(item.serverId, id);
-      if (artworkUrl) return { artworkUrl };
-    }
-    return {};
+    const resolved = await resolveCoverArt(idsToTry, sources, {
+      logContext: {
+        coverArtId,
+        fallbackCoverArtId: fallbackId,
+        detail: "now playing artwork",
+      },
+    });
+    return toNowPlayingArtwork(resolved, this.host.kind);
   }
 
   /** Re-push lock-screen / Control Center artwork after cache refresh. */
@@ -737,7 +812,6 @@ export class PlayerManager {
     const item = idx !== null ? this.queue[idx] : null;
     if (!item?.coverArtId?.trim()) return;
     const art = await this.resolveTrackNowPlayingArtwork(item);
-    if (!art.artworkUrl && !art.artworkDataBase64) return;
     await this.host.playback.updateArtwork?.(art);
   }
 
@@ -768,7 +842,6 @@ export class PlayerManager {
       return false;
     }
 
-    playImpactIfEnabled(this.host);
     this.runRevoke();
     try {
       const offlineResolved = await resolvePlaybackSource({
@@ -777,7 +850,7 @@ export class PlayerManager {
         username: item.username,
         libraryId: item.libraryId,
         trackId: item.trackId,
-        streamUrl: '',
+        streamUrl: "",
       });
       if (loadSeq !== this.loadTrackSeq) return false;
 
@@ -791,7 +864,8 @@ export class PlayerManager {
         if (loadSeq !== this.loadTrackSeq) return false;
         streamUrl = this.deps.getStreamUrl(item.serverId, item.trackId);
         if (!streamUrl) {
-          this.loadError = 'Could not build stream URL (sign in or refresh server).';
+          this.loadError =
+            "Could not build stream URL (sign in or refresh server).";
           this.emit();
           if (!options.suppressFailureAdvance) {
             void this.handlePlaybackFailure(this.loadError);
@@ -814,15 +888,14 @@ export class PlayerManager {
         this.startPersistWhileStreamingIfNeeded(item, streamUrl, playUrl);
       }
 
-      const artwork = item.coverArtId
-        ? await this.resolveTrackNowPlayingArtwork(item)
-        : {};
+      const artwork = await this.resolveTrackNowPlayingArtwork(item);
 
       const playbackRevoke = revoke;
       this.revokePlayback = playbackRevoke;
 
       // iOS native loads from disk via localFilePath; browser uses blob/object URL from offline store.
-      const loadUrlArg = offlineResolved.usedOffline && localFilePath ? '' : playUrl;
+      const loadUrlArg =
+        offlineResolved.usedOffline && localFilePath ? "" : playUrl;
 
       await this.host.playback.loadUrl(loadUrlArg, {
         title: item.title,
@@ -830,11 +903,15 @@ export class PlayerManager {
         album: item.album,
         artworkUrl: artwork.artworkUrl,
         artworkDataBase64: artwork.artworkDataBase64,
+        artworkPlaceholderDataBase64: artwork.artworkPlaceholderDataBase64,
         localFilePath: offlineResolved.usedOffline ? localFilePath : undefined,
       });
       if (loadSeq !== this.loadTrackSeq) return false;
       if (options.autoplay) {
         await this.host.playback.play();
+        if (loadSeq === this.loadTrackSeq) {
+          playImpactIfEnabled(this.host);
+        }
       }
       if (loadSeq === this.loadTrackSeq) {
         this.loadError = null;
@@ -844,7 +921,7 @@ export class PlayerManager {
       return loadSeq === this.loadTrackSeq;
     } catch (e) {
       if (loadSeq !== this.loadTrackSeq) return false;
-      this.loadError = e instanceof Error ? e.message : 'Failed to load track';
+      this.loadError = e instanceof Error ? e.message : "Failed to load track";
       this.emit();
       if (!options.suppressFailureAdvance) {
         void this.handlePlaybackFailure(this.loadError);
@@ -853,7 +930,10 @@ export class PlayerManager {
     }
   }
 
-  async replaceQueueAndPlay(items: PlayerQueueItem[], startIndex: number): Promise<void> {
+  async replaceQueueAndPlay(
+    items: PlayerQueueItem[],
+    startIndex: number,
+  ): Promise<void> {
     if (items.length === 0) {
       await this.tearDownPlayback();
       return;
@@ -862,6 +942,7 @@ export class PlayerManager {
     this.queue = ensureQueueRowIds(items.slice());
     this.currentIndex = clamped;
     this.loadError = null;
+    this.consecutivePlaybackFailures = 0;
     this.emit();
     await this.loadCurrentTrack({ autoplay: true });
     this.schedulePersist();
@@ -903,7 +984,10 @@ export class PlayerManager {
   }
 
   async seek(positionSeconds: number): Promise<void> {
-    const d = this.durationSeconds > 0 ? this.durationSeconds : Number.POSITIVE_INFINITY;
+    const d =
+      this.durationSeconds > 0
+        ? this.durationSeconds
+        : Number.POSITIVE_INFINITY;
     const clamped = Math.max(0, Math.min(positionSeconds, d));
     try {
       await this.host.playback.seek(clamped);
@@ -915,7 +999,10 @@ export class PlayerManager {
 
   async seekBy(deltaSeconds: number): Promise<void> {
     const base = this.positionSeconds;
-    const d = this.durationSeconds > 0 ? this.durationSeconds : base + Math.abs(deltaSeconds);
+    const d =
+      this.durationSeconds > 0
+        ? this.durationSeconds
+        : base + Math.abs(deltaSeconds);
     const next = Math.max(0, Math.min(base + deltaSeconds, d));
     await this.seek(next);
   }
@@ -928,6 +1015,7 @@ export class PlayerManager {
     if (idx + 1 < this.queue.length) {
       this.currentIndex = idx + 1;
       this.loadError = null;
+      this.consecutivePlaybackFailures = 0;
       this.emit();
       await this.loadCurrentTrack({ autoplay: true });
       this.schedulePersist();
@@ -936,6 +1024,7 @@ export class PlayerManager {
     if (this.loopQueue) {
       this.currentIndex = 0;
       this.loadError = null;
+      this.consecutivePlaybackFailures = 0;
       this.emit();
       await this.loadCurrentTrack({ autoplay: true });
       this.schedulePersist();
@@ -950,6 +1039,7 @@ export class PlayerManager {
     if (idx > 0) {
       this.currentIndex = idx - 1;
       this.loadError = null;
+      this.consecutivePlaybackFailures = 0;
       this.emit();
       await this.loadCurrentTrack({ autoplay: true });
       this.schedulePersist();
@@ -958,6 +1048,7 @@ export class PlayerManager {
     if (this.loopQueue) {
       this.currentIndex = this.queue.length - 1;
       this.loadError = null;
+      this.consecutivePlaybackFailures = 0;
       this.emit();
       await this.loadCurrentTrack({ autoplay: true });
       this.schedulePersist();
@@ -976,6 +1067,7 @@ export class PlayerManager {
       this.queue = normalized;
       this.currentIndex = 0;
       this.loadError = null;
+      this.consecutivePlaybackFailures = 0;
       this.emit();
       await this.loadCurrentTrack({ autoplay: true });
       this.schedulePersist();
@@ -991,7 +1083,10 @@ export class PlayerManager {
    * behaves like `replaceQueueAndPlay` at index 0. When `playFirst` is true, jumps to the first
    * inserted item and starts playback.
    */
-  async insertAfterCurrent(items: PlayerQueueItem[], options?: { playFirst?: boolean }): Promise<void> {
+  async insertAfterCurrent(
+    items: PlayerQueueItem[],
+    options?: { playFirst?: boolean },
+  ): Promise<void> {
     const normalized = ensureQueueRowIds(items);
     if (normalized.length === 0) {
       return;
@@ -1010,6 +1105,7 @@ export class PlayerManager {
     if (playFirst) {
       this.currentIndex = insertAt;
       this.loadError = null;
+      this.consecutivePlaybackFailures = 0;
       this.emit();
       await this.loadCurrentTrack({ autoplay: true });
     } else {
@@ -1024,6 +1120,7 @@ export class PlayerManager {
     }
     this.currentIndex = index;
     this.loadError = null;
+    this.consecutivePlaybackFailures = 0;
     this.emit();
     await this.loadCurrentTrack({ autoplay: true });
     this.schedulePersist();

@@ -24,7 +24,6 @@ import { useT } from '@asmusic/i18n';
 import { PageCloseButton } from '@ui/shared/PageCloseButton';
 import { songMatchesQuery } from '@ui/shared/songSearch';
 import { libraryFlexFillSx } from '@ui/shared/LibraryVirtuosoFill';
-import { useNetworkStatus } from '@ui/shared/useNetworkStatus';
 
 export function PlaylistEditorView({
   playlistId,
@@ -46,7 +45,6 @@ export function PlaylistEditorView({
   onSave: (diff: { songIdsToAdd: string[]; songIndexesToRemove: number[] }) => Promise<void>;
 }) {
   const t = useT();
-  const { isOnline } = useNetworkStatus();
   const [search, setSearch] = useState('');
   const [songs, setSongs] = useState<Child[]>([]);
   const [originalEntryIds, setOriginalEntryIds] = useState<string[]>([]);
@@ -57,7 +55,8 @@ export function PlaylistEditorView({
   const [error, setError] = useState<string | null>(null);
   const [loadedFromCache, setLoadedFromCache] = useState(false);
 
-  const readOnly = !isOnline || loadedFromCache;
+  // Only cache-fallback loads are read-only; do not gate on navigator.onLine.
+  const readOnly = loadedFromCache;
 
   useEffect(() => {
     let cancelled = false;

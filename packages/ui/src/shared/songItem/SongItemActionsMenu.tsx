@@ -1,11 +1,13 @@
 import { ListItemText, Menu, MenuItem } from "@mui/material";
 import type { useT } from "@asmusic/i18n";
 
-export function SongItemQueueMenu({
+export function SongItemActionsMenu({
   anchorEl,
   onClose,
   onPlayNext,
   onAppendToQueue,
+  onViewArtist,
+  onViewAlbum,
   onRemove,
   t,
 }: {
@@ -13,10 +15,18 @@ export function SongItemQueueMenu({
   onClose: () => void;
   onPlayNext?: () => void;
   onAppendToQueue?: () => void;
+  onViewArtist?: () => void;
+  onViewAlbum?: () => void;
   onRemove?: () => void;
   t: ReturnType<typeof useT>;
 }) {
-  if (!onPlayNext && !onAppendToQueue && !onRemove) {
+  if (
+    !onPlayNext &&
+    !onAppendToQueue &&
+    !onViewArtist &&
+    !onViewAlbum &&
+    !onRemove
+  ) {
     return null;
   }
 
@@ -40,6 +50,26 @@ export function SongItemQueueMenu({
           }}
         >
           {t("player.action.addToQueue")}
+        </MenuItem>
+      ) : null}
+      {onViewArtist ? (
+        <MenuItem
+          onClick={() => {
+            onViewArtist();
+            onClose();
+          }}
+        >
+          {t("library.action.viewArtist")}
+        </MenuItem>
+      ) : null}
+      {onViewAlbum ? (
+        <MenuItem
+          onClick={() => {
+            onViewAlbum();
+            onClose();
+          }}
+        >
+          {t("library.action.viewAlbum")}
         </MenuItem>
       ) : null}
       {onRemove ? (

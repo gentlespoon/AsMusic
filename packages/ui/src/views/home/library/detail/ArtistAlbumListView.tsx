@@ -80,7 +80,6 @@ export function ArtistAlbumListView({
   albums,
   api,
   initialReady,
-  syncing,
   resolveCachedArtwork,
   persistCachedArtwork,
   coverArtCacheBump,
@@ -98,7 +97,6 @@ export function ArtistAlbumListView({
   albums: AlbumID3[];
   api: SubsonicAPI;
   initialReady: boolean;
-  syncing: boolean;
   resolveCachedArtwork: (coverArtId: string) => Promise<LibraryArtworkCacheRow | null>;
   persistCachedArtwork?: PersistCachedArtwork;
   /** When artwork version keys are scoped (multi-library), map cover id to bump. */
@@ -236,12 +234,12 @@ export function ArtistAlbumListView({
             {t('library.cache.loading')}
           </Typography>
         )}
-        {initialReady && albums.length === 0 && !syncing && allSongsTrackCount === 0 && (
+        {initialReady && albums.length === 0 && allSongsTrackCount === 0 && (
           <Typography variant="body2" color="text.secondary">
             {t('library.artist.noAlbumsInCache')}
           </Typography>
         )}
-        {initialReady && albums.length === 0 && !syncing && allSongsTrackCount > 0 && (
+        {initialReady && albums.length === 0 && allSongsTrackCount > 0 && (
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             {t('library.artist.noAlbumsUseAllSongs')}
           </Typography>

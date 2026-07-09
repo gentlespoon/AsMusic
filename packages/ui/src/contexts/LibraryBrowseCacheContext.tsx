@@ -16,12 +16,12 @@ import {
   allCachedSongsSorted,
   artistsFromCachedSongs,
   isChildStarred,
-  refreshLibraryCache,
   fetchMusicFolders,
   type LibraryCacheScope,
   refreshPlaylistCacheForServer,
   updatePlaylistTracks,
   PENDING_STAR_MUTATIONS_STORAGE_KEY,
+  PENDING_STAR_MUTATIONS_RETRY_INTERVAL_MS,
   coalescePendingStarMutations,
   parsePendingStarMutationsJson,
   serializePendingStarMutations,
@@ -35,14 +35,12 @@ import {
   type LocalPlaylistSummary,
   type LocalPlaylistTrackRef,
   type LibraryPlaylistSummary,
-  type LibraryRefreshProgress,
   type SubsonicAPI,
 } from '@asmusic/core';
 import { useT } from '@asmusic/i18n';
 import { useHost } from '@ui/host/HostContext';
 import { useServerAndLibrary } from './ServerAndLibraryContext';
 import { clearCoverArtObjectUrlCache } from '@ui/shared/coverArtObjectUrlCache';
-import { useNetworkStatus } from '@ui/shared/useNetworkStatus';
 import type { AlbumCatalogRow } from '@ui/views/home/library/catalog/AlbumListView';
 import type { ArtistCatalogRow } from '@ui/views/home/library/catalog/ArtistListView';
 import type { SongListEntry } from '@ui/views/home/library/catalog/SongListView';
@@ -112,10 +110,6 @@ type LibraryBrowseCacheContextValue = {
   readLocalPlaylistEntries: (playlistId: string) => Promise<import('@asmusic/core').LocalPlaylistEntry[]>;
   initialReady: boolean;
   cacheReadError: string | null;
-  syncing: boolean;
-  syncError: string | null;
-  syncProgress: LibraryRefreshProgress | null;
-  runRefresh: () => Promise<void>;
   reloadCachedSongsFromDisk: () => Promise<void>;
   clearAllArtworkCache: () => Promise<void>;
   apiByServerId: Record<string, SubsonicAPI | null>;
@@ -165,13 +159,12 @@ const LibraryBrowseCacheContext = createContext<LibraryBrowseCacheContextValue |
 export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }) {
   const t = useT();
   const host = useHost();
-  const { isOnline } = useNetworkStatus();
-  const isOnlineRef = useRef(isOnline);
-  isOnlineRef.current = isOnline;
   const { servers, activeLibraryRefs, getApiForServer, isRestoring } = useServerAndLibrary();
 
   const pendingStarQueueRef = useRef<PendingStarMutation[]>([]);
   const flushPendingStarsInFlightRef = useRef(false);
+  const pendingStarsHydratedRef = useRef(false);
+  const flushPendingStarMutationsRef = useRef<() => Promise<void>>(async () => {});
 
   const scopesToLoad = useMemo(() => {
     return activeLibraryRefs
@@ -215,22 +208,15 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
   slicesRef.current = slices;
   const [cacheReadError, setCacheReadError] = useState<string | null>(null);
   const [initialReady, setInitialReady] = useState(false);
-  const [syncing, setSyncing] = useState(false);
-  const [syncError, setSyncError] = useState<string | null>(null);
-  const [syncProgress, setSyncProgress] = useState<LibraryRefreshProgress | null>(null);
   const [artworkVersionById, setArtworkVersionById] = useState<Record<string, number>>({});
   const [artworkCacheEpoch, setArtworkCacheEpoch] = useState(0);
   const [apiByServerId, setApiByServerId] = useState<Record<string, SubsonicAPI | null>>({});
   const [libraryNameByKey, setLibraryNameByKey] = useState<Record<string, string>>({});
   const [localPlaylistSummaries, setLocalPlaylistSummaries] = useState<LocalPlaylistSummary[]>([]);
 
-  useEffect(() => {
-    void host.secureStorage.get(PENDING_STAR_MUTATIONS_STORAGE_KEY).then((json) => {
-      pendingStarQueueRef.current = parsePendingStarMutationsJson(json);
-    });
-  }, [host]);
-
   const persistPendingStarQueue = useCallback(async () => {
+    // Avoid writing a partial in-memory queue over disk before hydration merges them.
+    if (!pendingStarsHydratedRef.current) return;
     await host.secureStorage.set(
       PENDING_STAR_MUTATIONS_STORAGE_KEY,
       serializePendingStarMutations(pendingStarQueueRef.current),
@@ -353,52 +339,23 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
     [getApiForServer, t]
   );
 
+  /** Local-only display names — never fetch music folders on launch (sync is user-triggered). */
   useEffect(() => {
-    let cancelled = false;
     const toLoad = scopesToLoadRef.current;
     if (toLoad.length === 0) {
       setLibraryNameByKey({});
-      return () => {
-        cancelled = true;
-      };
+      return;
     }
-    void (async () => {
-      const next: Record<string, string> = {};
-      const defaultLibraryName = t('servers.defaultLibraryName');
-      for (const serverId of [...new Set(toLoad.map((s) => s.serverId))]) {
-        const scopesForServer = toLoad.filter((s) => s.serverId === serverId);
-        const api = await getApiForServer(serverId);
-        if (!api) {
-          for (const s of scopesForServer) {
-            next[libraryRefKey(s.serverId, s.libraryId)] = s.libraryId;
-          }
-          continue;
-        }
-        let folders: Awaited<ReturnType<typeof fetchMusicFolders>>;
-        try {
-          folders = await fetchMusicFolders(api);
-        } catch {
-          folders = [];
-        }
-        if (folders.length === 0) {
-          for (const s of scopesForServer) {
-            next[libraryRefKey(s.serverId, s.libraryId)] =
-              s.libraryId === DEFAULT_LIBRARY_ID ? defaultLibraryName : s.libraryId;
-          }
-          continue;
-        }
-        for (const s of scopesForServer) {
-          const key = libraryRefKey(s.serverId, s.libraryId);
-          const folder = folders.find((f) => f.id === s.libraryId);
-          next[key] = folder?.name ?? (s.libraryId === DEFAULT_LIBRARY_ID ? defaultLibraryName : s.libraryId);
-        }
-      }
-      if (!cancelled) setLibraryNameByKey(next);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [scopesKey, getApiForServer, t]);
+    const defaultLibraryName = t('servers.defaultLibraryName');
+    const next: Record<string, string> = {};
+    for (const s of toLoad) {
+      const key = libraryRefKey(s.serverId, s.libraryId);
+      next[key] =
+        libraryNameByKeyRef.current[key] ??
+        (s.libraryId === DEFAULT_LIBRARY_ID ? defaultLibraryName : s.libraryId);
+    }
+    setLibraryNameByKey((prev) => ({ ...prev, ...next }));
+  }, [scopesKey, t]);
 
   const cachedSongs = useMemo(() => slices.flatMap((s) => s.songs), [slices]);
   const albums = useMemo(() => albumsFromCachedSongs(cachedSongs), [cachedSongs]);
@@ -576,6 +533,7 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
     };
   }, [scopesKey, host.libraryCache, clearArtworkVersionThrottle]);
 
+  /** Warm Subsonic clients best-effort — do not gate on navigator.onLine (spotty mobile nets). */
   useEffect(() => {
     let cancelled = false;
     const toLoad = scopesToLoadRef.current;
@@ -583,7 +541,11 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
     void (async () => {
       const next: Record<string, SubsonicAPI | null> = {};
       for (const id of ids) {
-        next[id] = await getApiForServer(id);
+        try {
+          next[id] = await getApiForServer(id);
+        } catch {
+          next[id] = null;
+        }
       }
       if (!cancelled) setApiByServerId((prev) => ({ ...prev, ...next }));
     })();
@@ -634,6 +596,7 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
   );
 
   const flushPendingStarMutations = useCallback(async () => {
+    if (!pendingStarsHydratedRef.current) return;
     if (flushPendingStarsInFlightRef.current) return;
     flushPendingStarsInFlightRef.current = true;
     try {
@@ -642,7 +605,12 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
         if (queue.length === 0) break;
         const flushed: PendingStarMutation[] = [];
         for (const m of queue) {
-          const api = await getApiForServer(m.serverId);
+          let api: SubsonicAPI | null = null;
+          try {
+            api = await getApiForServer(m.serverId);
+          } catch {
+            continue;
+          }
           if (!api) continue;
           try {
             if (m.starred) {
@@ -664,6 +632,8 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
     }
   }, [getApiForServer, persistPendingStarQueue]);
 
+  flushPendingStarMutationsRef.current = flushPendingStarMutations;
+
   const reapplyPendingStarsToSlices = useCallback(async () => {
     const queue = coalescePendingStarMutations(pendingStarQueueRef.current);
     for (const m of queue) {
@@ -675,10 +645,56 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
     }
   }, [applyLocalStarState]);
 
+  const reapplyPendingStarsToSlicesRef = useRef(reapplyPendingStarsToSlices);
+  reapplyPendingStarsToSlicesRef.current = reapplyPendingStarsToSlices;
+
+  /** Load persisted queue once on launch, then try to sync once servers are restored. */
   useEffect(() => {
-    if (!isOnline) return;
-    void flushPendingStarMutations();
-  }, [isOnline, flushPendingStarMutations]);
+    if (isRestoring) return;
+    let cancelled = false;
+    void (async () => {
+      if (!pendingStarsHydratedRef.current) {
+        const json = await host.secureStorage.get(PENDING_STAR_MUTATIONS_STORAGE_KEY);
+        if (cancelled) return;
+        const fromDisk = parsePendingStarMutationsJson(json);
+        // Merge disk with any mutations queued while the read was in flight.
+        pendingStarQueueRef.current = coalescePendingStarMutations([
+          ...fromDisk,
+          ...pendingStarQueueRef.current,
+        ]);
+        pendingStarsHydratedRef.current = true;
+        await persistPendingStarQueue();
+        await reapplyPendingStarsToSlicesRef.current();
+      }
+      if (cancelled) return;
+      await flushPendingStarMutationsRef.current();
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [host, isRestoring, persistPendingStarQueue]);
+
+  /** Opportunistic retry on browser `online` hint (never used as a pre-check gate). */
+  useEffect(() => {
+    if (isRestoring) return;
+    const onOnline = () => {
+      void flushPendingStarMutationsRef.current();
+    };
+    window.addEventListener('online', onOnline);
+    return () => {
+      window.removeEventListener('online', onOnline);
+    };
+  }, [isRestoring]);
+
+  /** Retry periodically while the app is open. */
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      void flushPendingStarMutationsRef.current();
+    }, PENDING_STAR_MUTATIONS_RETRY_INTERVAL_MS);
+    return () => {
+      window.clearInterval(id);
+    };
+  }, []);
 
   const clearAllArtworkCache = useCallback(async () => {
     await host.libraryCache.purgeAllArtworkCache();
@@ -700,63 +716,6 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
 
   const uniqueServersRef = useRef(uniqueServers);
   uniqueServersRef.current = uniqueServers;
-
-  const runRefresh = useCallback(async () => {
-    if (scopesToLoad.length === 0) return;
-    clearArtworkVersionThrottle();
-
-    setSyncing(true);
-    setSyncError(null);
-    setSyncProgress(null);
-    try {
-      await flushPendingStarMutations();
-      const built: LibraryBrowseSlice[] = [];
-      const refreshedServerKeys = new Set<string>();
-
-      for (const sl of scopesToLoad) {
-        const api = await getApiForServer(sl.serverId);
-        if (!api) {
-          throw new Error(`Could not open a session for ${sl.serverUrl}`);
-        }
-        const { songs } = await refreshLibraryCache(api, host.libraryCache, sl.scope, (p) => setSyncProgress(p), {
-          offlineMedia: host.offlineMedia,
-        });
-        built.push({
-          serverId: sl.serverId,
-          serverUrl: sl.serverUrl,
-          username: sl.username,
-          libraryId: sl.libraryId,
-          scope: sl.scope,
-          songs,
-        });
-
-        if (!refreshedServerKeys.has(sl.scope.serverKey)) {
-          refreshedServerKeys.add(sl.scope.serverKey);
-          setSyncProgress({ phase: 'playlists' });
-          const playlists = await refreshPlaylistCacheForServer(api, host.libraryCache, {
-            serverKey: sl.scope.serverKey,
-          });
-          setServerPlaylistsByServerKey((prev) => ({ ...prev, [sl.scope.serverKey]: playlists }));
-        }
-      }
-
-      setSlices(built);
-      await reapplyPendingStarsToSlices();
-    } catch (e) {
-      setSyncError(e instanceof Error ? e.message : 'Library sync failed');
-    } finally {
-      setSyncing(false);
-      setSyncProgress(null);
-    }
-  }, [
-    scopesToLoad,
-    getApiForServer,
-    host.libraryCache,
-    host.offlineMedia,
-    clearArtworkVersionThrottle,
-    flushPendingStarMutations,
-    reapplyPendingStarsToSlices,
-  ]);
 
   const reloadCachedSongsFromDisk = useCallback(async () => {
     const toLoad = scopesToLoadRef.current;
@@ -843,6 +802,7 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
       setServerPlaylistsByServerKey(playlistMap);
       setCacheReadError(songReadError);
       setInitialReady(true);
+      void reapplyPendingStarsToSlicesRef.current();
     })();
     return () => {
       cancelled = true;
@@ -979,9 +939,8 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
         starred,
       });
       await persistPendingStarQueue();
-      if (isOnlineRef.current) {
-        void flushPendingStarMutations();
-      }
+      // Always attempt sync; failed requests stay queued (pendingStarMutation).
+      void flushPendingStarMutations();
     },
     [applyLocalStarState, persistPendingStarQueue, flushPendingStarMutations]
   );
@@ -1009,10 +968,6 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
       readLocalPlaylistEntries,
       initialReady,
       cacheReadError,
-      syncing,
-      syncError,
-      syncProgress,
-      runRefresh,
       reloadCachedSongsFromDisk,
       clearAllArtworkCache,
       apiByServerId,
@@ -1057,10 +1012,6 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
       readLocalPlaylistEntries,
       initialReady,
       cacheReadError,
-      syncing,
-      syncError,
-      syncProgress,
-      runRefresh,
       reloadCachedSongsFromDisk,
       clearAllArtworkCache,
       apiByServerId,

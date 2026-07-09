@@ -46,6 +46,8 @@ export const enUSMessages = {
   "home.appBar.playlists": "Playlists",
   "home.appBar.songs": "Songs",
 
+  "library.action.viewAlbum": "View album",
+  "library.action.viewArtist": "View artist",
   "library.activeScope.emptyNeedLibrary":
     "Add a Subsonic-compatible server and activate a library to browse cached music here.",
   "library.activeScope.emptyNeedServer":
@@ -143,7 +145,7 @@ export const enUSMessages = {
   "library.playlist.editor.save": "Save",
   "library.playlist.editor.saveError": "Could not save playlist",
   "library.playlist.editor.offlineReadOnly":
-    "Offline — membership is read-only. Connect to save changes.",
+    "Could not load the latest playlist from the server — membership is read-only.",
   "library.playlist.editor.unsaved": "Unsaved changes",
   "library.playlist.empty":
     "No playlists on this server. Sync your library or create a new playlist.",
@@ -409,6 +411,9 @@ export const enUSMessages = {
     "Adds a menu item to copy native and JavaScript player logs for troubleshooting.",
   "settings.ux.waveform.caption":
     "Full-screen player shows a waveform scrubber for local files. Streaming will always use a standard slider.",
+  "settings.ux.playbackFailureAutoSkipLimit": "Auto-skip limit on playback failure",
+  "settings.ux.playbackFailureAutoSkipLimit.caption":
+    "When a track fails to load, skip forward up to this many consecutive tracks before stopping.",
 
   "sleepTimer.dialogTitle": "Sleep timer",
   "sleepTimer.minutes": "{minutes} min",

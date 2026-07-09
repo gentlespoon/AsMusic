@@ -73,7 +73,6 @@ export function AlbumListView({
   rows,
   apiForServer,
   initialReady,
-  syncing,
   resolveCachedArtworkForScope,
   persistCachedArtworkForScope,
   artworkVersionKey,
@@ -83,7 +82,6 @@ export function AlbumListView({
   rows: AlbumCatalogRow[];
   apiForServer: (serverId: string) => SubsonicAPI | null;
   initialReady: boolean;
-  syncing: boolean;
   resolveCachedArtworkForScope: (
     scope: LibraryCacheScope,
     coverArtId: string
@@ -177,7 +175,7 @@ export function AlbumListView({
             {t('library.cache.loading')}
           </Typography>
         )}
-        {initialReady && rows.length === 0 && !syncing && (
+        {initialReady && rows.length === 0 && (
           <Typography variant="body2" color="text.secondary">
             {t('library.songs.empty')}
           </Typography>

@@ -45,6 +45,8 @@ export const jaJPMessages = {
   "home.appBar.playlists": "プレイリスト",
   "home.appBar.songs": "曲",
 
+  "library.action.viewAlbum": "アルバムを表示",
+  "library.action.viewArtist": "アーティストを表示",
   "library.activeScope.emptyNeedLibrary":
     "Subsonic 互換サーバーを追加し、ライブラリを有効にすると、ここでキャッシュ済みの音楽を閲覧できます。",
   "library.activeScope.emptyNeedServer":
@@ -144,7 +146,7 @@ export const jaJPMessages = {
   "library.playlist.editor.save": "保存",
   "library.playlist.editor.saveError": "プレイリストを保存できませんでした",
   "library.playlist.editor.offlineReadOnly":
-    "オフラインのため読み取り専用です。保存するにはネットワークに接続してください。",
+    "サーバーから最新のプレイリストを読み込めなかったため、読み取り専用です。",
   "library.playlist.editor.unsaved": "未保存の変更があります",
   "library.playlist.empty":
     "このサーバーにプレイリストがありません。ライブラリを同期するか、新しいプレイリストを作成してください。",
@@ -413,6 +415,9 @@ export const jaJPMessages = {
     "トラブルシューティング用に、ネイティブと JavaScript のプレイヤーログをコピーするメニュー項目を追加します。",
   "settings.ux.waveform.caption":
     "全画面プレイヤーはローカルファイルで波形スクラバーを表示します。ストリーミングでは常に通常のスライダーを使用します。",
+  "settings.ux.playbackFailureAutoSkipLimit": "再生失敗時の自動スキップ上限",
+  "settings.ux.playbackFailureAutoSkipLimit.caption":
+    "曲の読み込みに失敗したとき、連続してこの曲数まで自動スキップし、それ以上は停止します。",
 
   "sleepTimer.dialogTitle": "スリープタイマー",
   "sleepTimer.minutes": "{minutes} 分",

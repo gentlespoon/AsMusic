@@ -45,6 +45,8 @@ export const zhCNMessages = {
   "home.appBar.playlists": "播放列表",
   "home.appBar.songs": "歌曲",
 
+  "library.action.viewAlbum": "查看专辑",
+  "library.action.viewArtist": "查看艺术家",
   "library.activeScope.emptyNeedLibrary":
     "添加兼容 Subsonic 的服务器并启用资料库，即可在此浏览缓存的音乐。",
   "library.activeScope.emptyNeedServer":
@@ -133,7 +135,7 @@ export const zhCNMessages = {
   "library.playlist.editor.loadingSongs": "正在加载歌曲…",
   "library.playlist.editor.save": "保存",
   "library.playlist.editor.saveError": "无法保存播放列表",
-  "library.playlist.editor.offlineReadOnly": "离线模式下为只读。请联网后再保存更改。",
+  "library.playlist.editor.offlineReadOnly": "无法从服务器加载最新播放列表，当前为只读。",
   "library.playlist.editor.unsaved": "有未保存的更改",
   "library.playlist.empty":
     "此服务器上尚无播放列表。请同步资料库或创建新播放列表。",
@@ -391,6 +393,9 @@ export const zhCNMessages = {
     "在菜单中添加一项，用于复制原生与 JavaScript 播放器日志以便排查问题。",
   "settings.ux.waveform.caption":
     "全屏播放器对本地文件显示波形 scrubber。流式播放始终使用标准滑块。",
+  "settings.ux.playbackFailureAutoSkipLimit": "播放失败时自动跳过上限",
+  "settings.ux.playbackFailureAutoSkipLimit.caption":
+    "曲目加载失败时，最多连续自动跳过这么多首曲目后停止。",
 
   "sleepTimer.dialogTitle": "睡眠定时器",
   "sleepTimer.minutes": "{minutes} 分钟",

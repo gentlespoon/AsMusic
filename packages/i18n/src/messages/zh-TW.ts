@@ -45,6 +45,8 @@ export const zhTWMessages = {
   "home.appBar.playlists": "播放清單",
   "home.appBar.songs": "歌曲",
 
+  "library.action.viewAlbum": "檢視專輯",
+  "library.action.viewArtist": "檢視藝人",
   "library.activeScope.emptyNeedLibrary":
     "新增相容 Subsonic 的伺服器並啟用資料庫，即可在此瀏覽快取的音樂。",
   "library.activeScope.emptyNeedServer":
@@ -133,7 +135,7 @@ export const zhTWMessages = {
   "library.playlist.editor.loadingSongs": "正在載入歌曲…",
   "library.playlist.editor.save": "儲存",
   "library.playlist.editor.saveError": "無法儲存播放清單",
-  "library.playlist.editor.offlineReadOnly": "離線時為唯讀。請連線後再儲存變更。",
+  "library.playlist.editor.offlineReadOnly": "無法從伺服器載入最新播放清單，目前為唯讀。",
   "library.playlist.editor.unsaved": "有未儲存的變更",
   "library.playlist.empty":
     "此伺服器上尚無播放清單。請同步資料庫或建立新播放清單。",
@@ -391,6 +393,9 @@ export const zhTWMessages = {
   "settings.ux.waveform": "波形進度列",
   "settings.ux.waveform.caption":
     "全螢幕播放器對本機檔案顯示波形 scrubber。串流播放一律使用標準滑桿。",
+  "settings.ux.playbackFailureAutoSkipLimit": "播放失敗時自動略過上限",
+  "settings.ux.playbackFailureAutoSkipLimit.caption":
+    "曲目載入失敗時，最多連續自動略過這麼多首曲目後停止。",
 
   "sleepTimer.dialogTitle": "睡眠計時器",
   "sleepTimer.minutes": "{minutes} 分鐘",

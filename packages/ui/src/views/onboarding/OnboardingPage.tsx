@@ -15,6 +15,7 @@ import { useNavigate } from 'react-router-dom';
 import { useServerAndLibrary } from '@ui/contexts';
 import { LibrarySelectorView } from '@ui/views/servers/librarySelector';
 import { ServerManagerView } from '@ui/views/servers/ServerManagerView';
+import { libraryFlexFillSx } from '@ui/shared/LibraryVirtuosoFill';
 import { playerDockPaddingBottomSx } from '@ui/player/core/constants';
 import { setOnboardingCompleted } from '@ui/preferences/onboardingCompleted';
 
@@ -77,14 +78,16 @@ export function OnboardingPage() {
   return (
     <Box
       sx={{
-        minHeight: 'calc(100dvh - var(--safe-area-top) - var(--safe-area-bottom))',
+        height: 'calc(100dvh - var(--safe-area-top) - var(--safe-area-bottom))',
+        minHeight: 0,
         bgcolor: 'background.default',
         display: 'flex',
         flexDirection: 'column',
+        overflow: 'hidden',
         ...playerDockPaddingBottomSx,
       }}
     >
-      <AppBar position="sticky">
+      <AppBar position="sticky" sx={{ flexShrink: 0 }}>
         <Toolbar variant="dense" sx={{ gap: 1, px: { xs: 1, sm: 2 } }}>
           {step !== 'welcome' ? (
             <IconButton edge="start" color="inherit" aria-label={t('common.back')} onClick={goBack} size="small">
@@ -130,9 +133,18 @@ export function OnboardingPage() {
         </Toolbar>
       </AppBar>
 
-      <Container maxWidth="sm" sx={{ py: 3, flex: 1 }}>
+      <Container
+        maxWidth="sm"
+        sx={{
+          ...libraryFlexFillSx,
+          display: 'flex',
+          flexDirection: 'column',
+          py: 3,
+          overflow: 'hidden',
+        }}
+      >
         {step === 'welcome' && (
-          <Stack spacing={2}>
+          <Stack spacing={2} sx={{ flexShrink: 0 }}>
             <Typography variant="h5" component="h2" sx={{ fontWeight: 600 }}>
               {t('onboarding.welcome.title')}
             </Typography>
@@ -143,21 +155,38 @@ export function OnboardingPage() {
         )}
 
         {step === 'addServer' && (
-          <Stack spacing={2}>
-            <Typography variant="body2" color="text.secondary">
+          <>
+            <Typography variant="body2" color="text.secondary" sx={{ flexShrink: 0, mb: 2 }}>
               {t('onboarding.addServer.body')}
             </Typography>
-            <ServerManagerView embedded />
-          </Stack>
+            <Box
+              sx={{
+                ...libraryFlexFillSx,
+                overflow: 'auto',
+                WebkitOverflowScrolling: 'touch',
+              }}
+            >
+              <ServerManagerView embedded />
+            </Box>
+          </>
         )}
 
         {step === 'activateLibrary' && (
-          <Stack spacing={2}>
-            <Typography variant="body2" color="text.secondary">
+          <>
+            <Typography variant="body2" color="text.secondary" sx={{ flexShrink: 0, mb: 2 }}>
               {t('onboarding.activateLibrary.body')}
             </Typography>
-            <LibrarySelectorView embedded />
-          </Stack>
+            <Box
+              sx={{
+                ...libraryFlexFillSx,
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden',
+              }}
+            >
+              <LibrarySelectorView embedded />
+            </Box>
+          </>
         )}
       </Container>
     </Box>

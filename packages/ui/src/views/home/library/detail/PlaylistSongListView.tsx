@@ -36,6 +36,10 @@ import { useLibraryVirtuosoScroller } from '@ui/shared/useLibraryVirtuosoScrolle
 import { VirtuosoMuiList } from '@ui/shared/virtuosoMuiList';
 import { useOfflineDownload } from '@ui/contexts/OfflineDownloadContext';
 import { useHost } from '@ui/host/HostContext';
+import {
+  songHasViewableAlbum,
+  songHasViewableArtist,
+} from '../browser/useSongLibraryNavigation';
 
 export function PlaylistSongListView({
   playlistId,
@@ -45,7 +49,6 @@ export function PlaylistSongListView({
   albums,
   api,
   initialReady,
-  syncing,
   resolveCachedArtwork,
   persistCachedArtworkForTrack,
   coverArtCacheBump,
@@ -57,6 +60,8 @@ export function PlaylistSongListView({
   onPlayTrack,
   onPlayNextTrack,
   onAppendTrackToQueue,
+  onViewArtist,
+  onViewAlbum,
   onAppendAllToQueue,
   onShufflePlayAll,
   onReplaceQueueAndPlayAll,
@@ -73,7 +78,6 @@ export function PlaylistSongListView({
   albums: AlbumID3[];
   api: SubsonicAPI;
   initialReady: boolean;
-  syncing: boolean;
   resolveCachedArtwork: (coverArtId: string, trackId: string) => Promise<LibraryArtworkCacheRow | null>;
   persistCachedArtworkForTrack?: (trackId: string) => PersistCachedArtwork;
   coverArtCacheBump?: (coverArtId: string | undefined, trackId: string) => number;
@@ -85,6 +89,8 @@ export function PlaylistSongListView({
   onPlayTrack?: (track: Child) => void;
   onPlayNextTrack?: (track: Child) => void;
   onAppendTrackToQueue?: (track: Child) => void;
+  onViewArtist?: (track: Child) => void;
+  onViewAlbum?: (track: Child) => void;
   onAppendAllToQueue?: (tracks: Child[]) => void;
   onShufflePlayAll?: (tracks: Child[]) => void;
   onReplaceQueueAndPlayAll?: (tracks: Child[]) => void;
@@ -335,7 +341,7 @@ export function PlaylistSongListView({
       </Stack>
 
       <Box sx={{ ...libraryFlexFillSx, display: 'flex', flexDirection: 'column' }}>
-        {listReady && tracks.length === 0 && !syncing && (
+        {listReady && tracks.length === 0 && (
           <Typography variant="body2" color="text.secondary">
             This playlist has no tracks.
           </Typography>
@@ -381,6 +387,16 @@ export function PlaylistSongListView({
                     onPlayNext={onPlayNextTrack ? () => onPlayNextTrack(track) : undefined}
                     onAppendToQueue={
                       onAppendTrackToQueue ? () => onAppendTrackToQueue(track) : undefined
+                    }
+                    onViewArtist={
+                      onViewArtist && songHasViewableArtist(track)
+                        ? () => onViewArtist(track)
+                        : undefined
+                    }
+                    onViewAlbum={
+                      onViewAlbum && songHasViewableAlbum(track)
+                        ? () => onViewAlbum(track)
+                        : undefined
                     }
                     isStarred={setTrackStarred && libraryId ? starred : undefined}
                     onToggleStar={

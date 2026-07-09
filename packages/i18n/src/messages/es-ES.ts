@@ -45,6 +45,8 @@ export const esESMessages = {
   "home.appBar.playlists": "Listas",
   "home.appBar.songs": "Canciones",
 
+  "library.action.viewAlbum": "Ver álbum",
+  "library.action.viewArtist": "Ver artista",
   "library.activeScope.emptyNeedLibrary":
     "Añade un servidor compatible con Subsonic y activa una biblioteca para explorar aquí la música en caché.",
   "library.activeScope.emptyNeedServer":
@@ -145,7 +147,7 @@ export const esESMessages = {
   "library.playlist.editor.save": "Guardar",
   "library.playlist.editor.saveError": "No se pudo guardar la lista",
   "library.playlist.editor.offlineReadOnly":
-    "Sin conexión: la lista es solo de lectura. Conéctate para guardar cambios.",
+    "No se pudo cargar la lista más reciente del servidor: solo lectura.",
   "library.playlist.editor.unsaved": "Cambios sin guardar",
   "library.playlist.empty":
     "No hay listas en este servidor. Sincroniza tu biblioteca o crea una lista nueva.",
@@ -422,6 +424,10 @@ export const esESMessages = {
     "Añade un elemento de menú para copiar los registros nativos y de JavaScript del reproductor para la resolución de problemas.",
   "settings.ux.waveform.caption":
     "El reproductor a pantalla completa muestra un control de forma de onda para archivos locales. En streaming siempre se usa un deslizador estándar.",
+  "settings.ux.playbackFailureAutoSkipLimit":
+    "Límite de salto automático al fallar la reproducción",
+  "settings.ux.playbackFailureAutoSkipLimit.caption":
+    "Si una pista no se puede cargar, se saltan hasta esta cantidad de pistas consecutivas antes de detenerse.",
 
   "sleepTimer.dialogTitle": "Temporizador de sueño",
   "sleepTimer.minutes": "{minutes} min",

@@ -1,5 +1,8 @@
 export const PENDING_STAR_MUTATIONS_STORAGE_KEY = 'asmusic-pending-star-mutations-v1';
 
+/** How often to retry flushing pending star/unstar ops to the server. */
+export const PENDING_STAR_MUTATIONS_RETRY_INTERVAL_MS = 5 * 60 * 1000;
+
 export type PendingStarMutation = {
   serverId: string;
   libraryId: string;

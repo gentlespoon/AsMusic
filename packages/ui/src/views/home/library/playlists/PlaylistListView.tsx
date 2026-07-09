@@ -26,7 +26,6 @@ export function PlaylistListView({
   rows,
   multiLibrary,
   initialReady,
-  syncing,
   canCreateServerPlaylist,
   canCreateLocalPlaylist,
   multiServer,
@@ -38,7 +37,6 @@ export function PlaylistListView({
   rows: PlaylistCatalogRow[];
   multiLibrary: boolean;
   initialReady: boolean;
-  syncing: boolean;
   canCreateServerPlaylist: boolean;
   canCreateLocalPlaylist: boolean;
   multiServer: boolean;
@@ -144,7 +142,6 @@ export function PlaylistListView({
           initialReady={initialReady}
           rowCount={rows.length}
           filteredCount={filteredRows.length}
-          syncing={syncing}
           queryTrimmed={queryTrimmed}
         />
         {showList && (

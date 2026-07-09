@@ -5,13 +5,11 @@ export function PlaylistListViewStatus({
   initialReady,
   rowCount,
   filteredCount,
-  syncing,
   queryTrimmed,
 }: {
   initialReady: boolean;
   rowCount: number;
   filteredCount: number;
-  syncing: boolean;
   queryTrimmed: string;
 }) {
   const t = useT();
@@ -24,7 +22,7 @@ export function PlaylistListViewStatus({
     );
   }
 
-  if (rowCount === 0 && !syncing) {
+  if (rowCount === 0) {
     return (
       <Typography variant="body2" color="text.secondary">
         {t('library.playlist.empty')}

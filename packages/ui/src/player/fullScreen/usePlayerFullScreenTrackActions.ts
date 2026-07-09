@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useT } from "@asmusic/i18n";
-import { CANONICAL_COVER_ART_SIZE, libraryCacheScope, localPlaylistTrackRefFromChild } from "@asmusic/core";
-import { artworkDisplayMimeType, isValidImageBytes } from "@ui/shared/artworkDisplayMimeType";
+import { libraryCacheScope, localPlaylistTrackRefFromChild } from "@asmusic/core";
+import { buildCoverArtSources, refetchCoverArtFromNetwork } from "@ui/shared/coverArt";
 import { useLibraryBrowseCache } from "@ui/contexts";
 import type { PlaylistCatalogRow } from "@ui/contexts/LibraryBrowseCacheContext";
 import { usePlayerActions } from "@ui/contexts/PlayerContext";
@@ -112,33 +112,33 @@ export function usePlayerFullScreenTrackActions(
           slices,
           albumCatalogRows,
         });
-        for (const tryId of idsToTry) {
-          const res = await api.getCoverArt({
-            id: tryId,
-            size: CANONICAL_COVER_ART_SIZE,
-          });
-          if (!res.ok) continue;
-          const buf = new Uint8Array(await res.arrayBuffer());
-          if (buf.length === 0) continue;
-          if (!isValidImageBytes(buf)) continue;
-          const mimeType = artworkDisplayMimeType(
-            buf,
-            res.headers.get("content-type") ?? undefined,
-          );
-          await host.libraryCache.putArtworkBlob(scope, {
-            coverArtId,
-            data: buf,
-            mimeType,
-          });
-          notifyArtworkCached(artworkVersionKey(coverArtId, scope));
-          try {
-            await syncCurrentTrackNowPlayingArtwork();
-          } catch {
-            // Cache refresh succeeded; lock-screen artwork sync is best-effort.
-          }
-          return;
+        const baseSources = buildCoverArtSources({
+          libraryCache: host.libraryCache,
+          serverUrl: item.serverUrl,
+          username: item.username,
+          libraryId: item.libraryId,
+          scope,
+          api,
+        });
+        const resolved = await refetchCoverArtFromNetwork(idsToTry, {
+          fetchNetwork: baseSources.fetchNetwork,
+          persistNetwork: async (_tryId, row) => {
+            await host.libraryCache.putArtworkBlob(scope, {
+              coverArtId,
+              data: row.data,
+              mimeType: row.mimeType,
+            });
+          },
+        });
+        if (resolved.kind !== "network_fetch") {
+          throw new Error(t("player.coverArt.couldNotRefresh"));
         }
-        throw new Error(t("player.coverArt.couldNotRefresh"));
+        notifyArtworkCached(artworkVersionKey(coverArtId, scope));
+        try {
+          await syncCurrentTrackNowPlayingArtwork();
+        } catch {
+          // Cache refresh succeeded; lock-screen artwork sync is best-effort.
+        }
       } catch (e: unknown) {
         setRefreshCoverArtError(
           e instanceof Error ? e.message : t("player.coverArt.couldNotRefresh"),

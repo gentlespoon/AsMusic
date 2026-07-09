@@ -376,10 +376,6 @@ export const esESMessages = {
   "servers.manager.username": "Nombre de usuario",
   "servers.serversLibraries.loadingSaved": "Cargando servidores guardados…",
   "servers.serversLibraries.summary": "{servers} · {libraries}",
-  "servers.serversLibraries.persistWhileStreaming":
-    "Guardar en el dispositivo al reproducir en streaming",
-  "servers.serversLibraries.persistWhileStreaming.caption":
-    "Cuando sea compatible, refleja la reproducción en el almacenamiento sin conexión. En algunas plataformas puede usar ancho de banda adicional.",
   "servers.serversLibraries.title": "Servidores y bibliotecas",
   "servers.summary.manyLibraries": "{count} bibliotecas activas",
   "servers.summary.manyServers": "{count} servidores guardados",
@@ -388,14 +384,20 @@ export const esESMessages = {
   "servers.tab.servers": "Servidores",
 
   "settings.description":
-    "Experiencia de usuario, servidores, bibliotecas y descargas.",
+    "Apariencia, reproducción, opciones de desarrollador, servidores, bibliotecas y descargas.",
+  "settings.appearance": "Apariencia",
+  "settings.appearance.caption":
+    "Tema, idioma y preferencias de visualización.",
+  "settings.developer": "Desarrollador",
+  "settings.developer.caption":
+    "Límite de salto automático por fallo de reproducción y registro de depuración.",
+  "settings.playback": "Reproducción",
+  "settings.playback.caption":
+    "Guardado sin conexión durante el streaming, gestos del reproductor, barra de progreso con forma de onda y retroalimentación háptica.",
   "settings.serversLibraries": "Servidores y bibliotecas",
   "settings.serversLibraries.caption":
     "Configura el servidor y selecciona las bibliotecas activas",
   "settings.title": "Ajustes",
-  "settings.userExperience": "Experiencia de usuario",
-  "settings.userExperience.caption":
-    "Apariencia, idioma, gestos de reproducción y preferencias de comentarios.",
   "settings.ux.appearance": "Apariencia",
   "settings.ux.appearance.auto": "Automático",
   "settings.ux.appearance.caption":
@@ -411,6 +413,10 @@ export const esESMessages = {
   "settings.ux.language.currentLanguageAutonym": "Español",
   "settings.ux.language.system": "Sistema",
   "settings.ux.haptics": "Respuesta háptica",
+  "settings.ux.persistWhileStreaming":
+    "Guardar en el dispositivo al reproducir en streaming",
+  "settings.ux.persistWhileStreaming.caption":
+    "Cuando sea compatible, refleja la reproducción en el almacenamiento sin conexión. En algunas plataformas puede usar ancho de banda adicional.",
   "settings.ux.playerBarSwipe":
     "Usar gesto de deslizamiento en la barra del reproductor",
   "settings.ux.playerBarSwipe.caption":
@@ -428,6 +434,9 @@ export const esESMessages = {
     "Límite de salto automático al fallar la reproducción",
   "settings.ux.playbackFailureAutoSkipLimit.caption":
     "Si una pista no se puede cargar, se saltan hasta esta cantidad de pistas consecutivas antes de detenerse.",
+  "settings.ux.textSelection": "Permitir selección de texto",
+  "settings.ux.textSelection.caption":
+    "Activa CSS user-select para poder copiar texto de la interfaz.",
 
   "sleepTimer.dialogTitle": "Temporizador de sueño",
   "sleepTimer.minutes": "{minutes} min",

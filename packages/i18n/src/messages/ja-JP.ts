@@ -369,10 +369,6 @@ export const jaJPMessages = {
   "servers.manager.username": "ユーザー名",
   "servers.serversLibraries.loadingSaved": "保存済みサーバーを読み込み中…",
   "servers.serversLibraries.summary": "{servers} · {libraries}",
-  "servers.serversLibraries.persistWhileStreaming":
-    "ストリーミング中にデバイスへ保存",
-  "servers.serversLibraries.persistWhileStreaming.caption":
-    "対応している場合、再生をオフラインストレージにミラーします。一部のプラットフォームでは追加の通信量を使うことがあります。",
   "servers.serversLibraries.title": "サーバーとライブラリ",
   "servers.summary.manyLibraries": "有効なライブラリ {count} 件",
   "servers.summary.manyServers": "保存済みサーバー {count} 台",
@@ -380,14 +376,20 @@ export const jaJPMessages = {
   "servers.summary.oneServer": "保存済みサーバー 1 台",
   "servers.tab.servers": "サーバー",
 
-  "settings.description": "ユーザー体験、サーバー、ライブラリ、ダウンロード。",
+  "settings.description":
+    "外観、再生、開発者向けオプション、サーバー、ライブラリ、ダウンロード。",
+  "settings.appearance": "外観",
+  "settings.appearance.caption": "テーマ、言語、表示の設定。",
+  "settings.developer": "開発者",
+  "settings.developer.caption":
+    "再生失敗時の自動スキップ上限とデバッグログ。",
+  "settings.playback": "再生",
+  "settings.playback.caption":
+    "ストリーミング中のオフライン保存、プレイヤーのジェスチャー、波形プログレスバー、触覚フィードバック。",
   "settings.serversLibraries": "サーバーとライブラリ",
   "settings.serversLibraries.caption":
     "サーバーを設定し、アクティブなライブラリを選択",
   "settings.title": "設定",
-  "settings.userExperience": "ユーザー体験",
-  "settings.userExperience.caption":
-    "外観、言語、再生ジェスチャー、フィードバックの設定。",
   "settings.ux.appearance": "外観",
   "settings.ux.appearance.auto": "自動",
   "settings.ux.appearance.caption":
@@ -403,6 +405,9 @@ export const jaJPMessages = {
   "settings.ux.language.currentLanguageAutonym": "日本語",
   "settings.ux.language.system": "システム",
   "settings.ux.haptics": "触覚フィードバック",
+  "settings.ux.persistWhileStreaming": "ストリーミング中にデバイスへ保存",
+  "settings.ux.persistWhileStreaming.caption":
+    "対応している場合、再生をオフラインストレージにミラーします。一部のプラットフォームでは追加の通信量を使うことがあります。",
   "settings.ux.playerBarSwipe": "プレイヤーバーでスワイプジェスチャーを使う",
   "settings.ux.playerBarSwipe.caption":
     "オンにするとミニプレイヤーは従来の iOS バーのようにスワイプ操作になり、スキップ／再生ボタンは非表示になります。",
@@ -418,6 +423,9 @@ export const jaJPMessages = {
   "settings.ux.playbackFailureAutoSkipLimit": "再生失敗時の自動スキップ上限",
   "settings.ux.playbackFailureAutoSkipLimit.caption":
     "曲の読み込みに失敗したとき、連続してこの曲数まで自動スキップし、それ以上は停止します。",
+  "settings.ux.textSelection": "テキスト選択を許可",
+  "settings.ux.textSelection.caption":
+    "CSS の user-select を有効にし、アプリ UI からテキストをコピーできるようにします。",
 
   "sleepTimer.dialogTitle": "スリープタイマー",
   "sleepTimer.minutes": "{minutes} 分",

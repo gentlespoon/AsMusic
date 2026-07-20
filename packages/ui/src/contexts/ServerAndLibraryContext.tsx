@@ -14,11 +14,13 @@ import {
   ping,
   randomUuidV4,
   serverAccountKey,
+  STREAM_FORMAT,
   type NavidromeAuth,
   type PlatformHost,
   type SubsonicAPI,
 } from '@asmusic/core';
 import { useHost } from '@ui/host/HostContext';
+import { getServerTranscodeEnabled } from '@ui/preferences/serverTranscodePreference';
 
 const SERVERS_JSON_KEY = 'asmusic-servers-v1';
 const LEGACY_SESSION_KEY = 'asmusic-session';
@@ -332,6 +334,9 @@ export function ServerAndLibraryProvider({ children }: { children: ReactNode }) 
         v: '1.16.1',
         c: 'AsMusic',
       });
+      if (getServerTranscodeEnabled()) {
+        params.set('format', STREAM_FORMAT);
+      }
       return `${base}/rest/stream.view?${params.toString()}`;
     },
     [servers]

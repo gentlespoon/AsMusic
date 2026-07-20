@@ -299,6 +299,11 @@ export const zhCNMessages = {
   "player.playback.skippedOnFailure": "无法播放「{title}」：{error}。正在跳到下一曲。",
   "player.playback.skippedLibraryDisabledTitle": "已跳过 — 请在设置中启用资料库以播放此歌曲",
   "player.playback.thisTrack": "此曲目",
+  "player.playback.enableServerTranscodeTitle": "启用服务器转码？",
+  "player.playback.enableServerTranscodeBody":
+    "无法以原始格式播放「{title}」。启用服务器转码后将以 MP3 流式传输以获得最大兼容性。之后可在「设置 → 播放」中更改。",
+  "player.playback.enableServerTranscodeEnable": "启用",
+  "player.playback.enableServerTranscodeNotNow": "暂不",
   "player.trackDetails.title": "曲目详情",
 
   "queue.action.clearExceptCurrent": "清空队列（保留当前）",
@@ -368,7 +373,7 @@ export const zhCNMessages = {
   "settings.developer": "开发者",
   "settings.developer.caption": "播放失败自动跳过上限与调试日志。",
   "settings.playback": "播放",
-  "settings.playback.caption": "流式播放离线保存、播放器手势、波形进度条与触觉反馈。",
+  "settings.playback.caption": "服务器转码、流式播放离线保存、播放器手势、波形进度条与触觉反馈。",
   "settings.serversLibraries": "服务器与资料库",
   "settings.serversLibraries.caption": "配置服务器并选择启用的资料库",
   "settings.title": "设置",
@@ -387,6 +392,9 @@ export const zhCNMessages = {
   "settings.ux.persistWhileStreaming": "流式播放时保存到设备",
   "settings.ux.persistWhileStreaming.caption":
     "在支持时，将播放镜像到离线存储。部分平台可能消耗额外流量。",
+  "settings.ux.serverTranscode": "使用服务器转码",
+  "settings.ux.serverTranscode.caption":
+    "开启时使用 MP3 以获得最大兼容性。关闭时使用原始格式，部分格式可能无法播放。",
   "settings.ux.playerBarSwipe": "在播放条中使用滑动手势",
   "settings.ux.playerBarSwipe.caption":
     "开启时迷你播放器使用滑动手势；上一曲、下一曲与播放按钮会隐藏。",

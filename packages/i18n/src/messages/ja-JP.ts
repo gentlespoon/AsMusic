@@ -313,6 +313,11 @@ export const jaJPMessages = {
   "player.playback.skippedLibraryDisabledTitle":
     "スキップしました — 設定でライブラリを有効にすると再生できます",
   "player.playback.thisTrack": "この曲",
+  "player.playback.enableServerTranscodeTitle": "サーバートランスコードを有効にしますか？",
+  "player.playback.enableServerTranscodeBody":
+    "「{title}」をオリジナル形式で再生できませんでした。サーバートランスコードを有効にすると、互換性のため MP3 でストリーミングします。後から「設定 → 再生」で変更できます。",
+  "player.playback.enableServerTranscodeEnable": "有効にする",
+  "player.playback.enableServerTranscodeNotNow": "後で",
   "player.trackDetails.title": "曲の詳細",
 
   "queue.action.clearExceptCurrent": "現在の曲以外をキューから削除",
@@ -387,7 +392,7 @@ export const jaJPMessages = {
     "再生失敗時の自動スキップ上限とデバッグログ。",
   "settings.playback": "再生",
   "settings.playback.caption":
-    "ストリーミング中のオフライン保存、プレイヤーのジェスチャー、波形プログレスバー、触覚フィードバック。",
+    "サーバートランスコード、ストリーミング中のオフライン保存、プレイヤーのジェスチャー、波形プログレスバー、触覚フィードバック。",
   "settings.serversLibraries": "サーバーとライブラリ",
   "settings.serversLibraries.caption":
     "サーバーを設定し、アクティブなライブラリを選択",
@@ -410,6 +415,9 @@ export const jaJPMessages = {
   "settings.ux.persistWhileStreaming": "ストリーミング中にデバイスへ保存",
   "settings.ux.persistWhileStreaming.caption":
     "対応している場合、再生をオフラインストレージにミラーします。一部のプラットフォームでは追加の通信量を使うことがあります。",
+  "settings.ux.serverTranscode": "サーバートランスコードを使う",
+  "settings.ux.serverTranscode.caption":
+    "ON で最大互換性のため MP3 を使います。OFF でオリジナル形式を使い、一部の形式は再生できないことがあります。",
   "settings.ux.playerBarSwipe": "プレイヤーバーでスワイプジェスチャーを使う",
   "settings.ux.playerBarSwipe.caption":
     "オンにするとミニプレイヤーは従来の iOS バーのようにスワイプ操作になり、スキップ／再生ボタンは非表示になります。",

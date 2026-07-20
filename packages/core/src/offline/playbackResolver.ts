@@ -7,6 +7,8 @@ export type ResolvePlaybackSourceArgs = {
   username: string;
   libraryId: string;
   trackId: string;
+  /** Offline blob variant matching the stream format preference (e.g. `mp3` or `''`). */
+  variant: string;
   /** Used only when no ready offline copy exists */
   streamUrl: string;
 };
@@ -30,6 +32,7 @@ export async function resolvePlaybackSource(
     const local = await args.offlineMedia.getReadyPlaybackSource({
       scope,
       trackId: args.trackId,
+      variant: args.variant,
     });
     if (local) {
       return {

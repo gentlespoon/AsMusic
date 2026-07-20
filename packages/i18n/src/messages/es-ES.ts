@@ -316,6 +316,11 @@ export const esESMessages = {
   "player.playback.skippedLibraryDisabledTitle":
     "Omitida — activa una biblioteca en Ajustes para reproducir esta canción",
   "player.playback.thisTrack": "esta pista",
+  "player.playback.enableServerTranscodeTitle": "¿Activar la transcodificación del servidor?",
+  "player.playback.enableServerTranscodeBody":
+    "No se pudo reproducir «{title}» en su formato original. Activa la transcodificación del servidor para transmitir en MP3 con máxima compatibilidad. Puedes cambiarlo después en Ajustes → Reproducción.",
+  "player.playback.enableServerTranscodeEnable": "Activar",
+  "player.playback.enableServerTranscodeNotNow": "Ahora no",
   "player.trackDetails.title": "Detalles de la pista",
 
   "queue.action.clearExceptCurrent": "Vaciar cola excepto la actual",
@@ -395,7 +400,7 @@ export const esESMessages = {
     "Límite de salto automático por fallo de reproducción y registro de depuración.",
   "settings.playback": "Reproducción",
   "settings.playback.caption":
-    "Guardado sin conexión durante el streaming, gestos del reproductor, barra de progreso con forma de onda y retroalimentación háptica.",
+    "Transcodificación del servidor, guardado sin conexión durante el streaming, gestos del reproductor, barra de progreso con forma de onda y retroalimentación háptica.",
   "settings.serversLibraries": "Servidores y bibliotecas",
   "settings.serversLibraries.caption":
     "Configura el servidor y selecciona las bibliotecas activas",
@@ -419,6 +424,9 @@ export const esESMessages = {
     "Guardar en el dispositivo al reproducir en streaming",
   "settings.ux.persistWhileStreaming.caption":
     "Cuando sea compatible, refleja la reproducción en el almacenamiento sin conexión. En algunas plataformas puede usar ancho de banda adicional.",
+  "settings.ux.serverTranscode": "Usar transcodificación del servidor",
+  "settings.ux.serverTranscode.caption":
+    "Activado para usar MP3 con máxima compatibilidad. Desactivado para usar el formato original; algunos formatos pueden no reproducirse.",
   "settings.ux.playerBarSwipe":
     "Usar gesto de deslizamiento en la barra del reproductor",
   "settings.ux.playerBarSwipe.caption":

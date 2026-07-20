@@ -8,6 +8,10 @@ import {
 import { useOfflineDownload } from "@ui/contexts/OfflineDownloadContext";
 import { useServerAndLibrary } from "@ui/contexts/ServerAndLibraryContext";
 import { useHost } from "@ui/host/HostContext";
+import {
+  offlineMediaVariantForCurrentStream,
+  useServerTranscodeEnabled,
+} from "@ui/preferences/serverTranscodePreference";
 
 export type SongItemOfflineScope = {
   serverId: string;
@@ -25,6 +29,8 @@ export function useSongItemOfflineActions(
   const host = useHost();
   const { servers, getStreamUrl } = useServerAndLibrary();
   const { enqueueTrackDownload } = useOfflineDownload();
+  const serverTranscodeEnabled = useServerTranscodeEnabled();
+  const streamVariant = offlineMediaVariantForCurrentStream();
   const [isReady, setIsReady] = useState(false);
   const [isWriting, setIsWriting] = useState(false);
 
@@ -38,7 +44,13 @@ export function useSongItemOfflineActions(
   }, [opts, servers]);
 
   const cacheKey =
-    scope && opts ? offlineMediaKeyId({ scope, trackId: opts.trackId }) : null;
+    scope && opts
+      ? offlineMediaKeyId({
+          scope,
+          trackId: opts.trackId,
+          variant: streamVariant,
+        })
+      : null;
 
   useEffect(() => {
     if (!scope || !opts || !offlineEnabled) {
@@ -53,6 +65,7 @@ export function useSongItemOfflineActions(
       const st = await host.offlineMedia.getStatus({
         scope,
         trackId: opts.trackId,
+        variant: streamVariant,
       });
       if (cancelled) return;
       setIsReady(st.status === "ready");
@@ -73,7 +86,15 @@ export function useSongItemOfflineActions(
       cancelled = true;
       unsub();
     };
-  }, [cacheKey, host.offlineMedia, offlineEnabled, opts, scope]);
+  }, [
+    cacheKey,
+    host.offlineMedia,
+    offlineEnabled,
+    opts,
+    scope,
+    streamVariant,
+    serverTranscodeEnabled,
+  ]);
 
   const onDownload = useCallback(() => {
     if (!opts) return;
@@ -87,7 +108,11 @@ export function useSongItemOfflineActions(
 
   const onRemoveDownload = useCallback(() => {
     if (!scope || !opts) return;
-    void host.offlineMedia.delete({ scope, trackId: opts.trackId });
+    void host.offlineMedia.delete({
+      scope,
+      trackId: opts.trackId,
+      variant: offlineMediaVariantForCurrentStream(),
+    });
   }, [host.offlineMedia, opts, scope]);
 
   if (!opts || !scope || !offlineEnabled) {

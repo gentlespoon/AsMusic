@@ -10,6 +10,10 @@ import {
 } from "@asmusic/core";
 import type { PlayerQueueItem } from "@ui/player/core/types";
 import { useHost } from "@ui/host/HostContext";
+import {
+  offlineMediaVariantForCurrentStream,
+  useServerTranscodeEnabled,
+} from "@ui/preferences/serverTranscodePreference";
 import { peaksCache } from "@ui/player/waveformPeaksCache";
 import { trackWaveformCacheKey } from "@ui/player/trackWaveformCacheKey";
 
@@ -48,6 +52,7 @@ export function useWaveformPeaks(
   enabled: boolean,
 ): WaveformPeaksState {
   const host = useHost();
+  const serverTranscodeEnabled = useServerTranscodeEnabled();
   const [state, setState] = useState<WaveformPeaksState>({ status: "idle" });
   const [loadGeneration, setLoadGeneration] = useState(0);
 
@@ -76,7 +81,11 @@ export function useWaveformPeaks(
       for (const scope of scopes) {
         if (getNativePeaks) {
           const peaks = await getNativePeaks(
-            { scope, trackId: item.trackId },
+            {
+              scope,
+              trackId: item.trackId,
+              variant: offlineMediaVariantForCurrentStream(),
+            },
             WAVEFORM_BAR_COUNT,
           );
           if (peaks && peaks.length > 0) {
@@ -87,6 +96,7 @@ export function useWaveformPeaks(
         const local = await host.offlineMedia.getReadyPlaybackSource({
           scope,
           trackId: item.trackId,
+          variant: offlineMediaVariantForCurrentStream(),
         });
         if (!local) continue;
         revoke = local.revoke;
@@ -110,7 +120,7 @@ export function useWaveformPeaks(
     } finally {
       revoke?.();
     }
-  }, [item, host.offlineMedia]);
+  }, [item, host.offlineMedia, serverTranscodeEnabled]);
 
   useEffect(() => {
     if (!enabled || !item) {
@@ -135,6 +145,7 @@ export function useWaveformPeaks(
     item?.serverId,
     loadGeneration,
     loadPeaks,
+    serverTranscodeEnabled,
   ]);
 
   useEffect(() => {
@@ -150,7 +161,14 @@ export function useWaveformPeaks(
       }
       setLoadGeneration((g) => g + 1);
     });
-  }, [enabled, item?.serverUrl, item?.username, item?.libraryId, item?.trackId]);
+  }, [
+    enabled,
+    item?.serverUrl,
+    item?.username,
+    item?.libraryId,
+    item?.trackId,
+    serverTranscodeEnabled,
+  ]);
 
   return state;
 }

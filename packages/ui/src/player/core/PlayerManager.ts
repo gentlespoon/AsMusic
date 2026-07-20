@@ -1,4 +1,5 @@
 import {
+  isPlayableAudioSuffix,
   libraryCacheScope,
   PERSIST_WHILE_STREAMING_KEY,
   readPersistWhileStreamingEnabled,
@@ -7,9 +8,20 @@ import {
   type PlatformHost,
   type PlaybackStatePayload,
 } from "@asmusic/core";
+import {
+  getServerTranscodeEnabled,
+  offlineMediaVariantForCurrentStream,
+  setServerTranscodeEnabled,
+} from "@ui/preferences/serverTranscodePreference";
+import {
+  deleteRawOfflineForTrack,
+  purgeUnplayableRawOfflineMedia,
+  resolveAudioPlaybackPlatform,
+} from "@ui/offline/purgeUnplayableRawOfflineMedia";
 import { ensureQueueRowIds, newQueueRowId } from "./playerQueueItemFromChild";
 import type {
   PlayerQueueItem,
+  PlayerServerTranscodePromptEvent,
   PlayerToastEvent,
   PlayerViewState,
 } from "./types";
@@ -151,6 +163,10 @@ export class PlayerManager {
   private toastSeq = 0;
   private toastSnapshot: PlayerToastEvent | null = null;
   private toastListeners = new Set<() => void>();
+  private serverTranscodePromptSeq = 0;
+  private serverTranscodePromptSnapshot: PlayerServerTranscodePromptEvent | null =
+    null;
+  private serverTranscodePromptListeners = new Set<() => void>();
 
   constructor(host: PlatformHost, deps: PlayerManagerDeps) {
     this.host = host;
@@ -196,6 +212,7 @@ export class PlayerManager {
     this.revokePlayback = null;
     this.listeners.clear();
     this.toastListeners.clear();
+    this.serverTranscodePromptListeners.clear();
   }
 
   private clearPlaybackThrottleTimer(): void {
@@ -312,6 +329,55 @@ export class PlayerManager {
       messageKey: "player.playback.skippedOnFailure",
       params: { title: failedTitle, error },
     });
+  }
+
+  getServerTranscodePromptSnapshot(): PlayerServerTranscodePromptEvent | null {
+    return this.serverTranscodePromptSnapshot;
+  }
+
+  subscribeServerTranscodePrompt(listener: () => void): () => void {
+    this.serverTranscodePromptListeners.add(listener);
+    return () => {
+      this.serverTranscodePromptListeners.delete(listener);
+    };
+  }
+
+  private emitServerTranscodePrompt(title: string, error: string): void {
+    this.serverTranscodePromptSnapshot = {
+      id: ++this.serverTranscodePromptSeq,
+      title,
+      error,
+    };
+    this.serverTranscodePromptListeners.forEach((l) => l());
+  }
+
+  dismissServerTranscodePrompt(): void {
+    if (!this.serverTranscodePromptSnapshot) return;
+    this.serverTranscodePromptSnapshot = null;
+    this.serverTranscodePromptListeners.forEach((l) => l());
+  }
+
+  /**
+   * Enable server MP3 transcoding, drop unplayable raw offline copies, retry current track.
+   */
+  async enableServerTranscodeAndRetry(): Promise<void> {
+    const item =
+      this.currentIndex !== null ? this.queue[this.currentIndex] : null;
+    setServerTranscodeEnabled(true);
+    this.dismissServerTranscodePrompt();
+    if (item) {
+      await deleteRawOfflineForTrack(this.host, {
+        serverUrl: item.serverUrl,
+        username: item.username,
+        libraryId: item.libraryId,
+        trackId: item.trackId,
+      });
+    }
+    void purgeUnplayableRawOfflineMedia(this.host);
+    this.loadError = null;
+    this.consecutivePlaybackFailures = 0;
+    this.emit();
+    await this.loadCurrentTrack({ autoplay: true });
   }
 
   private emitSleep(): void {
@@ -554,6 +620,7 @@ export class PlayerManager {
             item.libraryId,
           ),
           trackId: item.trackId,
+          variant: offlineMediaVariantForCurrentStream(),
         };
 
         await this.host.offlineMedia.importFromAuthenticatedUrl(key, streamUrl);
@@ -634,6 +701,33 @@ export class PlayerManager {
     if (this.handlingPlaybackFailure || this.handlingPlaybackEnded) {
       return;
     }
+
+    const idx = this.currentIndex;
+    const failedItem =
+      idx !== null && idx >= 0 && idx < this.queue.length
+        ? this.queue[idx]
+        : null;
+    if (
+      failedItem &&
+      !getServerTranscodeEnabled() &&
+      !isPlayableAudioSuffix(
+        failedItem.suffix,
+        resolveAudioPlaybackPlatform(),
+      )
+    ) {
+      this.loadError = errorMessage;
+      this.isPlaying = false;
+      try {
+        await this.host.playback.pause();
+      } catch {
+        /* ignore */
+      }
+      this.emitServerTranscodePrompt(failedItem.title, errorMessage);
+      this.emit();
+      this.schedulePersist();
+      return;
+    }
+
     const failureLimit = getPlaybackFailureAutoSkipLimit();
     if (this.consecutivePlaybackFailures >= failureLimit) {
       return;
@@ -643,8 +737,8 @@ export class PlayerManager {
       this.consecutivePlaybackFailures += 1;
       let lastError = errorMessage;
       while (true) {
-        const idx = this.currentIndex;
-        if (idx === null || this.queue.length === 0) {
+        const curIdx = this.currentIndex;
+        if (curIdx === null || this.queue.length === 0) {
           this.loadError = lastError;
           this.emit();
           return;
@@ -661,7 +755,7 @@ export class PlayerManager {
           this.schedulePersist();
           return;
         }
-        if (idx + 1 >= this.queue.length) {
+        if (curIdx + 1 >= this.queue.length) {
           this.loadError = lastError;
           this.isPlaying = false;
           try {
@@ -673,8 +767,8 @@ export class PlayerManager {
           this.schedulePersist();
           return;
         }
-        const failedItem = this.queue[idx];
-        this.emitPlaybackSkippedToast(failedItem?.title ?? "", lastError);
+        const skipItem = this.queue[curIdx];
+        this.emitPlaybackSkippedToast(skipItem?.title ?? "", lastError);
         const ok = await this.advanceToNextTrack({ autoplay: true });
         if (ok) {
           this.schedulePersist();
@@ -850,6 +944,7 @@ export class PlayerManager {
         username: item.username,
         libraryId: item.libraryId,
         trackId: item.trackId,
+        variant: offlineMediaVariantForCurrentStream(),
         streamUrl: "",
       });
       if (loadSeq !== this.loadTrackSeq) return false;

@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Capacitor } from "@capacitor/core";
 import {
   decodeWaveformPeaks,
   emitWaveformPeaksReady,
   offlineLookupScopes,
+  subscribeOfflineMediaReady,
   subscribeWaveformPeaksReady,
   WAVEFORM_BAR_COUNT,
   type OfflinePlaybackSource,
@@ -47,6 +48,9 @@ export type WaveformPeaksState =
   | { status: "ready"; peaks: number[] }
   | { status: "error" };
 
+const MAX_PEAK_LOAD_RETRIES = 2;
+const PEAK_RETRY_DELAY_MS = 400;
+
 export function useWaveformPeaks(
   item: PlayerQueueItem | null,
   enabled: boolean,
@@ -55,11 +59,18 @@ export function useWaveformPeaks(
   const serverTranscodeEnabled = useServerTranscodeEnabled();
   const [state, setState] = useState<WaveformPeaksState>({ status: "idle" });
   const [loadGeneration, setLoadGeneration] = useState(0);
+  const retryCountRef = useRef(0);
+  const cacheKeyRef = useRef<string | null>(null);
 
   const loadPeaks = useCallback(async () => {
     if (!item) return;
 
     const cacheKey = trackWaveformCacheKey(item);
+    if (cacheKeyRef.current !== cacheKey) {
+      cacheKeyRef.current = cacheKey;
+      retryCountRef.current = 0;
+    }
+
     const cached = peaksCache.get(cacheKey);
     if (cached) {
       setState({ status: "ready", peaks: cached });
@@ -76,16 +87,13 @@ export function useWaveformPeaks(
         item.libraryId,
       );
       const getNativePeaks = host.offlineMedia.getWaveformPeaks;
+      const variant = offlineMediaVariantForCurrentStream();
       let fetchUrl: string | null = null;
       let nativePeaks: number[] | null = null;
       for (const scope of scopes) {
         if (getNativePeaks) {
           const peaks = await getNativePeaks(
-            {
-              scope,
-              trackId: item.trackId,
-              variant: offlineMediaVariantForCurrentStream(),
-            },
+            { scope, trackId: item.trackId, variant },
             WAVEFORM_BAR_COUNT,
           );
           if (peaks && peaks.length > 0) {
@@ -96,7 +104,7 @@ export function useWaveformPeaks(
         const local = await host.offlineMedia.getReadyPlaybackSource({
           scope,
           trackId: item.trackId,
-          variant: offlineMediaVariantForCurrentStream(),
+          variant,
         });
         if (!local) continue;
         revoke = local.revoke;
@@ -114,8 +122,16 @@ export function useWaveformPeaks(
 
       peaksCache.set(cacheKey, peaks);
       emitWaveformPeaksReady(cacheKey);
+      retryCountRef.current = 0;
       setState({ status: "ready", peaks });
     } catch {
+      if (retryCountRef.current < MAX_PEAK_LOAD_RETRIES) {
+        retryCountRef.current += 1;
+        window.setTimeout(() => {
+          setLoadGeneration((g) => g + 1);
+        }, PEAK_RETRY_DELAY_MS);
+        return;
+      }
       setState({ status: "error" });
     } finally {
       revoke?.();
@@ -125,6 +141,7 @@ export function useWaveformPeaks(
   useEffect(() => {
     if (!enabled || !item) {
       setState({ status: "idle" });
+      retryCountRef.current = 0;
       return;
     }
 
@@ -159,6 +176,25 @@ export function useWaveformPeaks(
         setState({ status: "ready", peaks: cached });
         return;
       }
+      setLoadGeneration((g) => g + 1);
+    });
+  }, [
+    enabled,
+    item?.serverUrl,
+    item?.username,
+    item?.libraryId,
+    item?.trackId,
+    serverTranscodeEnabled,
+  ]);
+
+  // Persist-while-streaming / transcode variant: retry peaks once the offline blob is ready.
+  useEffect(() => {
+    if (!enabled || !item) return;
+
+    const cacheKey = trackWaveformCacheKey(item);
+    return subscribeOfflineMediaReady((key) => {
+      if (key !== cacheKey) return;
+      retryCountRef.current = 0;
       setLoadGeneration((g) => g + 1);
     });
   }, [

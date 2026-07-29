@@ -5,6 +5,7 @@ import {
   usePlayerShell,
   usePlayerTransportState,
 } from "@ui/contexts/PlayerContext";
+import { useServerTranscodeEnabled } from "@ui/preferences/serverTranscodePreference";
 import { buildPlayerFullScreenTrackMeta } from "./buildPlayerFullScreenTrackMeta";
 import { PlayerFullScreenAddToPlaylistDialog } from "./PlayerFullScreenAddToPlaylistDialog";
 import { PlayerFullScreenAppBar } from "./PlayerFullScreenAppBar";
@@ -19,11 +20,16 @@ export function PlayerFullScreen() {
   const state = usePlayerTransportState();
   const { fullPlayerOpen } = usePlayerShell();
   const { closeFullPlayer } = usePlayerActions();
+  const serverTranscodeEnabled = useServerTranscodeEnabled();
   const item = state.currentItem;
 
   const [trackInfoOpen, setTrackInfoOpen] = useState(false);
   const actions = usePlayerFullScreenTrackActions(item);
-  const metaRows = buildPlayerFullScreenTrackMeta(item, t);
+  const metaRows = buildPlayerFullScreenTrackMeta(
+    item,
+    t,
+    serverTranscodeEnabled,
+  );
 
   useEffect(() => {
     if (!item) setTrackInfoOpen(false);

@@ -2,11 +2,16 @@ import { useT } from "@asmusic/i18n";
 import { useNavigate } from "react-router-dom";
 import { Divider, List, Paper, Stack, Switch } from "@mui/material";
 import { useOfflineDownload } from "@ui/contexts/OfflineDownloadContext";
+import { useHost } from "@ui/host/HostContext";
 import { useEdgeSwipeBack } from "@ui/shared/useEdgeSwipeBack";
 import {
   setHapticFeedbackEnabled,
   useHapticFeedbackEnabled,
 } from "@ui/preferences/hapticFeedbackPreference";
+import {
+  setServerTranscodeEnabled,
+  useServerTranscodeEnabled,
+} from "@ui/preferences/serverTranscodePreference";
 import {
   setWaveformProgressBarEnabled,
   useWaveformProgressBarEnabled,
@@ -15,6 +20,7 @@ import {
   setMiniPlayerSwipeGesturesEnabled,
   useMiniPlayerSwipeGesturesEnabled,
 } from "@ui/player/miniBar/miniPlayerPreferences";
+import { purgeUnplayableRawOfflineMedia } from "@ui/offline/purgeUnplayableRawOfflineMedia";
 import { SettingsPageLayout } from "./SettingsPageLayout";
 import {
   SettingsPreferenceListItem,
@@ -29,8 +35,10 @@ import {
 export function PlaybackView() {
   const t = useT();
   const navigate = useNavigate();
+  const host = useHost();
   const miniBarSwipeGestures = useMiniPlayerSwipeGesturesEnabled();
   const hapticEnabled = useHapticFeedbackEnabled();
+  const serverTranscode = useServerTranscodeEnabled();
   const waveformProgressBar = useWaveformProgressBarEnabled();
   const { persistWhileStreaming, setPersistWhileStreaming } =
     useOfflineDownload();
@@ -56,6 +64,28 @@ export function PlaybackView() {
           }}
         >
           <List disablePadding>
+            <SettingsPreferenceListItem>
+              <SettingsPreferenceRow>
+                <SettingsPreferenceRowLabel>
+                  <SettingsListItemTitle>
+                    {t("settings.ux.serverTranscode")}
+                  </SettingsListItemTitle>
+                  <SettingsListItemCaption>
+                    {t("settings.ux.serverTranscode.caption")}
+                  </SettingsListItemCaption>
+                </SettingsPreferenceRowLabel>
+                <Switch
+                  checked={serverTranscode}
+                  onChange={(_, c) => {
+                    setServerTranscodeEnabled(c);
+                    if (c) void purgeUnplayableRawOfflineMedia(host);
+                  }}
+                  aria-label={t("settings.ux.serverTranscode")}
+                  sx={{ mt: 0.125, flexShrink: 0 }}
+                />
+              </SettingsPreferenceRow>
+            </SettingsPreferenceListItem>
+            <Divider component="li" />
             <SettingsPreferenceListItem>
               <SettingsPreferenceRow>
                 <SettingsPreferenceRowLabel>

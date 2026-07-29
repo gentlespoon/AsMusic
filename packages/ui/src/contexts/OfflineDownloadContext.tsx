@@ -17,6 +17,7 @@ import {
   type OfflineBulkJobTrack,
 } from '@asmusic/core';
 import { useHost } from '@ui/host/HostContext';
+import { offlineMediaVariantForCurrentStream } from '@ui/preferences/serverTranscodePreference';
 import { useServerAndLibrary } from './ServerAndLibraryContext';
 
 type OfflineDownloadContextValue = {
@@ -130,7 +131,14 @@ export function OfflineDownloadProvider({ children }: { children: ReactNode }) {
         const id = String(trackId);
         const u = getStreamUrl(opts.serverId, id);
         if (!u) continue;
-        tracks.push({ key: { scope, trackId: id }, streamUrl: u });
+        tracks.push({
+          key: {
+            scope,
+            trackId: id,
+            variant: offlineMediaVariantForCurrentStream(),
+          },
+          streamUrl: u,
+        });
       }
       queueRef.current?.enqueue({
         kind: opts.kind,

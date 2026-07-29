@@ -299,6 +299,11 @@ export const zhTWMessages = {
   "player.playback.skippedOnFailure": "無法播放「{title}」：{error}。正在跳到下一曲。",
   "player.playback.skippedLibraryDisabledTitle": "已跳過 — 請在設定中啟用資料庫以播放此歌曲",
   "player.playback.thisTrack": "此曲目",
+  "player.playback.enableServerTranscodeTitle": "啟用伺服器轉碼？",
+  "player.playback.enableServerTranscodeBody":
+    "無法以原始格式播放「{title}」。啟用伺服器轉碼後將以 MP3 串流以獲得最大相容性。之後可在「設定 → 播放」中變更。",
+  "player.playback.enableServerTranscodeEnable": "啟用",
+  "player.playback.enableServerTranscodeNotNow": "暫時不要",
   "player.trackDetails.title": "曲目詳情",
 
   "queue.action.clearExceptCurrent": "清空佇列（保留目前）",
@@ -368,7 +373,7 @@ export const zhTWMessages = {
   "settings.developer": "開發者",
   "settings.developer.caption": "播放失敗自動略過上限與偵錯記錄。",
   "settings.playback": "播放",
-  "settings.playback.caption": "串流離線儲存、播放器手勢、波形進度條與觸覺回饋。",
+  "settings.playback.caption": "伺服器轉碼、串流離線儲存、播放器手勢、波形進度條與觸覺回饋。",
   "settings.serversLibraries": "伺服器與資料庫",
   "settings.serversLibraries.caption": "設定伺服器並選擇使用中的資料庫",
   "settings.title": "設定",
@@ -387,6 +392,9 @@ export const zhTWMessages = {
   "settings.ux.persistWhileStreaming": "串流播放時儲存到裝置",
   "settings.ux.persistWhileStreaming.caption":
     "在支援時，將播放鏡像到離線儲存。部分平台可能消耗額外流量。",
+  "settings.ux.serverTranscode": "使用伺服器轉碼",
+  "settings.ux.serverTranscode.caption":
+    "開啟時使用 MP3 以獲得最大相容性。關閉時使用原始格式，部分格式可能無法播放。",
   "settings.ux.playerBarSwipe": "在播放列中使用滑動手勢",
   "settings.ux.playerBarSwipe.caption":
     "開啟時迷你播放器使用與舊版 iOS 列類似的滑動；略過與播放按鈕會隱藏。",

@@ -9,6 +9,8 @@ import {
   usePlayerTransportState,
 } from "@ui/contexts/PlayerContext";
 import { useWaveformProgressBarEnabled } from "@ui/preferences/waveformProgressBarPreference";
+import { useServerTranscodeEnabled } from "@ui/preferences/serverTranscodePreference";
+import { formatPlaybackFormatLabel } from "@ui/player/formatPlaybackFormatLabel";
 import { useOfflineReadyForItem } from "@ui/player/useOfflineReadyForItem";
 import { WaveformScrubBar } from "./WaveformScrubBar";
 import { useWaveformPeaks } from "./useWaveformPeaks";
@@ -32,6 +34,7 @@ export function PlayerFullScreenProgressBar() {
   const item = state.currentItem;
   const busy = Boolean(item);
   const waveformEnabled = useWaveformProgressBarEnabled();
+  const serverTranscodeEnabled = useServerTranscodeEnabled();
   const offlineReady = useOfflineReadyForItem(item);
   const wantWaveform = Boolean(
     waveformEnabled &&
@@ -51,12 +54,12 @@ export function PlayerFullScreenProgressBar() {
 
   const waveformPeaks = waveform.status === "ready" ? waveform.peaks : [];
 
+  const formatLabel = item
+    ? formatPlaybackFormatLabel(item.suffix, serverTranscodeEnabled)
+    : null;
   const formatBitrateCaption =
     item &&
-    [
-      item.suffix?.trim() ? item.suffix.trim().toUpperCase() : null,
-      item.bitRate != null ? String(item.bitRate) : null,
-    ]
+    [formatLabel, item.bitRate != null ? String(item.bitRate) : null]
       .filter(Boolean)
       .join(" · ");
 

@@ -11,7 +11,7 @@ import {
 } from 'react';
 import { useHost } from '@ui/host/HostContext';
 import { PlayerManager, type PlayerSleepTimerSnapshot, type SavedServerRef } from '@ui/player/core/PlayerManager';
-import type { PlayerQueueItem, PlayerToastEvent, PlayerViewState } from '@ui/player/core/types';
+import type { PlayerQueueItem, PlayerServerTranscodePromptEvent, PlayerToastEvent, PlayerViewState } from '@ui/player/core/types';
 import { useServerAndLibrary } from './ServerAndLibraryContext';
 import { useLibraryBrowseCache } from './LibraryBrowseCacheContext';
 import {
@@ -46,6 +46,8 @@ export type PlayerActions = {
   cancelSleepTimer: () => Promise<void>;
   patchCurrentQueueItemStarred: (starred: boolean) => void;
   syncCurrentTrackNowPlayingArtwork: () => Promise<void>;
+  enableServerTranscodeAndRetry: () => Promise<void>;
+  dismissServerTranscodePrompt: () => void;
 };
 
 export type PlayerShell = {
@@ -223,6 +225,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       cancelSleepTimer: () => manager.cancelSleepTimer(),
       patchCurrentQueueItemStarred: (starred) => manager.patchCurrentQueueItemStarred(starred),
       syncCurrentTrackNowPlayingArtwork: () => manager.syncCurrentTrackNowPlayingArtwork(),
+      enableServerTranscodeAndRetry: () => manager.enableServerTranscodeAndRetry(),
+      dismissServerTranscodePrompt: () => manager.dismissServerTranscodePrompt(),
     }),
     [manager, openFullPlayer, closeFullPlayer, toggleFullPlayer]
   );
@@ -294,5 +298,14 @@ export function usePlayerToast(): PlayerToastEvent | null {
     (onStoreChange) => manager.subscribeToast(onStoreChange),
     () => manager.getToastSnapshot(),
     () => manager.getToastSnapshot()
+  );
+}
+
+export function usePlayerServerTranscodePrompt(): PlayerServerTranscodePromptEvent | null {
+  const manager = usePlayerManager();
+  return useSyncExternalStore(
+    (onStoreChange) => manager.subscribeServerTranscodePrompt(onStoreChange),
+    () => manager.getServerTranscodePromptSnapshot(),
+    () => manager.getServerTranscodePromptSnapshot()
   );
 }

@@ -311,6 +311,11 @@ export const enUSMessages = {
   "player.playback.skippedLibraryDisabledTitle":
     "Skipped — enable library in Settings to play this song",
   "player.playback.thisTrack": "this track",
+  "player.playback.enableServerTranscodeTitle": "Enable server transcode?",
+  "player.playback.enableServerTranscodeBody":
+    "Couldn't play \"{title}\" in its original format. Enable server transcode to stream MP3 for maximum compatibility. You can change this later in Settings → Playback.",
+  "player.playback.enableServerTranscodeEnable": "Enable",
+  "player.playback.enableServerTranscodeNotNow": "Not now",
   "player.trackDetails.title": "Track details",
 
   "queue.action.clearExceptCurrent": "Clear queue except current",
@@ -383,7 +388,7 @@ export const enUSMessages = {
     "Playback failure auto-skip limit and debug logging.",
   "settings.playback": "Playback",
   "settings.playback.caption":
-    "Offline saving while streaming, player gestures, waveform progress bar, and haptic feedback.",
+    "Server transcode, offline saving while streaming, player gestures, waveform progress bar, and haptic feedback.",
   "settings.serversLibraries": "Servers & Libraries",
   "settings.serversLibraries.caption":
     "Configure server and select active libraries",
@@ -405,6 +410,9 @@ export const enUSMessages = {
   "settings.ux.persistWhileStreaming": "Save to device while streaming",
   "settings.ux.persistWhileStreaming.caption":
     "When supported, mirror playback into offline storage. May use extra bandwidth on some platforms.",
+  "settings.ux.serverTranscode": "Use server transcode",
+  "settings.ux.serverTranscode.caption":
+    "ON to use MP3 for maximum compatibility. OFF to use original format; some formats may not play.",
   "settings.ux.playerBarSwipe": "Use swipe gesture in player bar",
   "settings.ux.playerBarSwipe.caption":
     "Mini player uses swipes like the legacy iOS bar when on; skip and play buttons are hidden.",

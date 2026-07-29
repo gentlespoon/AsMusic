@@ -9,6 +9,12 @@ export type OfflineMediaKey = {
 
 export const OFFLINE_MEDIA_DEFAULT_VARIANT = '';
 
+/** Subsonic `stream.view` format always requested by AsMusic. */
+export const STREAM_FORMAT = 'mp3';
+
+/** Offline blob variant for {@link STREAM_FORMAT} streams (avoids colliding with legacy raw caches). */
+export const OFFLINE_MEDIA_STREAM_VARIANT = STREAM_FORMAT;
+
 /** Stable string key for deduplication / logging (not used as IndexedDB key path). */
 export function offlineMediaKeyId(key: OfflineMediaKey): string {
   const v = key.variant ?? OFFLINE_MEDIA_DEFAULT_VARIANT;

@@ -1,11 +1,16 @@
 import { useEffect, useState } from 'react';
 import { libraryCacheScope, subscribeOfflineMediaReady } from '@asmusic/core';
 import { useHost } from '@ui/host/HostContext';
+import {
+  offlineMediaVariantForCurrentStream,
+  useServerTranscodeEnabled,
+} from '@ui/preferences/serverTranscodePreference';
 import type { PlayerQueueItem } from './core/types';
 import { trackWaveformCacheKey } from './trackWaveformCacheKey';
 
 export function useOfflineReadyForItem(item: PlayerQueueItem | null): boolean {
   const host = useHost();
+  const serverTranscodeEnabled = useServerTranscodeEnabled();
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -19,7 +24,11 @@ export function useOfflineReadyForItem(item: PlayerQueueItem | null): boolean {
 
     const check = async () => {
       const scope = libraryCacheScope(item.serverUrl, item.username, item.libraryId);
-      const st = await host.offlineMedia.getStatus({ scope, trackId: item.trackId });
+      const st = await host.offlineMedia.getStatus({
+        scope,
+        trackId: item.trackId,
+        variant: offlineMediaVariantForCurrentStream(),
+      });
       if (!cancelled) setReady(st.status === 'ready');
     };
 
@@ -34,6 +43,7 @@ export function useOfflineReadyForItem(item: PlayerQueueItem | null): boolean {
     item?.libraryId,
     item?.trackId,
     host.offlineMedia,
+    serverTranscodeEnabled,
   ]);
 
   return ready;

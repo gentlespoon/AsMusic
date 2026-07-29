@@ -53,3 +53,10 @@ export type PlayerToastEvent =
       messageKey: 'player.playback.skippedLibraryDisabled';
       params: { serverName: string; libraryName: string };
     };
+
+/** Prompt to enable server transcode after a likely format/playback failure. */
+export type PlayerServerTranscodePromptEvent = {
+  id: number;
+  title: string;
+  error: string;
+};

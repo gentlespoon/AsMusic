@@ -339,6 +339,10 @@ export const esESMessages = {
   "servers.error.addFailed": "No se pudo añadir el servidor",
   "servers.error.loadLibraries": "Error al cargar las bibliotecas",
   "servers.error.noSession": "No se pudo abrir una sesión para {url}",
+  "servers.error.scanFailed":
+    "No se pudo iniciar el escaneo de la biblioteca del servidor. Suele requerir privilegios de administrador; desactiva «Reescanear antes de sincronizar» si no eres admin.",
+  "servers.error.scanTimeout":
+    "El escaneo de la biblioteca del servidor agotó el tiempo de espera antes de terminar.",
   "servers.error.syncFailed": "Error al sincronizar la biblioteca",
   "servers.error.updateFailed": "Error al actualizar",
   "servers.libraries.activeCount": "{count} bibliotecas activas",
@@ -424,6 +428,9 @@ export const esESMessages = {
     "Guardar en el dispositivo al reproducir en streaming",
   "settings.ux.persistWhileStreaming.caption":
     "Cuando sea compatible, refleja la reproducción en el almacenamiento sin conexión. En algunas plataformas puede usar ancho de banda adicional.",
+  "settings.ux.rescanBeforeSync": "Reescanear la biblioteca del servidor antes de sincronizar",
+  "settings.ux.rescanBeforeSync.caption":
+    "Pide al servidor que escanee esa biblioteca antes de descargar su catálogo. Requiere privilegios de administrador; déjalo desactivado si tu cuenta no puede iniciar escaneos.",
   "settings.ux.serverTranscode": "Usar transcodificación del servidor",
   "settings.ux.serverTranscode.caption":
     "Activado para usar MP3 con máxima compatibilidad. Desactivado para usar el formato original; algunos formatos pueden no reproducirse.",

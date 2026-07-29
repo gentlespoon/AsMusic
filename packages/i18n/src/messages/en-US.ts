@@ -333,6 +333,9 @@ export const enUSMessages = {
   "servers.error.addFailed": "Could not add server",
   "servers.error.loadLibraries": "Failed to load libraries",
   "servers.error.noSession": "Could not open a session for {url}",
+  "servers.error.scanFailed":
+    "Could not start a server library scan. This usually requires admin privileges—turn off “Rescan before sync” if you are not an admin.",
+  "servers.error.scanTimeout": "Server library scan timed out before finishing.",
   "servers.error.syncFailed": "Library sync failed",
   "servers.error.updateFailed": "Update failed",
   "servers.libraries.activeCount": "{count} active libraries",
@@ -410,6 +413,9 @@ export const enUSMessages = {
   "settings.ux.persistWhileStreaming": "Save to device while streaming",
   "settings.ux.persistWhileStreaming.caption":
     "When supported, mirror playback into offline storage. May use extra bandwidth on some platforms.",
+  "settings.ux.rescanBeforeSync": "Rescan server library before sync",
+  "settings.ux.rescanBeforeSync.caption":
+    "Asks the server to scan that library before downloading its catalog. Requires admin privileges on the server; leave off if your account cannot start scans.",
   "settings.ux.serverTranscode": "Use server transcode",
   "settings.ux.serverTranscode.caption":
     "ON to use MP3 for maximum compatibility. OFF to use original format; some formats may not play.",

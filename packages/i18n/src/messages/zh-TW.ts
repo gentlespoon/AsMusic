@@ -321,6 +321,9 @@ export const zhTWMessages = {
   "servers.error.addFailed": "無法新增伺服器",
   "servers.error.loadLibraries": "載入資料庫失敗",
   "servers.error.noSession": "無法為 {url} 建立工作階段",
+  "servers.error.scanFailed":
+    "無法啟動伺服器資料庫掃描。通常需要管理員權限——若您的帳號無法掃描，請關閉「同步前重新掃描」。",
+  "servers.error.scanTimeout": "伺服器資料庫掃描逾時，尚未完成。",
   "servers.error.syncFailed": "資料庫同步失敗",
   "servers.error.updateFailed": "更新失敗",
   "servers.libraries.activeCount": "{count} 個已啟用資料庫",
@@ -392,6 +395,9 @@ export const zhTWMessages = {
   "settings.ux.persistWhileStreaming": "串流播放時儲存到裝置",
   "settings.ux.persistWhileStreaming.caption":
     "在支援時，將播放鏡像到離線儲存。部分平台可能消耗額外流量。",
+  "settings.ux.rescanBeforeSync": "同步前重新掃描伺服器資料庫",
+  "settings.ux.rescanBeforeSync.caption":
+    "在下載該資料庫目錄前，先讓伺服器掃描該資料庫。需要伺服器管理員權限；若您的帳號無法啟動掃描，請保持關閉。",
   "settings.ux.serverTranscode": "使用伺服器轉碼",
   "settings.ux.serverTranscode.caption":
     "開啟時使用 MP3 以獲得最大相容性。關閉時使用原始格式，部分格式可能無法播放。",

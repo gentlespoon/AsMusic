@@ -1,8 +1,16 @@
 import { useCallback, useState } from 'react';
 import { useT } from '@asmusic/i18n';
-import { libraryCacheScope, refreshLibraryCache, refreshPlaylistCacheForServer } from '@asmusic/core';
+import {
+  libraryCacheScope,
+  refreshLibraryCache,
+  refreshPlaylistCacheForServer,
+  waitForServerLibraryScan,
+} from '@asmusic/core';
 import { useServerAndLibrary, useLibraryBrowseCache } from '@ui/contexts';
 import { useHost } from '@ui/host/HostContext';
+import {
+  getServerLibraryRescanBeforeSyncEnabled,
+} from '@ui/preferences/serverLibraryRescanBeforeSyncPreference';
 import { libraryRowKey } from './libraryRowKey';
 import type { LibraryRow } from './types';
 
@@ -30,6 +38,16 @@ export function useRefreshLibraryRow() {
         const api = await getApiForServer(row.serverId);
         if (!api) {
           throw new Error(t('servers.error.noSession', { url: row.serverUrl }));
+        }
+        if (getServerLibraryRescanBeforeSyncEnabled()) {
+          try {
+            await waitForServerLibraryScan(api, { libraryId: row.libraryId });
+          } catch (e) {
+            if (e instanceof Error && e.message.includes('timed out')) {
+              throw new Error(t('servers.error.scanTimeout'));
+            }
+            throw new Error(t('servers.error.scanFailed'));
+          }
         }
         const scope = libraryCacheScope(server.serverUrl, server.username, row.libraryId);
         await refreshLibraryCache(api, host.libraryCache, scope, undefined, {

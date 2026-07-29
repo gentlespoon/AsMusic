@@ -6,14 +6,29 @@ import {
   Box,
   CircularProgress,
   Container,
+  List,
   Paper,
   Stack,
+  Switch,
   Typography,
 } from '@mui/material';
 import { useServerAndLibrary } from '@ui/contexts';
+import {
+  setServerLibraryRescanBeforeSyncEnabled,
+  useServerLibraryRescanBeforeSyncEnabled,
+} from '@ui/preferences/serverLibraryRescanBeforeSyncPreference';
 import { libraryFlexFillSx } from '@ui/shared/LibraryVirtuosoFill';
 import { PageCloseButton } from '@ui/shared/PageCloseButton';
-import { SettingsPageDescription } from '@ui/views/settings/SettingsTypography';
+import {
+  SettingsPreferenceListItem,
+  SettingsPreferenceRow,
+  SettingsPreferenceRowLabel,
+} from '@ui/views/settings/SettingsPreferenceRow';
+import {
+  SettingsListItemCaption,
+  SettingsListItemTitle,
+  SettingsPageDescription,
+} from '@ui/views/settings/SettingsTypography';
 import { LibrarySelectorList } from './LibrarySelectorList';
 import { LibrarySelectorToolbar } from './LibrarySelectorToolbar';
 import { useLibraryRowCacheStats } from './useLibraryRowCacheStats';
@@ -26,6 +41,7 @@ export function LibrarySelectorView({ embedded = false }: LibrarySelectorViewPro
   const { format } = useI18n();
   const navigate = useNavigate();
   const { activeLibraryRefs } = useServerAndLibrary();
+  const rescanBeforeSync = useServerLibraryRescanBeforeSyncEnabled();
   const { rows, loadError, loading, servers } = useLibraryRows();
   const { refreshingKey, refreshError, setRefreshError, refreshLibraryRow } = useRefreshLibraryRow();
   const cacheStatsByRowKey = useLibraryRowCacheStats(rows, loading, refreshingKey);
@@ -79,6 +95,37 @@ export function LibrarySelectorView({ embedded = false }: LibrarySelectorViewPro
           )}
           <SettingsPageDescription>{t('servers.libraries.description')}</SettingsPageDescription>
           {!embedded && <LibrarySelectorToolbar />}
+
+          <Paper
+            variant="outlined"
+            sx={{
+              borderRadius: 2,
+              overflow: 'hidden',
+              bgcolor: 'background.paper',
+              mb: 2,
+            }}
+          >
+            <List disablePadding>
+              <SettingsPreferenceListItem>
+                <SettingsPreferenceRow>
+                  <SettingsPreferenceRowLabel>
+                    <SettingsListItemTitle>
+                      {t('settings.ux.rescanBeforeSync')}
+                    </SettingsListItemTitle>
+                    <SettingsListItemCaption>
+                      {t('settings.ux.rescanBeforeSync.caption')}
+                    </SettingsListItemCaption>
+                  </SettingsPreferenceRowLabel>
+                  <Switch
+                    checked={rescanBeforeSync}
+                    onChange={(_, c) => setServerLibraryRescanBeforeSyncEnabled(c)}
+                    aria-label={t('settings.ux.rescanBeforeSync')}
+                    sx={{ mt: 0.125, flexShrink: 0 }}
+                  />
+                </SettingsPreferenceRow>
+              </SettingsPreferenceListItem>
+            </List>
+          </Paper>
 
           <Paper variant="outlined" sx={{ p: 1.5, mb: 2 }}>
             <Typography variant="body2">

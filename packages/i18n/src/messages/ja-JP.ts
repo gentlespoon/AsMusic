@@ -335,6 +335,9 @@ export const jaJPMessages = {
   "servers.error.addFailed": "サーバーを追加できませんでした",
   "servers.error.loadLibraries": "ライブラリの読み込みに失敗しました",
   "servers.error.noSession": "{url} のセッションを開けませんでした",
+  "servers.error.scanFailed":
+    "サーバーのライブラリスキャンを開始できませんでした。通常は管理者権限が必要です。管理者でない場合は「同期前に再スキャン」をオフにしてください。",
+  "servers.error.scanTimeout": "サーバーのライブラリスキャンが完了前にタイムアウトしました。",
   "servers.error.syncFailed": "ライブラリの同期に失敗しました",
   "servers.error.updateFailed": "更新に失敗しました",
   "servers.libraries.activeCount": "有効なライブラリ {count} 件",
@@ -415,6 +418,9 @@ export const jaJPMessages = {
   "settings.ux.persistWhileStreaming": "ストリーミング中にデバイスへ保存",
   "settings.ux.persistWhileStreaming.caption":
     "対応している場合、再生をオフラインストレージにミラーします。一部のプラットフォームでは追加の通信量を使うことがあります。",
+  "settings.ux.rescanBeforeSync": "同期前にサーバーライブラリを再スキャン",
+  "settings.ux.rescanBeforeSync.caption":
+    "そのライブラリのカタログをダウンロードする前に、サーバー側でそのライブラリだけをスキャンします。サーバーの管理者権限が必要です。スキャンを開始できないアカウントではオフのままにしてください。",
   "settings.ux.serverTranscode": "サーバートランスコードを使う",
   "settings.ux.serverTranscode.caption":
     "ON で最大互換性のため MP3 を使います。OFF でオリジナル形式を使い、一部の形式は再生できないことがあります。",

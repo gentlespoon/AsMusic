@@ -15,6 +15,7 @@ export * from './localPlaylists/LocalPlaylistStore';
 export * from './localPlaylists/localPlaylistMutations';
 export * from './localPlaylists/localPlaylistEntries';
 export * from './library/refreshLibraryCache';
+export * from './library/waitForServerLibraryScan';
 export * from './library/purgeRemovedLibraryCacheEntries';
 export * from './library/runLibraryArtworkBackgroundCache';
 export * from './library/readCachedArtworkBlob';

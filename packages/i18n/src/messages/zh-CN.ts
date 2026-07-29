@@ -321,6 +321,9 @@ export const zhCNMessages = {
   "servers.error.addFailed": "无法添加服务器",
   "servers.error.loadLibraries": "加载资料库失败",
   "servers.error.noSession": "无法为 {url} 建立会话",
+  "servers.error.scanFailed":
+    "无法启动服务器资料库扫描。通常需要管理员权限——若您的账号无法扫描，请关闭“同步前重新扫描”。",
+  "servers.error.scanTimeout": "服务器资料库扫描超时，尚未完成。",
   "servers.error.syncFailed": "资料库同步失败",
   "servers.error.updateFailed": "更新失败",
   "servers.libraries.activeCount": "{count} 个已启用资料库",
@@ -392,6 +395,9 @@ export const zhCNMessages = {
   "settings.ux.persistWhileStreaming": "流式播放时保存到设备",
   "settings.ux.persistWhileStreaming.caption":
     "在支持时，将播放镜像到离线存储。部分平台可能消耗额外流量。",
+  "settings.ux.rescanBeforeSync": "同步前重新扫描服务器资料库",
+  "settings.ux.rescanBeforeSync.caption":
+    "在下载该资料库目录前，先让服务器扫描该资料库。需要服务器管理员权限；若您的账号无法启动扫描，请保持关闭。",
   "settings.ux.serverTranscode": "使用服务器转码",
   "settings.ux.serverTranscode.caption":
     "开启时使用 MP3 以获得最大兼容性。关闭时使用原始格式，部分格式可能无法播放。",

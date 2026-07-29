@@ -17,6 +17,11 @@ enum LibraryCacheSQLiteStore {
 
     private static var db: OpaquePointer?
     private static let queue = DispatchQueue(label: "works.asmusic.library-cache-sqlite", qos: .utility)
+    /// Serializes full-file PCM waveform decodes so bulk offline imports cannot OOM.
+    private static let waveformPrecomputeQueue = DispatchQueue(
+        label: "works.asmusic.offline-waveform-precompute",
+        qos: .utility
+    )
 
     // MARK: - Public API (called from plugin on arbitrary queue — we hop to `queue`)
 
@@ -1383,7 +1388,7 @@ enum LibraryCacheSQLiteStore {
         let lid = libraryId
         let tid = trackId
         let v = variant
-        DispatchQueue.global(qos: .utility).async {
+        waveformPrecomputeQueue.async {
             try? precomputeOfflineWaveformPeaks(
                 serverKey: sk,
                 libraryId: lid,

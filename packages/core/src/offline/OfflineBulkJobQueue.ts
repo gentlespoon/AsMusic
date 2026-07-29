@@ -37,12 +37,14 @@ function randomId(): string {
 
 /**
  * In-memory bulk download scheduler. Persists only via `OfflineMediaStore` per track.
+ * Downloads run one at a time; re-entrant `pump()` calls never start overlapping imports.
  */
 export class OfflineBulkJobQueue {
   private jobs: OfflineBulkJob[] = [];
   private pausedGlobally = false;
   private listeners = new Set<Listener>();
-  private runToken = 0;
+  private pumping = false;
+  private pumpRequested = false;
 
   constructor(private readonly offline: OfflineMediaStore) {}
 
@@ -91,6 +93,7 @@ export class OfflineBulkJobQueue {
     j.state = 'cancelled';
     j.currentIndex = null;
     this.emit();
+    void this.pump();
   }
 
   cancelAll() {
@@ -141,50 +144,60 @@ export class OfflineBulkJobQueue {
   }
 
   private async pump() {
-    const token = ++this.runToken;
-    while (token === this.runToken && !this.pausedGlobally) {
-      const job = this.jobs.find((j) => j.state === 'pending' || j.state === 'running');
-      if (!job) break;
-      if (job.state === 'pending') {
-        job.state = 'running';
-        this.emit();
-      }
-      if (job.state !== 'running') break;
+    this.pumpRequested = true;
+    if (this.pumping) return;
+    this.pumping = true;
+    try {
+      while (this.pumpRequested) {
+        this.pumpRequested = false;
+        while (!this.pausedGlobally) {
+          const job = this.jobs.find((j) => j.state === 'pending' || j.state === 'running');
+          if (!job) break;
+          if (job.state === 'pending') {
+            job.state = 'running';
+            this.emit();
+          }
+          if (job.state !== 'running') continue;
 
-      const nextIdx = job.tracks.findIndex(
-        (_t, i) => !job.completedIndices.has(i) && !job.failedIndices.has(i)
-      );
-      if (nextIdx < 0) {
-        job.state = job.failedIndices.size > 0 && job.completedIndices.size === 0 ? 'failed' : 'completed';
-        job.currentIndex = null;
-        if (job.state === 'failed' && !job.errorMessage) {
-          job.errorMessage = 'One or more tracks failed to download';
+          const nextIdx = job.tracks.findIndex(
+            (_t, i) => !job.completedIndices.has(i) && !job.failedIndices.has(i)
+          );
+          if (nextIdx < 0) {
+            job.state = job.failedIndices.size > 0 && job.completedIndices.size === 0 ? 'failed' : 'completed';
+            job.currentIndex = null;
+            if (job.state === 'failed' && !job.errorMessage) {
+              job.errorMessage = 'One or more tracks failed to download';
+            }
+            this.emit();
+            continue;
+          }
+
+          job.currentIndex = nextIdx;
+          this.emit();
+
+          const isCancelled = () =>
+            this.jobs.some((x) => x.id === job.id && x.state === 'cancelled');
+
+          const { key, streamUrl } = job.tracks[nextIdx]!;
+          try {
+            if (isCancelled()) continue;
+            await this.offline.importFromAuthenticatedUrl(key, streamUrl);
+            if (isCancelled()) continue;
+            job.completedIndices.add(nextIdx);
+          } catch (e) {
+            if (isCancelled()) continue;
+            job.failedIndices.add(nextIdx);
+            job.errorMessage = e instanceof Error ? e.message : 'Download failed';
+          }
+          job.currentIndex = null;
+          this.emit();
         }
-        this.emit();
-        continue;
       }
-
-      job.currentIndex = nextIdx;
-      this.emit();
-
-      const isCancelled = () =>
-        this.jobs.some((x) => x.id === job.id && x.state === 'cancelled');
-
-      const { key, streamUrl } = job.tracks[nextIdx]!;
-      try {
-        if (isCancelled()) break;
-        await this.offline.importFromAuthenticatedUrl(key, streamUrl);
-        if (isCancelled()) break;
-        job.completedIndices.add(nextIdx);
-      } catch (e) {
-        if (isCancelled()) break;
-        job.failedIndices.add(nextIdx);
-        job.errorMessage = e instanceof Error ? e.message : 'Download failed';
-      }
-      job.currentIndex = null;
-      this.emit();
-
-      if (isCancelled()) break;
+    } finally {
+      this.pumping = false;
+    }
+    if (this.pumpRequested) {
+      void this.pump();
     }
   }
 }

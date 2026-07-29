@@ -119,9 +119,30 @@ async function putTrackRow(db: IDBDatabase, row: OfflineTrackRow): Promise<void>
   });
 }
 
+/** Cap concurrent full-file PCM decodes so bulk downloads cannot OOM the tab. */
+const MAX_WAVEFORM_PRECOMPUTE_INFLIGHT = 1;
+let waveformPrecomputeInflight = 0;
+const waveformPrecomputeWaiters: Array<() => void> = [];
+
+async function withWaveformPrecomputeSlot<T>(fn: () => Promise<T>): Promise<T> {
+  while (waveformPrecomputeInflight >= MAX_WAVEFORM_PRECOMPUTE_INFLIGHT) {
+    await new Promise<void>((resolve) => {
+      waveformPrecomputeWaiters.push(resolve);
+    });
+  }
+  waveformPrecomputeInflight += 1;
+  try {
+    return await fn();
+  } finally {
+    waveformPrecomputeInflight -= 1;
+    const next = waveformPrecomputeWaiters.shift();
+    next?.();
+  }
+}
+
 function scheduleWaveformPrecompute(key: OfflineMediaKey, row: OfflineTrackRow): void {
   const cacheKey = offlineMediaKeyId(key);
-  void (async () => {
+  void withWaveformPrecomputeSlot(async () => {
     try {
       if (
         row.waveformPeaks &&
@@ -150,7 +171,7 @@ function scheduleWaveformPrecompute(key: OfflineMediaKey, row: OfflineTrackRow):
     } catch {
       /* ignore background waveform errors */
     }
-  })();
+  });
 }
 
 export function createIndexedDbOfflineMediaStorage(): OfflineMediaStore {

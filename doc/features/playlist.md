@@ -1,258 +1,331 @@
 # Playlists
 
-Server-side Subsonic playlists: browse, play, create, edit membership, delete, add tracks from the player, and offline bulk download.
+Library playlists in AsMusic: Subsonic **server playlists** (synced per account) and device-**local** cross-library playlists. Browse, play, create, edit membership, delete, add from the full-screen player, and offline bulk download.
+
+**Out of scope for this doc:** the now-playing / playback queue (`PlayerManager`). Playing a playlist only copies tracks into that queue; it does not mutate playlist membership. MUI `PlaylistAdd` in album/song lists means “add to queue,” not a Subsonic or local playlist.
+
+There is no Apple Music / Spotify playlist integration. Music sources are Navidrome / Subsonic / OpenSubsonic servers plus the on-device local playlist store.
 
 ## Mental model
 
-- Playlists are **Subsonic server playlists** (per server account), not the local playback queue.
-- Playing a playlist copies track IDs into `PlayerManager`; it does **not** mutate the server playlist.
-- Summaries (`id`, `name`, `songCount`) are **cached per library scope** (`serverUrl` + `username` + `libraryId`).
-- Full track lists are **fetched on demand** via `getPlaylist` when a playlist is opened.
+Two playlist kinds share one **Playlists** tab catalog:
+
+| Kind | Persistence | Scope | Synced? |
+|------|-------------|-------|---------|
+| **Server** | Subsonic account + `LibraryCacheStorage` | `serverKey` (URL + username hash) | Yes — `getPlaylists` / `getPlaylist` / mutations |
+| **Local** | `LocalPlaylistStore` on device | Device-global | No — never uploaded to Subsonic |
+
+- Subsonic playlists are **per server account**, not per music-folder `libraryId`. Songs, artwork, and offline media remain per `(serverKey, libraryId)`.
+- Local playlist entries are refs `(serverKey, libraryId, trackId)` with optional snapshot metadata (title/artist/album/cover) captured at add time.
+- Playing either kind builds `PlayerQueueItem`s and calls `replaceQueueAndPlay` / `appendToQueue`. Membership is unchanged.
+
+Product notes live in `NOTE.md` (section “Playlist creation and multiple active libraries”). This file is the detailed feature doc.
 
 ## Architecture
 
 ```mermaid
 flowchart TB
-  subgraph sync [Library sync]
-    Refresh[refreshLibraryCache]
-    GP[getPlaylists API]
-    W[replacePlaylistSummaries]
-    Refresh --> GP --> W
+  subgraph sources [Music sources]
+    Subsonic[Navidrome / Subsonic API]
   end
-  subgraph storage [Platform storage]
-    IDB[IndexedDB web]
-    SQLite[iOS SQLite]
-    W --> IDB
-    W --> SQLite
+
+  subgraph sync [Sync]
+    SongRefresh[refreshLibraryCache per library]
+    PlRefresh[refreshPlaylistCacheForServer once per serverKey]
+    SongRefresh -.-> PlRefresh
+    PlRefresh -->|getPlaylists + getPlaylist per id| Subsonic
   end
-  subgraph context [LibraryBrowseCacheContext]
-    RD[readPlaylistSummaries on load]
-    Rows[playlistCatalogRows]
-    Mutations[create / delete / update / addTrack]
-    RD --> Rows
+
+  subgraph storage [Persistence]
+    ServerCache[LibraryCacheStorage serverKey]
+    LocalStore[LocalPlaylistStore device]
+    PlRefresh --> ServerCache
   end
-  subgraph ui [UI]
+
+  subgraph state [LibraryBrowseCacheContext]
+    Catalog[playlistCatalogRows server + local]
+    ServerCache --> Catalog
+    LocalStore --> Catalog
+  end
+
+  subgraph ui [Playlists tab]
     List[PlaylistListView]
-    Detail[PlaylistSongListView]
-    Editor[PlaylistEditorView]
-    List --> Detail
-    Detail --> Editor
+    ServerDetail[PlaylistSongListView]
+    LocalDetail[LocalPlaylistSongListView]
+    ServerEdit[PlaylistEditorView]
+    LocalEdit[LocalPlaylistEditorView]
+    List --> ServerDetail
+    List --> LocalDetail
+    ServerDetail --> ServerEdit
+    LocalDetail --> LocalEdit
   end
-  subgraph play [Player]
-    PQ[playerQueueItemFromChild]
-    PM[replaceQueueAndPlay / appendToQueue]
-    Detail --> PQ --> PM
-  end
-  storage --> RD
-  Mutations --> GP
+
+  Catalog --> List
+  Mutate[create / delete / update / addTrack] --> Subsonic
+  Mutate --> LocalStore
+  Mutate --> Catalog
 ```
 
-## Core layer (`packages/core`)
+## Types
 
-### Types
-
-`LibraryPlaylistSummary` in `packages/core/src/library/storage/LibraryCacheStorage.ts`:
+### Server (`LibraryCacheStorage`)
 
 ```ts
-export type LibraryPlaylistSummary = {
+type LibraryPlaylistSummary = {
   id: string;
   name: string;
   songCount: number;
 };
+
+type ServerPlaylistScope = { serverKey: string };
 ```
 
-### Sync
+Cached entry order: ordered `trackId[]` per `(serverKey, playlistId)` via `readPlaylistEntryTrackIds` / `replacePlaylistEntryTrackIds`.
 
-During full library refresh, after songs are written, playlist summaries are refreshed (`packages/core/src/library/refreshLibraryCache.ts`):
+### Local (`LocalPlaylistStore`)
 
-1. Paginated song fetch + write
-2. `refreshPlaylistSummariesOnly(api, storage, scope)`
-3. Progress event: `{ phase: 'playlists' }`
+```ts
+type LocalPlaylistSummary = {
+  id: string;
+  name: string;
+  trackCount: number;
+  createdAt: number;
+  updatedAt: number;
+};
 
-### Mutations (`packages/core/src/library/playlistMutations.ts`)
+type LocalPlaylistTrackRef = {
+  serverKey: string;
+  libraryId: string;
+  trackId: string;
+  title?: string;
+  artist?: string;
+  album?: string;
+  coverArtId?: string;
+};
+
+type LocalPlaylistEntry = LocalPlaylistTrackRef & { sortIndex: number };
+```
+
+Editor membership uses composite keys `serverKey|libraryId|trackId` (`localPlaylistEntryKey`).
+
+### Catalog UI row
+
+`PlaylistCatalogRow` in `LibraryBrowseCacheContext`:
+
+- `kind: 'server'` — `playlist`, `serverId`, `serverKey`, `rowKey`
+- `kind: 'local'` — `playlist` (summary shaped like `{ id, name, songCount }`), `rowKey`
+
+Sorted by name (then `rowKey`) across both kinds.
+
+## Sync and persistence
+
+### Server playlist cache
+
+Not refreshed inside `refreshLibraryCache` (songs only). After a library song sync completes, `useRefreshLibraryRow` calls `refreshPlaylistCacheForServer` **once per `serverKey`**:
+
+1. `getPlaylists` → `replacePlaylistSummaries`
+2. Per playlist: `getPlaylist` → `replacePlaylistEntryTrackIds`
+3. `purgePlaylistEntryTrackIdsNotIn` for stale playlist ids
+
+Mutations in context (`createPlaylist`, `deletePlaylist`, `addTrackToPlaylist`, `updatePlaylistMembership`) call Subsonic then `refreshPlaylistCacheForServer` again.
+
+Detail open always tries live `getPlaylist` via `loadPlaylistTracks` and updates the entry-id cache. On failure, falls back to cached entry ids ∩ merged song cache for that server (`fromCache: true`). Offline/cache-fallback membership load is **read-only** in the editor (save needs network).
+
+Server playlist rows survive per-library `deleteScope` (they are keyed only by `serverKey`).
+
+### Local playlist store
+
+| Platform | Backend |
+|----------|---------|
+| Web | IndexedDB `asmusic-local-playlists` (`indexedDbLocalPlaylistStorage.ts`) |
+| iOS | SQLite `local_playlists` + `local_playlist_entries` (`LibraryCacheSQLiteStore.swift`) |
+| Host wiring | `PlatformHost.localPlaylists` (`browserHost` / Capacitor) |
+
+Device-only; survives library disable / `deleteScope`. Entries resolve to `available` | `libraryDisabled` | `unavailable` (`localPlaylistEntries.ts`).
+
+`LocalPlaylistStore.rename` exists on web + iOS but **no UI** calls it.
+
+## Core APIs
+
+### Server — `packages/core/src/library/playlistMutations.ts`
 
 | Function | Purpose |
 |----------|---------|
-| `fetchPlaylistSummariesFromApi` | `getPlaylists` → `LibraryPlaylistSummary[]` |
-| `refreshPlaylistSummariesOnly` | Fetch + `replacePlaylistSummaries` |
-| `updatePlaylistTracks` | Subsonic `updatePlaylist` (removes high→low, then adds) |
+| `fetchPlaylistSummariesFromApi` | `getPlaylists` → summaries |
+| `refreshPlaylistSummariesOnly` | Fetch + write summaries |
+| `refreshPlaylistEntryTrackIdsForServer` | Entry ids for all summaries |
+| `refreshPlaylistCacheForServer` | Summaries + entry ids |
+| `updatePlaylistTracks` | `updatePlaylist`: remove indices high→low, then add ids |
 | `playlistEditDiff` | Checkbox editor add/remove sets |
-| `reorderPlaylistEntries` | Full replace via remove-all + add-all (**defined, not wired to UI**) |
+| `reorderPlaylistEntries` | Full replace via remove-all + add-all (**unused by UI**) |
 
-### Entry helpers (`packages/core/src/library/playlistEntries.ts`)
+### Server load — `loadPlaylistTracks.ts`
 
-- `playlistEntriesFromGetPlaylistResponse` — normalize `getPlaylist` `entry` (single object or array)
-- `mergePlaylistEntryWithCachedSongs` — prefer cached row when present (artwork, starred, etc.)
+Network-first `getPlaylist`; on failure, cached entry ids joined to `cachedSongs`. Returns `{ title, tracks, entryTrackIds, fromCache }`.
 
-### Storage backends
+### Local — `packages/core/src/localPlaylists/`
 
-All implement `readPlaylistSummaries` / `replacePlaylistSummaries` on `LibraryCacheStorage`:
+| Module | Role |
+|--------|------|
+| `LocalPlaylistStore.ts` | Interface + types + noop store |
+| `localPlaylistMutations.ts` | Create/delete/append/membership + composite keys |
+| `localPlaylistEntries.ts` | Resolve entry status; build queue items (never filters unavailable) |
 
-- Web: `packages/platform-web/src/indexedDbLibraryCacheStorage.ts`
-- iOS: `ios/App/App/LibraryCacheSQLiteStore.swift` via Capacitor bridge
+Local `appendTrack` dedupes the same `(serverKey, libraryId, trackId)` in storage backends.
 
 ## State layer (`LibraryBrowseCacheContext`)
 
-Each loaded library slice carries `playlists: LibraryPlaylistSummary[]`. These merge into `playlistCatalogRows` (sorted by name, keyed by scope + playlist id).
+- Loads `serverPlaylistsByServerKey` from `readPlaylistSummaries` per unique server among active scopes.
+- Loads `localPlaylistSummaries` from `host.localPlaylists`.
+- Merges into `playlistCatalogRows`.
 
-Exposed mutations:
+| Method | Effect |
+|--------|--------|
+| `createPlaylist({ serverId, name })` | Subsonic `createPlaylist` + cache refresh |
+| `deletePlaylist` | Subsonic `deletePlaylist` + refresh |
+| `addTrackToPlaylist` | `updatePlaylistTracks` add one id + refresh |
+| `updatePlaylistMembership` | Diff via `updatePlaylistTracks` + refresh |
+| `createLocalPlaylist` / `deleteLocalPlaylist` | Local store + reload summaries |
+| `addTrackToLocalPlaylist` | `appendTrack` + reload |
+| `updateLocalPlaylistMembership` | Diff → `replaceEntries` + reload |
 
-| Method | API call | Cache refresh |
-|--------|----------|---------------|
-| `createPlaylist` | `createPlaylist({ name })` | `refreshPlaylistSummariesForScope` |
-| `deletePlaylist` | `deletePlaylist({ id })` | same |
-| `addTrackToPlaylist` | `updatePlaylist` (add one id) | same |
-| `updatePlaylistMembership` | `updatePlaylist` (add/remove diff) | same |
+`canCreateServerPlaylist` / `canCreateLocalPlaylist` are true when any library scope is active.
 
-`singleSlice` is set when exactly one library is active (used for create-dialog defaults and legacy helpers).
+## Navigation and deep links
 
-## Navigation
+Playlists is a first-class library tab (`tab=playlists`). Query encoding in `libraryNavigationUrl.ts`:
 
-The **Playlists** tab is a first-class library tab. Deep links use URL query params (`packages/ui/src/views/home/library/browser/libraryNavigationUrl.ts`):
+| Prefix | Payload | Meaning |
+|--------|---------|---------|
+| `lp1.` | `{ serverKey, id }` | Server playlist |
+| `lpl1.` | `{ id }` | Local playlist (device-global) |
+| `lb1.` | `{ serverKey, libraryId, id }` | Legacy multi-library ref (albums/artists; older playlist links) |
 
-- `tab=playlists`
-- `playlistId` (+ optional `playlistName` for display before cache resolves)
+Optional `playlistName` for display before cache resolves. Resolution: `useLibraryBrowserResolvedScopes`.
 
-With multiple active libraries, `playlistId` is an opaque `lb1.` + base64url ref encoding `{ serverKey, libraryId, id }` (same pattern as albums/artists). Resolution lives in `useLibraryBrowserResolvedScopes`.
-
-`LibraryBrowser` renders three playlist states on the playlists tab:
+`LibraryBrowser` states on the playlists tab:
 
 1. **List** — `PlaylistListView`
-2. **Detail** — `PlaylistSongListView` (when `playlistId` in URL resolves)
-3. **Editor** — `PlaylistEditorView` (overlay within tab, not a separate URL)
+2. **Detail** — `PlaylistSongListView` or `LocalPlaylistSongListView`
+3. **Editor** — `PlaylistEditorView` / `LocalPlaylistEditorView` (overlay; not a separate URL)
 
-## UI components
+Orchestration: `useLibraryBrowserPlaylists.tsx`.
 
-### `PlaylistListView`
+## UI
 
-- Virtuoso list with search (`playlistListFilter`)
-- **Create** (+ button): enabled when any library is active; multiple libraries → type picker (On server / On device) with library picker for server create
-- **Delete** per row via ⋮ menu (not gated on library count)
-- Multi-library rows show `songCount · library name`
+### List (`playlists/*`)
 
-### `PlaylistSongListView`
+- Virtuoso list + search (`playlistListFilter`)
+- **Create** (+): radios **On server** / **On this device** (`PlaylistListViewCreateDialog`)
+  - Multi-server → **server picker** for server create (not a library picker)
+  - Multi-library → default create type is often **local** (see handlers / create dialog defaults)
+- **Delete** per row via ⋮ menu (confirm dialog)
+- Server rows can show server/library context in the secondary line when multi-server
 
-- Loads tracks via `api.getPlaylist({ id })` on mount and when `reloadToken` bumps (after editor save)
-- Merges entries with cached songs
-- Actions: play all, add all to queue (`PlaylistAdd` icon), shuffle, per-track play/next/queue/star
-- **Offline download** via `enqueuePlaylistDownload`
-- **Edit** / **Delete** in ⋮ menu; edit enabled when the playlist's server API is available (song pool is that playlist's library cache)
+### Server detail (`PlaylistSongListView`)
 
-### `PlaylistEditorView`
+- Loads via `loadPlaylistTracks` with merged cached songs for that **server**
+- Play all / add all to queue / shuffle; per-track play / next / queue / star
+- Offline download: one job using the **first resolvable track’s `libraryId`** (limitation if tracks span folders)
+- Edit / Delete in ⋮ menu; edit gated on having `playlistDetailApi` (session), not on library count
 
-- Checkbox UI over cached songs from **that playlist's library** (`resolvedPlaylist.slice.songs`)
-- Loads current playlist membership from `getPlaylist`
-- Save computes diff via `playlistEditDiff` and calls `updatePlaylistMembership`
-- No drag-reorder UI (despite `reorderPlaylistEntries` existing in core)
+### Local detail (`LocalPlaylistSongListView`)
 
-### Player integration
+- Resolves entries to available / library-disabled / unavailable; UI grays non-available rows
+- Same playback actions; play-all enqueues **all** entries in order (including unavailable — `PlayerManager` auto-skips load failures)
+- Offline download: **splits** by `(serverId, libraryId)` into multiple jobs (available tracks only)
 
-- `usePlayerFullScreenTrackActions` exposes **Add to playlist**
-- Uses `PlaylistAddOutlined` in `PlayerFullScreenToolbarActions` (distinct from queue `PlaylistAdd` in song lists)
-- Filters `playlistCatalogRows` to current track's `serverId` + `libraryId`
-- Disabled when no matching playlists or track has no server id
-- `AddToPlaylistDialog` / `PlayerFullScreenAddToPlaylistDialog` for picker UI
+### Editors
 
-**Naming note:** MUI `PlaylistAdd` in song lists means “add all to queue”, not Subsonic playlists. Player “add to playlist” uses `PlaylistAddOutlined`.
+| Editor | Song pool | Save |
+|--------|-----------|------|
+| `PlaylistEditorView` | Merged cached songs for that **server** across active libraries | `playlistEditDiff` → `updatePlaylistMembership` |
+| `LocalPlaylistEditorView` | All active libraries’ `songEntries` via composite keys | `localPlaylistEditDiff` → `updateLocalPlaylistMembership` |
 
-## Playback
+No drag-reorder UI despite `reorderPlaylistEntries` in core.
 
-`useLibraryBrowserPlayback` builds `PlayerQueueItem`s from playlist tracks and delegates to `PlayerContext`:
+### Player — add to playlist
 
-- `replaceQueueAndPlayAllPlaylistTracks` — play all (respects search filter)
-- `appendAllPlaylistTracksToQueue`
-- `shufflePlayAllPlaylistTracks`
-- Per-track: `playTrackNow`, `playNextForTrack`, `appendForTrack`
+- Full-screen toolbar: `PlaylistAddOutlined` (distinct from queue `PlaylistAdd`)
+- `usePlayerFullScreenTrackActions`: lists **all local** playlists + **server** playlists where `serverId ===` current track’s server
+- Dialogs: `AddToPlaylistDialog` / `PlayerFullScreenAddToPlaylistDialog`
+- Local add snapshots metadata via `localPlaylistTrackRefFromChild`
 
-Playing does **not** write back to the server playlist.
+### Dead / leftover UI
 
-## Multi-library rules
+- `PlaylistSingleLibraryRequiredDialog` — unused leftover from older single-library edit rules
+- i18n still has some `editDisabledMulti` strings; edit is no longer gated on “single library only”
 
-Subsonic playlists are per server account, but cache refresh is per `libraryId` scope. With multiple active libraries, auto-picking a scope for mutations could cause stale or duplicated rows.
+## Playback (from playlist → queue)
 
-| Action | Single library only? |
-|--------|---------------------|
-| Create server playlist | No (library picker when multi) |
-| Edit server playlist membership | No (uses that playlist's library song pool) |
-| Add track from player (server playlist) | No (playlists filtered to track's library) |
-| Delete server playlist | No |
-| Browse / play | No |
+`useLibraryBrowserPlayback` builds queue items and delegates to `PlayerContext`. Playing does **not** write back to Subsonic or the local store.
 
-**UI behavior:**
+Local: `playerQueueItemFromLocalEntry` never drops unavailable tracks from the enqueue list.
 
-- Playlists tab **+** enabled when any library is active; server create picks target library when multiple are active.
-- Server playlist detail **Edit** uses tracks from that playlist's library only.
-- Player **Add to playlist** lists server playlists for the current track's library plus all local playlists.
+## Offline download
 
-See also `NOTE.md` (section “Playlist creation and multiple active libraries”).
+`OfflineDownloadContext.enqueuePlaylistDownload` → `OfflineBulkJobQueue` job kind `'playlist'`.
 
-## Implemented vs. gaps
+| Source | Behavior |
+|--------|----------|
+| Server playlist | Single `(serverId, libraryId)` from first track that resolves a library |
+| Local playlist | One job per `(serverId, libraryId)` group of available tracks |
 
-**Implemented:**
+## Multi-library / multi-server rules
 
-- Browse list + detail + play/shuffle/queue
-- Create, delete, edit membership (checkbox editor)
-- Add-to-playlist from full-screen player
-- Offline bulk download for a playlist
-- **Cached playlist entry track ids** for server playlists (sync + on open); offline browse/play via `loadPlaylistTracks`
-- Server playlist editor loads membership from cache offline (read-only; save requires network)
-- Multi-library browse with scoped deep links
-- **Local cross-library playlists** (create/edit/add-from-player with multiple libraries)
-- Server playlist create with library picker when multiple libraries active
+| Action | Behavior |
+|--------|----------|
+| Create server playlist | Any active library; **server picker** when multiple servers |
+| Create local playlist | Any active libraries; preferred default when multi-library |
+| Edit server membership | Merged song pool for that server; needs API session |
+| Edit local membership | All active libraries’ songs |
+| Add from player (server) | Same **server** as track |
+| Add from player (local) | Always listed |
+| Delete | Always (server API or local store) |
+| Browse / play | Always |
 
-**Not implemented / deferred:**
+## Capability matrix
 
-- Drag-reorder editor (`reorderPlaylistEntries` is unused)
-- Create/edit **server** playlist membership with multiple libraries active (editor scoped to playlist library)
-- Extended summary fields (`owner`, `duration`) for shared-playlist labeling
+| Capability | Server | Local |
+|------------|--------|-------|
+| Browse in Playlists tab | Yes | Yes |
+| Create | Yes | Yes |
+| Delete | Yes | Yes |
+| Rename | No UI | Store API only, no UI |
+| Edit membership (checkboxes) | Yes | Yes |
+| Reorder | Core helper only | Order via `replaceEntries` only; no drag UI |
+| Add from player | Same server | Always |
+| Offline download | Yes (single-library heuristic) | Yes (split by scope) |
+| Sync to server / other devices | Subsonic account | Device only |
+| Offline browse via entry cache | Yes (`loadPlaylistTracks`) | Via local store + song caches |
 
-## Local cross-library playlists
+## Gaps / edge cases
 
-Device-only playlists stored in `LocalPlaylistStore` on `PlatformHost` (IndexedDB on web, SQLite on iOS). Not synced to Subsonic; survives library `deleteScope` (entries become unavailable).
-
-### Mental model
-
-- Entries are `(serverKey, libraryId, trackId)` refs with optional snapshot metadata at add time.
-- Merged into the Playlists tab catalog with `kind: 'local' | 'server'`.
-- Deep links use `lpl1.` + base64url `{ id }` (device-global).
-
-### Create UX
-
-- **On this device:** available with any active libraries; default when multiple libraries are active.
-- **On server:** existing Subsonic workflow; with multiple libraries, user picks target library in create dialog.
-
-### Playback
-
-- Enqueue **all** entries in playlist order (no pre-filtering).
-- Unresolved tracks gray in detail UI (`Track unavailable`); `PlayerManager` auto-skip handles load failures.
-- Enabling a library mid-queue can satisfy later entries without re-enqueue.
-
-### Mutations
-
-| Action | Local playlist | Server playlist |
-|--------|----------------|-----------------|
-| Create | Any active libraries | Any active library (picker when multi) |
-| Edit membership | Always | Single active library only |
-| Add from player | All local + same-library server | Same-library server only |
-| Delete | Device store | Subsonic API |
-
-### Storage
-
-- Web: `asmusic-local-playlists` IndexedDB
-- iOS: `local_playlists` + `local_playlist_entries` in library-cache SQLite
+- **Rename** not exposed in UI (local store supports it; server `updatePlaylist` name unused).
+- **Drag-reorder** not wired (`reorderPlaylistEntries` unused).
+- Summary fields limited to `id` / `name` / `songCount` — no owner / duration / shared labeling.
+- Server offline download may mis-assign `libraryId` when a playlist spans music folders.
+- Duplicate add to a **server** playlist is not client-deduped (server-dependent); local append dedupes.
+- Local unavailable tracks still enter the play-all queue (by design).
+- Enabling a disabled library mid-queue can satisfy later local entries without re-enqueue.
 
 ## Key files
 
-| Area | Files |
+| Area | Paths |
 |------|-------|
-| Core logic | `packages/core/src/library/playlistMutations.ts`, `playlistEntries.ts`, `packages/core/src/localPlaylists/*` |
-| Local storage | `packages/platform-web/src/indexedDbLocalPlaylistStorage.ts`, iOS `LibraryCacheSQLiteStore.swift` |
+| Server mutations / load | `packages/core/src/library/playlistMutations.ts`, `playlistEntries.ts`, `loadPlaylistTracks.ts` |
+| Scope | `packages/core/src/library/cacheScope.ts` (`ServerPlaylistScope`) |
 | Storage contract | `packages/core/src/library/storage/LibraryCacheStorage.ts` |
-| Context / mutations | `packages/ui/src/contexts/LibraryBrowseCacheContext.tsx` |
-| Browser orchestration | `packages/ui/src/views/home/library/LibraryBrowser.tsx`, `browser/useLibraryBrowserPlaylists.tsx` |
-| List / detail / editor | `packages/ui/src/views/home/library/playlists/*`, `detail/PlaylistSongListView.tsx`, `detail/PlaylistEditorView.tsx` |
-| URL / resolution | `browser/libraryNavigationUrl.ts`, `browser/useLibraryBrowserResolvedScopes.ts` |
-| Playback | `browser/useLibraryBrowserPlayback.ts` |
+| Local playlists | `packages/core/src/localPlaylists/*` |
+| Web storage | `indexedDbLibraryCacheStorage.ts`, `indexedDbLocalPlaylistStorage.ts` |
+| iOS storage | `ios/App/App/LibraryCacheSQLiteStore.swift`, Capacitor bridges |
+| Context | `packages/ui/src/contexts/LibraryBrowseCacheContext.tsx` |
+| Browser | `LibraryBrowser.tsx`, `useLibraryBrowserPlaylists.tsx`, `useLibraryBrowserResolvedScopes.ts`, `libraryNavigationUrl.ts` |
+| List UI | `packages/ui/src/views/home/library/playlists/*` |
+| Detail / editor | `detail/PlaylistSongListView.tsx`, `LocalPlaylistSongListView.tsx`, `PlaylistEditorView.tsx`, `LocalPlaylistEditorView.tsx` |
+| Playback enqueue | `browser/useLibraryBrowserPlayback.ts` |
 | Player add | `player/fullScreen/usePlayerFullScreenTrackActions.ts`, `shared/AddToPlaylistDialog.tsx` |
+| Offline | `OfflineDownloadContext.tsx`, `OfflineBulkJobQueue.ts` |
+| Library sync trigger | `useRefreshLibraryRow.ts` |
 | Product notes | `NOTE.md` |
-| Original plan | `.cursor/plans/playlist_feature_parity_9362e259.plan.md` |
+| Plans | `.cursor/plans/media-library/2026-05-17T16-03-11-playlist_feature_parity_9362e259.plan.md`, `.cursor/plans/media-library/2026-07-07T23-49-55-server_playlists_per_account.plan.md` |

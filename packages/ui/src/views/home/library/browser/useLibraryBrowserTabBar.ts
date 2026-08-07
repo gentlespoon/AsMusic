@@ -44,7 +44,13 @@ export function useLibraryBrowserTabBar() {
     if (hasExplicitLibraryBrowserNavigation(searchParams)) return parsed;
     return { ...parsed, tab: getLibraryBrowserTab() };
   }, [searchKey]);
-  const { tab, album: albumSongScope, artist: artistAlbumScope, playlist: playlistScope } = view;
+  const {
+    tab,
+    album: albumSongScope,
+    artist: artistAlbumScope,
+    playlist: playlistScope,
+    recommendations: recommendationsScope,
+  } = view;
 
   useEffect(() => {
     if (hasExplicitLibraryBrowserNavigation(searchParams)) return;
@@ -58,6 +64,7 @@ export function useLibraryBrowserTabBar() {
           album: null,
           artist: null,
           playlist: null,
+          recommendations: null,
         }),
       { replace: true }
     );
@@ -79,6 +86,7 @@ export function useLibraryBrowserTabBar() {
               album: null,
               artist: null,
               playlist: null,
+              recommendations: null,
             }),
           { replace: true }
         );
@@ -101,6 +109,7 @@ export function useLibraryBrowserTabBar() {
               album: null,
               artist: null,
               playlist: null,
+              recommendations: null,
             }),
           { replace: true }
         );
@@ -118,6 +127,25 @@ export function useLibraryBrowserTabBar() {
               album: null,
               artist: null,
               playlist: null,
+              recommendations: null,
+            }),
+          { replace: true }
+        );
+        return;
+      }
+      if (recommendationsScope) {
+        if (nextTab === 'recommendations') {
+          navigate(-1);
+          return;
+        }
+        setSearchParams(
+          (prev) =>
+            mergeLibraryBrowserSearchParams(new URLSearchParams(prev), {
+              tab: nextTab,
+              album: null,
+              artist: null,
+              playlist: null,
+              recommendations: null,
             }),
           { replace: true }
         );
@@ -130,11 +158,20 @@ export function useLibraryBrowserTabBar() {
             album: null,
             artist: null,
             playlist: null,
+            recommendations: null,
           }),
         { replace: true }
       );
     },
-    [albumSongScope, artistAlbumScope, playlistScope, navigate, scopesToLoad.length, setSearchParams]
+    [
+      albumSongScope,
+      artistAlbumScope,
+      playlistScope,
+      recommendationsScope,
+      navigate,
+      scopesToLoad.length,
+      setSearchParams,
+    ]
   );
 
   return {

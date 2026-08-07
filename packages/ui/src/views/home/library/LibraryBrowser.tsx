@@ -35,6 +35,7 @@ import {
   encodeLocalPlaylistRef,
   encodeServerPlaylistRef,
   decodeLocalPlaylistRef,
+  type RecommendationsSection,
 } from './browser/libraryNavigationUrl';
 import { useLibraryBrowserResolvedScopes } from './browser/useLibraryBrowserResolvedScopes';
 import { useLibraryBrowserTabBar } from './browser/useLibraryBrowserTabBar';
@@ -99,7 +100,7 @@ export function LibraryBrowser() {
   }, [slices]);
 
   const searchKey = searchParams.toString();
-  const { tab, album: albumSongScope, artist: artistAlbumScope, playlist: playlistScope } = view;
+  const { tab, album: albumSongScope, artist: artistAlbumScope, playlist: playlistScope, recommendations: recommendationsScope } = view;
 
   const resolveCachedArtworkForScope = useCallback(
     (sc: LibraryCacheScope, coverArtId: string) => {
@@ -175,6 +176,7 @@ export function LibraryBrowser() {
     appendForTrack,
     appendAllSongEntriesToQueue,
     shufflePlayAllSongEntries,
+    replaceQueueAndPlayAllSongEntries,
     appendAllAlbumTracksToQueue,
     shufflePlayAllAlbumTracks,
     appendAllArtistTracksToQueue,
@@ -228,6 +230,7 @@ export function LibraryBrowser() {
             album: { id: albumUrlId },
             artist: null,
             playlist: null,
+            recommendations: null,
           }),
         { replace: false }
       );
@@ -255,6 +258,7 @@ export function LibraryBrowser() {
             album: null,
             artist: { id: artistUrlId, name: row.artist.name ?? artistUrlId, allSongs: false },
             playlist: null,
+            recommendations: null,
           }),
         { replace: false }
       );
@@ -284,6 +288,7 @@ export function LibraryBrowser() {
             album: null,
             artist: null,
             playlist: { id: playlistUrlId, name: row.playlist.name },
+            recommendations: null,
           }),
         { replace: false }
       );
@@ -292,6 +297,27 @@ export function LibraryBrowser() {
   );
 
   const popPlaylistView = useCallback(() => {
+    navigate(-1);
+  }, [navigate]);
+
+  const openRecommendationsSection = useCallback(
+    (section: RecommendationsSection) => {
+      setSearchParams(
+        (prev) =>
+          mergeLibraryBrowserSearchParams(new URLSearchParams(prev), {
+            tab: 'recommendations',
+            album: null,
+            artist: null,
+            playlist: null,
+            recommendations: { section },
+          }),
+        { replace: false }
+      );
+    },
+    [setSearchParams]
+  );
+
+  const popRecommendationsView = useCallback(() => {
     navigate(-1);
   }, [navigate]);
 
@@ -308,6 +334,7 @@ export function LibraryBrowser() {
             allSongs: true,
           },
           playlist: null,
+          recommendations: null,
         }),
       { replace: false }
     );
@@ -604,6 +631,9 @@ export function LibraryBrowser() {
 
         {tab === 'recommendations' && (
           <RecommendationsListView
+            section={recommendationsScope?.section ?? null}
+            onOpenSection={openRecommendationsSection}
+            onBack={popRecommendationsView}
             songEntries={songEntriesSorted}
             albumsByScope={albumsByScope}
             apiForServer={apiForServer}
@@ -619,6 +649,7 @@ export function LibraryBrowser() {
             onViewAlbum={viewAlbumForSongEntry}
             onAppendAllToQueue={appendAllSongEntriesToQueue}
             onShufflePlayAll={shufflePlayAllSongEntries}
+            onReplaceQueueAndPlayAll={replaceQueueAndPlayAllSongEntries}
             setTrackStarred={setTrackStarred}
           />
         )}

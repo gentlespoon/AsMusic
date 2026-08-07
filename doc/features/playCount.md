@@ -2,7 +2,7 @@
 
 Record completed listens to Navidrome / Subsonic via `scrobble` (`submission=true`), with an offline pending queue and optimistic local `Child.playCount` / `Child.played` patches on the library song cache.
 
-**Out of scope:** Frequent / Most-played browse tabs, Last.fm-style mid-track thresholds, `scrobble(submission=false)` now-playing, `setRating`, album/artist derived-index rollups of playCount, list-row play counts.
+**Out of scope:** Last.fm-style mid-track thresholds, `scrobble(submission=false)` now-playing, `setRating`, album/artist derived-index rollups of playCount, list-row play-count badges. Most-played **browse** lives on the Recommendations hub — see [`recommendations.md`](./recommendations.md).
 
 Navidrome does **not** increment play counts on `stream` — only on explicit scrobble. Catalog sync still brings `playCount` / `played` back on `Child` from `search3` when the server has them.
 
@@ -27,7 +27,7 @@ Navidrome does **not** increment play counts on `stream` — only on explicit sc
 | Show counts in full-screen track details | Done |
 | Opportunistic `getSong` refresh (details / playback start / post-flush) | Done |
 | Show counts in list / other UI | **Gap** |
-| Frequent / most-played tab | **Gap** |
+| Most-played Recommendations section | Done — ranks by cached `playCount` ([`recommendations.md`](./recommendations.md)) |
 | Mid-track duration threshold | **Gap** |
 | Now-playing (`submission=false`) | **Gap** |
 

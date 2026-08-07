@@ -153,9 +153,13 @@ export const zhTWMessages = {
   "library.playlist.songCount": "{count} 首歌曲",
   "library.playlist.songCountWithLibrary": "{count} 首歌曲 · {libraryId}",
   "library.recommendations.empty":
-    "資料庫快取中尚無最近新增的歌曲。請從「設定 → 伺服器與資料庫」同步資料庫。",
+    "資料庫快取中尚無歌曲。請從「設定 → 伺服器與資料庫」同步資料庫。",
+  "library.recommendations.mostPlayed": "最常播放",
+  "library.recommendations.newSongs": "新歌",
   "library.recommendations.noMatch": "沒有符合的推薦。",
-  "library.recommendations.search": "搜尋最近新增",
+  "library.recommendations.search": "搜尋新歌",
+  "library.recommendations.searchMostPlayed": "搜尋最常播放",
+  "library.recommendations.viewMore": "查看更多",
   "library.songs.empty":
     "快取中尚無歌曲。請開啟「設定 → 伺服器與資料庫 → 資料庫」，啟用此資料庫，然後使用旁邊的重新整理控制項從伺服器拉取。",
   "library.songs.noMatch": "沒有符合的歌曲。",

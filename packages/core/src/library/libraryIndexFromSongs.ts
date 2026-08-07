@@ -21,6 +21,13 @@ export function albumCreatedMs(value: { created?: Date | string | null } | null 
   return Number.isNaN(t) ? 0 : t;
 }
 
+/** Non-negative Subsonic / local `playCount` (missing → 0). */
+export function songPlayCount(song: { playCount?: number | null } | null | undefined): number {
+  const n = song?.playCount;
+  if (n == null || !Number.isFinite(n)) return 0;
+  return Math.max(0, Math.trunc(n));
+}
+
 /**
  * Derives album and artist lists from a flat song list, following the same rules as
  * `legacy-swiftui-ios/AsMusic/Stores/LibrarySongListSupport.swift` (`LibraryIndexFromSongs`).

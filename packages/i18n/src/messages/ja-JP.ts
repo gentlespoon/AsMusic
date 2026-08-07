@@ -164,9 +164,13 @@ export const jaJPMessages = {
   "library.playlist.songCount": "曲 {count} 曲",
   "library.playlist.songCountWithLibrary": "曲 {count} 曲 · {libraryId}",
   "library.recommendations.empty":
-    "ライブラリキャッシュに最近追加された曲はまだありません。「設定 → サーバーとライブラリ」からライブラリを同期してください。",
+    "ライブラリキャッシュに曲はまだありません。「設定 → サーバーとライブラリ」からライブラリを同期してください。",
+  "library.recommendations.mostPlayed": "よく再生した曲",
+  "library.recommendations.newSongs": "新着曲",
   "library.recommendations.noMatch": "検索に一致するおすすめがありません。",
-  "library.recommendations.search": "最近追加を検索",
+  "library.recommendations.search": "新着曲を検索",
+  "library.recommendations.searchMostPlayed": "よく再生した曲を検索",
+  "library.recommendations.viewMore": "もっと見る",
   "library.songs.empty":
     "キャッシュに曲がまだありません。「設定 → サーバーとライブラリ → ライブラリ」でこのライブラリを有効にし、行の横にある更新ボタンでサーバーから取得してください。",
   "library.songs.noMatch": "検索に一致する曲がありません。",

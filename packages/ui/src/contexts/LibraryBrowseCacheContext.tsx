@@ -30,11 +30,14 @@ import {
   type PendingStarMutation,
   PENDING_PLAY_SCROBBLES_STORAGE_KEY,
   PENDING_PLAY_SCROBBLES_RETRY_INTERVAL_MS,
+  PLAY_COUNT_REFRESH_DEBOUNCE_MS,
   parsePendingPlayScrobblesJson,
   serializePendingPlayScrobbles,
   appendPendingPlayScrobble,
   removePendingPlayScrobblesById,
   pendingPlayDeltasByTrack,
+  pendingCountForTrack,
+  pendingPlayTrackKey,
   type PendingPlayScrobble,
   createLocalPlaylist,
   deleteLocalPlaylist,
@@ -144,6 +147,16 @@ type LibraryBrowseCacheContextValue = {
     trackId: string;
     playedAt?: number;
   }) => Promise<void>;
+  /**
+   * Best-effort `getSong` refresh of playCount/played; merges pending local scrobbles.
+   * Failures are ignored. Debounced unless `force` (e.g. Track details open).
+   */
+  refreshTrackPlayCount: (args: {
+    serverId: string;
+    libraryId: string;
+    trackId: string;
+    force?: boolean;
+  }) => Promise<void>;
   /** Flush pending star/unstar and play scrobbles (e.g. before library sync). */
   flushPendingLibraryMutations: () => Promise<void>;
   refreshPlaylistCacheForServer: (args: { serverId: string }) => Promise<void>;
@@ -187,6 +200,16 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
   const flushPendingPlaysInFlightRef = useRef(false);
   const pendingPlaysHydratedRef = useRef(false);
   const flushPendingPlayScrobblesRef = useRef<() => Promise<void>>(async () => {});
+  /** Last opportunistic getSong refresh per track key (debounce). */
+  const playCountRefreshAtRef = useRef<Map<string, number>>(new Map());
+  const refreshTrackPlayCountRef = useRef<
+    (args: {
+      serverId: string;
+      libraryId: string;
+      trackId: string;
+      force?: boolean;
+    }) => Promise<void>
+  >(async () => {});
 
   const scopesToLoad = useMemo(() => {
     return activeLibraryRefs
@@ -776,6 +799,7 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
     if (!pendingPlaysHydratedRef.current) return;
     if (flushPendingPlaysInFlightRef.current) return;
     flushPendingPlaysInFlightRef.current = true;
+    const flushedTracks: { serverId: string; libraryId: string; trackId: string }[] = [];
     try {
       while (true) {
         const queue = pendingPlayQueueRef.current;
@@ -796,6 +820,11 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
               time: m.playedAt,
             });
             flushedIds.push(m.id);
+            flushedTracks.push({
+              serverId: m.serverId,
+              libraryId: m.libraryId,
+              trackId: m.trackId,
+            });
           } catch {
             /* keep in queue for retry */
           }
@@ -809,6 +838,14 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
       }
     } finally {
       flushPendingPlaysInFlightRef.current = false;
+    }
+    // Best-effort reconcile with server (other devices) for tracks we just submitted.
+    const seen = new Set<string>();
+    for (const t of flushedTracks) {
+      const key = pendingPlayTrackKey(t);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      void refreshTrackPlayCountRef.current(t);
     }
   }, [getApiForServer, persistPendingPlayQueue]);
 
@@ -1207,6 +1244,99 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
     [applyLocalPlayIncrement, persistPendingPlayQueue, flushPendingPlayScrobbles]
   );
 
+  const refreshTrackPlayCount = useCallback(
+    async (args: {
+      serverId: string;
+      libraryId: string;
+      trackId: string;
+      force?: boolean;
+    }) => {
+      const tid = String(args.trackId);
+      const trackKey = pendingPlayTrackKey({
+        serverId: args.serverId,
+        libraryId: args.libraryId,
+        trackId: tid,
+      });
+      const now = Date.now();
+      if (!args.force) {
+        const last = playCountRefreshAtRef.current.get(trackKey) ?? 0;
+        if (now - last < PLAY_COUNT_REFRESH_DEBOUNCE_MS) return;
+      }
+      playCountRefreshAtRef.current.set(trackKey, now);
+
+      try {
+        const api = await getApiForServer(args.serverId);
+        if (!api) return;
+        const res = await api.getSong({ id: tid });
+        const remote = res.song;
+        if (!remote) return;
+
+        const toLoad = scopesToLoadRef.current;
+        const sl = toLoad.find(
+          (s) => s.serverId === args.serverId && s.libraryId === args.libraryId,
+        );
+        if (!sl) return;
+
+        const pending = pendingCountForTrack(pendingPlayQueueRef.current, {
+          serverId: args.serverId,
+          libraryId: args.libraryId,
+          trackId: tid,
+        });
+        const serverCount = remote.playCount ?? 0;
+        const mergedCount = serverCount + pending;
+
+        const remotePlayedMs = remote.played ? Date.parse(String(remote.played)) : NaN;
+        let latestPendingPlayedAt = 0;
+        for (const m of pendingPlayQueueRef.current) {
+          if (pendingPlayTrackKey(m) !== trackKey) continue;
+          if (m.playedAt > latestPendingPlayedAt) latestPendingPlayedAt = m.playedAt;
+        }
+        const remotePlayedOk = Number.isFinite(remotePlayedMs);
+        const usePendingPlayed =
+          latestPendingPlayedAt > 0 &&
+          (!remotePlayedOk || latestPendingPlayedAt > (remotePlayedMs as number));
+        const nextPlayed = usePendingPlayed
+          ? new Date(latestPendingPlayedAt).toISOString()
+          : remote.played
+            ? String(remote.played)
+            : undefined;
+
+        const prevSlices = slicesRef.current;
+        const sliceIdx = prevSlices.findIndex(
+          (s) => s.serverId === args.serverId && s.libraryId === args.libraryId,
+        );
+        if (sliceIdx < 0) return;
+        const songIdx = prevSlices[sliceIdx]!.songs.findIndex((s) => String(s.id) === tid);
+        if (songIdx < 0) return;
+        const song = prevSlices[sliceIdx]!.songs[songIdx]!;
+        const nextSong: Child = {
+          ...song,
+          playCount: mergedCount,
+          played: nextPlayed ?? song.played,
+        };
+        await host.libraryCache.patchSong(sl.scope, nextSong);
+        setSlices((prev) => {
+          const i = prev.findIndex(
+            (s) => s.serverId === args.serverId && s.libraryId === args.libraryId,
+          );
+          if (i < 0) return prev;
+          const j = prev[i]!.songs.findIndex((s) => String(s.id) === tid);
+          if (j < 0) return prev;
+          const nextSongs = [...prev[i]!.songs];
+          nextSongs[j] = nextSong;
+          const next = [...prev];
+          next[i] = { ...prev[i]!, songs: nextSongs };
+          return next;
+        });
+      } catch {
+        /* best-effort; keep cached count */
+      }
+    },
+    [getApiForServer, host.libraryCache],
+  );
+
+  refreshTrackPlayCountRef.current = refreshTrackPlayCount;
+
   const flushPendingLibraryMutations = useCallback(async () => {
     await flushPendingStarMutations();
     await flushPendingPlayScrobbles();
@@ -1248,6 +1378,7 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
       ensureLibraryNames,
       setTrackStarred,
       recordTrackPlayed,
+      refreshTrackPlayCount,
       flushPendingLibraryMutations,
       refreshPlaylistCacheForServer: refreshPlaylistCacheForServerFn,
       createPlaylist,
@@ -1294,6 +1425,7 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
       ensureLibraryNames,
       setTrackStarred,
       recordTrackPlayed,
+      refreshTrackPlayCount,
       flushPendingLibraryMutations,
       refreshPlaylistCacheForServerFn,
       createPlaylist,

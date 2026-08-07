@@ -21,7 +21,7 @@ export function PlayerFullScreen() {
   const state = usePlayerTransportState();
   const { fullPlayerOpen } = usePlayerShell();
   const { closeFullPlayer } = usePlayerActions();
-  const { slices } = useLibraryBrowseCache();
+  const { slices, refreshTrackPlayCount } = useLibraryBrowseCache();
   const serverTranscodeEnabled = useServerTranscodeEnabled();
   const item = state.currentItem;
 
@@ -48,6 +48,16 @@ export function PlayerFullScreen() {
   useEffect(() => {
     if (!item) setTrackInfoOpen(false);
   }, [item]);
+
+  useEffect(() => {
+    if (!trackInfoOpen || !item) return;
+    void refreshTrackPlayCount({
+      serverId: item.serverId,
+      libraryId: item.libraryId,
+      trackId: item.trackId,
+      force: true,
+    });
+  }, [trackInfoOpen, item, refreshTrackPlayCount]);
 
   return (
     <PlayerFullScreenShell

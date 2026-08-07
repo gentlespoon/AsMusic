@@ -163,9 +163,13 @@ export const enUSMessages = {
   "library.playlist.songCount": "{count} songs",
   "library.playlist.songCountWithLibrary": "{count} songs · {libraryId}",
   "library.recommendations.empty":
-    "No recently added tracks in the library cache yet. Sync your library from Settings → Servers & Libraries.",
+    "No tracks in the library cache yet. Sync your library from Settings → Servers & Libraries.",
+  "library.recommendations.mostPlayed": "Most Played",
+  "library.recommendations.newSongs": "New Songs",
   "library.recommendations.noMatch": "No recommendations match your search.",
-  "library.recommendations.search": "Search recently added",
+  "library.recommendations.search": "Search new songs",
+  "library.recommendations.searchMostPlayed": "Search most played",
+  "library.recommendations.viewMore": "View more",
   "library.songs.empty":
     "No songs in cache yet. Open Settings → Servers & Libraries → Libraries, activate this library, then use the refresh control beside it to pull from the server.",
   "library.songs.noMatch": "No songs match your search.",

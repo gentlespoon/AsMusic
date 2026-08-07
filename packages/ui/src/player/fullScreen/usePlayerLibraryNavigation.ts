@@ -86,6 +86,7 @@ export function usePlayerLibraryNavigation() {
         album: { id: encodeEntityId(item, albumId) },
         artist: null,
         playlist: null,
+        recommendations: null,
       });
     },
     [encodeEntityId, navigateToLibrary, resolveCachedSong],
@@ -108,6 +109,7 @@ export function usePlayerLibraryNavigation() {
           allSongs: false,
         },
         playlist: null,
+        recommendations: null,
       });
     },
     [encodeEntityId, navigateToLibrary, resolveCachedSong],

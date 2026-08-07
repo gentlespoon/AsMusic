@@ -163,6 +163,19 @@ export function useLibraryBrowserPlayback(options: {
     [queueItemFromCachedTrack, replaceQueueAndPlay]
   );
 
+  const replaceQueueAndPlayAllSongEntries = useCallback(
+    (entries: SongListEntry[]) => {
+      const items: PlayerQueueItem[] = [];
+      for (const e of entries) {
+        const it = queueItemFromCachedTrack(e.serverId, e.artworkScope.libraryId, e.song);
+        if (it) items.push(it);
+      }
+      if (items.length === 0) return;
+      void replaceQueueAndPlay(items, 0);
+    },
+    [queueItemFromCachedTrack, replaceQueueAndPlay]
+  );
+
   const appendAllAlbumTracksToQueue = useCallback(
     (tracks: Child[]) => {
       if (!resolvedAlbum) return;
@@ -356,6 +369,7 @@ export function useLibraryBrowserPlayback(options: {
     appendForTrack,
     appendAllSongEntriesToQueue,
     shufflePlayAllSongEntries,
+    replaceQueueAndPlayAllSongEntries,
     appendAllAlbumTracksToQueue,
     shufflePlayAllAlbumTracks,
     appendAllArtistTracksToQueue,

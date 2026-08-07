@@ -2,7 +2,7 @@
 
 Record completed listens to Navidrome / Subsonic via `scrobble` (`submission=true`), with an offline pending queue and optimistic local `Child.playCount` / `Child.played` patches on the library song cache.
 
-**Out of scope:** UI chrome that displays counts, Frequent / Most-played browse tabs, Last.fm-style mid-track thresholds, `scrobble(submission=false)` now-playing, `setRating`, album/artist derived-index rollups of playCount.
+**Out of scope:** Last.fm-style mid-track thresholds, `scrobble(submission=false)` now-playing, `setRating`, album/artist derived-index rollups of playCount, list-row play-count badges. Most-played **browse** lives on the Recommendations hub — see [`recommendations.md`](./recommendations.md).
 
 Navidrome does **not** increment play counts on `stream` — only on explicit scrobble. Catalog sync still brings `playCount` / `played` back on `Child` from `search3` when the server has them.
 
@@ -25,8 +25,9 @@ Navidrome does **not** increment play counts on `stream` — only on explicit sc
 | Merge pending deltas after sync reload (no UI flicker) | Done |
 | Skip / load-failure does not scrobble | Done |
 | Show counts in full-screen track details | Done |
+| Opportunistic `getSong` refresh (details / playback start / post-flush) | Done |
 | Show counts in list / other UI | **Gap** |
-| Frequent / most-played tab | **Gap** |
+| Most-played Recommendations section | Done — ranks by cached `playCount` ([`recommendations.md`](./recommendations.md)) |
 | Mid-track duration threshold | **Gap** |
 | Now-playing (`submission=false`) | **Gap** |
 
@@ -43,6 +44,13 @@ flowchart TD
   Flush -->|ok| API["api.scrobble submission true time"]
   API -->|ok| Drop[Remove event by id]
   API -->|fail| Keep[Keep queued]
+  Start[loadCurrentTrack ok] --> Started[subscribeTrackPlaybackStarted]
+  Details[Track details open] --> RefreshForce[refreshTrackPlayCount force]
+  Started --> RefreshDebounced[refreshTrackPlayCount debounced]
+  Drop --> RefreshDebounced
+  RefreshForce --> GetSong[api.getSong]
+  RefreshDebounced --> GetSong
+  GetSong --> MergePending["patchSong serverCount plus pending"]
   Sync[useRefreshLibraryRow] --> FlushBoth[flushPendingLibraryMutations]
   FlushBoth --> Replace[refreshLibraryCache search3]
   Replace --> Reload[reloadCachedSongsFromDisk]
@@ -71,7 +79,7 @@ type PendingPlayScrobble = {
 
 Helpers: `appendPendingPlayScrobble`, `removePendingPlayScrobblesById`, `pendingCountForTrack`, `pendingPlayDeltasByTrack`, parse/serialize. Re-exported from `@asmusic/core` like star mutations.
 
-### Player event
+### Player events
 
 ```ts
 type TrackCompletedEvent = {
@@ -80,22 +88,36 @@ type TrackCompletedEvent = {
   trackId: string;
   playedAt: number; // epoch ms
 };
+
+type TrackPlaybackStartedEvent = {
+  serverId: string;
+  libraryId: string;
+  trackId: string;
+};
 ```
 
 ### Song fields (Subsonic `Child`)
 
-- `playCount?: number` — bumped locally; refreshed from server on sync
+- `playCount?: number` — bumped locally; refreshed from server on sync / opportunistic `getSong`
 - `played?: string` — ISO timestamp of last listen; kept as the newer of server vs pending
 
 ## Sync / persistence
 
 | Layer | What |
 |-------|------|
-| **Song row** | `LibraryCacheStorage.patchSong` after each local increment / merge |
+| **Song row** | `LibraryCacheStorage.patchSong` after each local increment / merge / `getSong` refresh |
 | **Pending queue** | JSON array in `secureStorage` (`asmusic-pending-play-scrobbles-v1`) |
 | **Catalog baseline** | Full `search3` replace via [`librarySync.md`](./librarySync.md); may include server `playCount` / `played` |
+| **Opportunistic** | `api.getSong` → merge `serverPlayCount + pendingCount` → `patchSong` (never blocks UI) |
 
 **Flush triggers:** after `recordTrackPlayed`, after queue hydration on launch, browser `online`, 5‑minute interval while open, and explicitly via `flushPendingLibraryMutations` before library sync.
+
+**Opportunistic refresh triggers:**
+- Full-screen **Track details** open → `refreshTrackPlayCount({ force: true })`
+- Successful `loadCurrentTrack` → `subscribeTrackPlaybackStarted` → debounced refresh (`PLAY_COUNT_REFRESH_DEBOUNCE_MS` = 3 minutes per track)
+- After a successful scrobble flush for a track → debounced refresh (pick up other devices)
+
+Merge rule: `display = (remote.playCount ?? 0) + pendingCountForTrack(...)`. Failures are ignored; cached value remains.
 
 **Cold start:** hydrate pending queue from disk and attempt flush. Do **not** re-add pending counts onto song rows — disk already has optimistic `playCount` from earlier `patchSong`.
 
@@ -104,10 +126,11 @@ type TrackCompletedEvent = {
 ## Mutations
 
 1. **Natural end** — `PlayerManager.handlePlaybackEnded` emits `TrackCompletedEvent` for the current queue item **before** loop-one seek or queue advance.
-2. **`PlayerContext`** — `subscribeTrackCompleted` → `recordTrackPlayed`.
+2. **`PlayerContext`** — `subscribeTrackCompleted` → `recordTrackPlayed`; `subscribeTrackPlaybackStarted` → `refreshTrackPlayCount`.
 3. **`recordTrackPlayed`** — `applyLocalPlayIncrement` when the track is in an active library slice (always queues even if missing from cache); persist; fire-and-forget flush.
-4. **Flush** — per event: `api.scrobble({ id: trackId, submission: true, time: playedAt })`; remove by `id` on success.
+4. **Flush** — per event: `api.scrobble({ id: trackId, submission: true, time: playedAt })`; remove by `id` on success; then best-effort `getSong` refresh per unique flushed track.
 5. **Sync path** — `useRefreshLibraryRow`: `flushPendingLibraryMutations` (stars + plays) → `refreshLibraryCache` → `reloadCachedSongsFromDisk` (merge pending).
+6. **`refreshTrackPlayCount`** — `getSong` + merge pending + `patchSong` (debounced unless `force`).
 
 Not fired on user skip or load-failure auto-skip — only host `onPlaybackEnded`.
 
@@ -115,8 +138,9 @@ Not fired on user skip or load-failure auto-skip — only host `onPlaybackEnded`
 
 | Surface | Role |
 |---------|------|
-| Playback transport end | Implicit — records scrobble |
-| Full-screen **Track details** | Shows live `playCount` from library cache (or em dash if not cached) |
+| Playback transport end | Records scrobble |
+| Playback load success | Debounced play-count refresh |
+| Full-screen **Track details** | Shows count; forced `getSong` refresh on open |
 | Library selector sync | Flushes pending scrobbles before catalog replace |
 
 No browse tab, URL param, or preference for play counts. List UIs do not show counts yet.
@@ -125,28 +149,30 @@ No browse tab, URL param, or preference for play counts. List UIs do not show co
 
 - Each pending event carries `serverId` + `libraryId` + `trackId`.
 - Flush uses `getApiForServer(serverId)` per event (mixed queues / multi-library OK).
-- Multi-device: each client scrobbles its own listens; the server **accumulates** (no LWW conflict, unlike stars).
+- Multi-device: each client scrobbles its own listens; the server **accumulates** (no LWW conflict, unlike stars). Opportunistic `getSong` picks up other devices between full library syncs.
 
 ## Edge cases
 
-- Track not in library cache: scrobble still queued; skip optimistic patch.
-- Offline / local-file playback: still counts (completion is host `ended`).
+- Track not in library cache: scrobble still queued; skip optimistic patch. Opportunistic refresh also no-ops if the song is not in an active slice.
+- Offline / local-file playback: still counts (completion is host `ended`); `getSong` refresh fails quietly when offline.
 - Loop-one: each natural end counts, then seek 0.
 - Soft cap 2000: oldest pending events dropped if the queue grows unbounded offline.
-- After successful flush, pending delta is empty; local `playCount` stays combined until the next sync refreshes from the server.
+- After successful flush, pending delta is empty; local `playCount` is reconciled via optional post-flush `getSong` (debounced) or the next library sync.
 - `played` on merge/reapply: keep server value when it is newer than the pending `playedAt`.
+- Opportunistic refresh never blocks playback or dialog open.
 - Initial scope load still re-applies **stars** only onto slices; play deltas are merged on **sync reload**, not on cold song read (avoids double-counting optimistic disk values).
 
 ## Key files
 
 | Path | Role |
 |------|------|
-| `packages/core/src/library/pendingPlayScrobbles.ts` | Queue types / helpers / storage key |
+| `packages/core/src/library/pendingPlayScrobbles.ts` | Queue types / helpers / storage key / refresh debounce constant |
 | `packages/core/src/index.ts` | Re-exports |
-| `packages/ui/src/contexts/LibraryBrowseCacheContext.tsx` | `recordTrackPlayed`, flush, hydrate, `mergePendingLibraryMutationsIntoSlices` |
-| `packages/ui/src/player/core/PlayerManager.ts` | Emit on natural end |
-| `packages/ui/src/player/core/types.ts` | `TrackCompletedEvent` |
-| `packages/ui/src/contexts/PlayerContext.tsx` | Wire completed → `recordTrackPlayed` |
+| `packages/ui/src/contexts/LibraryBrowseCacheContext.tsx` | `recordTrackPlayed`, `refreshTrackPlayCount`, flush, merge |
+| `packages/ui/src/player/core/PlayerManager.ts` | Emit completed + playback started |
+| `packages/ui/src/player/core/types.ts` | `TrackCompletedEvent`, `TrackPlaybackStartedEvent` |
+| `packages/ui/src/contexts/PlayerContext.tsx` | Wire completed / started → record / refresh |
+| `packages/ui/src/player/fullScreen/PlayerFullScreen.tsx` | Track details display + forced refresh |
 | `packages/ui/src/views/servers/librarySelector/useRefreshLibraryRow.ts` | Flush before sync |
 
 ## Related

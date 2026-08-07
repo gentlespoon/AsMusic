@@ -25,6 +25,7 @@ import type {
   PlayerToastEvent,
   PlayerViewState,
   TrackCompletedEvent,
+  TrackPlaybackStartedEvent,
 } from "./types";
 import {
   PLAYBACK_QUEUE_STATE_KEY,
@@ -165,6 +166,7 @@ export class PlayerManager {
   private toastSnapshot: PlayerToastEvent | null = null;
   private toastListeners = new Set<() => void>();
   private trackCompletedListeners = new Set<(e: TrackCompletedEvent) => void>();
+  private trackPlaybackStartedListeners = new Set<(e: TrackPlaybackStartedEvent) => void>();
   private serverTranscodePromptSeq = 0;
   private serverTranscodePromptSnapshot: PlayerServerTranscodePromptEvent | null =
     null;
@@ -215,6 +217,7 @@ export class PlayerManager {
     this.listeners.clear();
     this.toastListeners.clear();
     this.trackCompletedListeners.clear();
+    this.trackPlaybackStartedListeners.clear();
     this.serverTranscodePromptListeners.clear();
   }
 
@@ -331,6 +334,20 @@ export class PlayerManager {
 
   private emitTrackCompleted(e: TrackCompletedEvent): void {
     this.trackCompletedListeners.forEach((l) => l(e));
+  }
+
+  /** After a track successfully loads (does not wait for play()/autoplay). */
+  subscribeTrackPlaybackStarted(
+    listener: (e: TrackPlaybackStartedEvent) => void,
+  ): () => void {
+    this.trackPlaybackStartedListeners.add(listener);
+    return () => {
+      this.trackPlaybackStartedListeners.delete(listener);
+    };
+  }
+
+  private emitTrackPlaybackStarted(e: TrackPlaybackStartedEvent): void {
+    this.trackPlaybackStartedListeners.forEach((l) => l(e));
   }
 
   private emitToast(event: PlayerToastEvent): void {
@@ -1036,6 +1053,11 @@ export class PlayerManager {
       if (loadSeq === this.loadTrackSeq) {
         this.loadError = null;
         this.emit();
+        this.emitTrackPlaybackStarted({
+          serverId: item.serverId,
+          libraryId: item.libraryId,
+          trackId: item.trackId,
+        });
       }
       this.schedulePersist();
       return loadSeq === this.loadTrackSeq;

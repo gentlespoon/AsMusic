@@ -9,7 +9,7 @@ How AsMusic mirrors a server music catalog into the local `LibraryCacheStorage` 
 The main library UI does **not** live-browse Subsonic album/artist trees. It:
 
 1. Syncs a **full song list** per music folder into local storage.
-2. Derives albums / artists / favorites / recommendations (50 newest tracks by `created`; see [`recommendations.md`](./recommendations.md)) / sorted songs from that flat `Child[]` list.
+2. Derives albums / artists / favorites / recommendations (New Songs + Most Played from cache; see [`recommendations.md`](./recommendations.md)) / sorted songs from that flat `Child[]` list.
 3. Reads the mirror on launch; **does not auto-sync**.
 
 | Concept | Meaning |

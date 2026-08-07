@@ -32,6 +32,13 @@ export type TrackCompletedEvent = {
   playedAt: number;
 };
 
+/** Fired after a track successfully loads for playback (stream or offline). */
+export type TrackPlaybackStartedEvent = {
+  serverId: string;
+  libraryId: string;
+  trackId: string;
+};
+
 export type PlayerViewState = {
   queue: readonly PlayerQueueItem[];
   currentIndex: number | null;

@@ -10,6 +10,7 @@
  * - `artistId`: optional (without `albumId`); opens that artist’s album list (albums tab); same `lb1.` rule.
  * - `artistSongs`: optional `1` with `artistId`; opens all cached tracks for that artist (songs tab).
  * - `playlistId`: optional; opens that playlist’s track list (playlists tab); same `lb1.` rule.
+ * - `rec`: optional `new` | `played` with `tab=recommendations`; opens the full New Songs / Most Played list.
  *
  * Optional: `artistName` for display before the artist list is resolved from cache.
  * Optional: `playlistName` for display before the playlist is resolved from cache.
@@ -118,11 +119,15 @@ export type LibraryBrowserTab =
   | 'favorites'
   | 'playlists';
 
+export type RecommendationsSection = 'new' | 'played';
+
 export type LibraryBrowserView = {
   tab: LibraryBrowserTab;
   album: { id: string } | null;
   artist: { id: string; name: string; allSongs: boolean } | null;
   playlist: { id: string; name: string } | null;
+  /** Nested Recommendations list (`rec=new` | `rec=played`). */
+  recommendations: { section: RecommendationsSection } | null;
 };
 
 /** Legacy keys removed from URLs on merge (multi-server safe). */
@@ -138,12 +143,15 @@ export const LIBRARY_URL_ARTIST_NAME = 'artistName';
 export const LIBRARY_URL_ARTIST_ALL_SONGS = 'artistSongs';
 export const LIBRARY_URL_PLAYLIST_ID = 'playlistId';
 export const LIBRARY_URL_PLAYLIST_NAME = 'playlistName';
+/** Recommendations nested list: `new` (newest) or `played` (most played). */
+export const LIBRARY_URL_REC_SECTION = 'rec';
 
 export const defaultLibraryBrowserView: LibraryBrowserView = {
   tab: 'albums',
   album: null,
   artist: null,
   playlist: null,
+  recommendations: null,
 };
 
 function isTab(v: string | null): v is LibraryBrowserTab {
@@ -157,12 +165,17 @@ function isTab(v: string | null): v is LibraryBrowserTab {
   );
 }
 
+function isRecommendationsSection(v: string | null): v is RecommendationsSection {
+  return v === 'new' || v === 'played';
+}
+
 /** True when the URL already specifies tab or a library deep link (do not override from prefs). */
 export function hasExplicitLibraryBrowserNavigation(searchParams: URLSearchParams): boolean {
   if (searchParams.get(LIBRARY_URL_TAB)) return true;
   if (searchParams.get(LIBRARY_URL_ALBUM_ID)?.trim()) return true;
   if (searchParams.get(LIBRARY_URL_ARTIST_ID)?.trim()) return true;
   if (searchParams.get(LIBRARY_URL_PLAYLIST_ID)?.trim()) return true;
+  if (isRecommendationsSection(searchParams.get(LIBRARY_URL_REC_SECTION)?.trim() ?? null)) return true;
   return false;
 }
 
@@ -175,6 +188,8 @@ export function parseLibraryBrowserView(searchParams: URLSearchParams): LibraryB
   const artistAllSongs = searchParams.get(LIBRARY_URL_ARTIST_ALL_SONGS)?.trim() === '1';
   const playlistId = searchParams.get(LIBRARY_URL_PLAYLIST_ID)?.trim() ?? '';
   const playlistName = (searchParams.get(LIBRARY_URL_PLAYLIST_NAME) ?? '').trim();
+  const recRaw = searchParams.get(LIBRARY_URL_REC_SECTION)?.trim() ?? null;
+  const recSection = isRecommendationsSection(recRaw) ? recRaw : null;
 
   if (albumId) {
     return {
@@ -182,6 +197,7 @@ export function parseLibraryBrowserView(searchParams: URLSearchParams): LibraryB
       album: { id: albumId },
       artist: null,
       playlist: null,
+      recommendations: null,
     };
   }
   if (artistId) {
@@ -190,6 +206,7 @@ export function parseLibraryBrowserView(searchParams: URLSearchParams): LibraryB
       album: null,
       artist: { id: artistId, name: artistName.length > 0 ? artistName : artistId, allSongs: artistAllSongs },
       playlist: null,
+      recommendations: null,
     };
   }
   if (playlistId) {
@@ -198,9 +215,19 @@ export function parseLibraryBrowserView(searchParams: URLSearchParams): LibraryB
       album: null,
       artist: null,
       playlist: { id: playlistId, name: playlistName.length > 0 ? playlistName : playlistId },
+      recommendations: null,
     };
   }
-  return { tab, album: null, artist: null, playlist: null };
+  if (recSection) {
+    return {
+      tab: 'recommendations',
+      album: null,
+      artist: null,
+      playlist: null,
+      recommendations: { section: recSection },
+    };
+  }
+  return { tab, album: null, artist: null, playlist: null, recommendations: null };
 }
 
 /** Apply library view to a copy of `base` (other query keys preserved; legacy scope params stripped). */
@@ -242,6 +269,11 @@ export function mergeLibraryBrowserSearchParams(base: URLSearchParams, view: Lib
   } else {
     next.delete(LIBRARY_URL_PLAYLIST_ID);
     next.delete(LIBRARY_URL_PLAYLIST_NAME);
+  }
+  if (view.recommendations) {
+    next.set(LIBRARY_URL_REC_SECTION, view.recommendations.section);
+  } else {
+    next.delete(LIBRARY_URL_REC_SECTION);
   }
   return next;
 }

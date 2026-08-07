@@ -69,7 +69,7 @@ function usePlayerManager(): PlayerManager {
 
 export function PlayerProvider({ children }: { children: ReactNode }) {
   const host = useHost();
-  const { setTrackStarred, recordTrackPlayed, libraryDisplayName, serverDisplayName, ensureLibraryNames } =
+  const { setTrackStarred, recordTrackPlayed, refreshTrackPlayCount, libraryDisplayName, serverDisplayName, ensureLibraryNames } =
     useLibraryBrowseCache();
   const { getStreamUrl, getCoverArtUrl, ensureStreamReady, servers, activeLibraryRefs, isRestoring } =
     useServerAndLibrary();
@@ -193,6 +193,16 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       }).catch((err: unknown) => console.warn('[AsMusic] recordTrackPlayed failed', err));
     });
   }, [manager, recordTrackPlayed]);
+
+  useEffect(() => {
+    return manager.subscribeTrackPlaybackStarted((e) => {
+      void refreshTrackPlayCount({
+        serverId: e.serverId,
+        libraryId: e.libraryId,
+        trackId: e.trackId,
+      });
+    });
+  }, [manager, refreshTrackPlayCount]);
 
   const openFullPlayer = useCallback(() => setFullPlayerOpen(true), []);
   const closeFullPlayer = useCallback(() => setFullPlayerOpen(false), []);

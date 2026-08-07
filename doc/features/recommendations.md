@@ -1,117 +1,122 @@
 # Recommendations
 
-Library **Recommendations** tab: the **50 newest tracks** from the local song cache, ordered by Subsonic `created` (newest first). Same offline-first browse model as Songs / Favorites — **no live Subsonic catalog calls**.
+Library **Recommendations** tab: a scrollable **hub** with two cache-derived sections — **New Songs** and **Most Played** — plus nested full lists (top **50** each). Same offline-first browse model as Songs / Favorites — **no live Subsonic catalog calls**.
 
-**Out of scope:** Personalized / ML recommendations, `getAlbumList2` / `getRandomSongs` / similar-song APIs, album grids of “recently added,” auto-refresh when the server scans, and playback queue behavior ([`nowPlayingQueue.md`](./nowPlayingQueue.md)). Catalog sync that fills the cache is documented in [`librarySync.md`](./librarySync.md).
+**Out of scope:** Personalized / ML recommendations, `getAlbumList2` / `getRandomSongs` / similar-song APIs, album grids of “recently added,” auto-refresh when the server scans, play-count badges on list rows, and playback queue behavior ([`nowPlayingQueue.md`](./nowPlayingQueue.md)). Catalog sync that fills the cache: [`librarySync.md`](./librarySync.md). Play-count scrobble / optimistic bumps: [`playCount.md`](./playCount.md).
 
 ## Mental model
 
 | Concept | Meaning |
 |---------|---------|
-| **Data source** | Active-library song slices already loaded into `LibraryBrowseCacheContext` (`songEntriesSorted`) |
-| **Ordering** | Descending `Child.created` via `albumCreatedMs` (Date or ISO string → ms) |
-| **Cap** | Hard limit **50** (`NEWEST_TRACK_LIMIT` in `RecommendationsListView`) |
-| **UI** | Reuses `SongListView` (search, play / queue / star / view artist·album) |
-| **Offline** | Works whenever the library cache has songs; empty until the user syncs |
+| **Hub** | `tab=recommendations` with no `rec` — two sections stacked, page scrolls |
+| **New Songs** | Tracks sorted by `Child.created` desc (`albumCreatedMs`), capped at 50 |
+| **Most Played** | Tracks sorted by `Child.playCount` desc (`songPlayCount`), tie-break `created` desc, capped at 50 |
+| **Preview** | Each section shows **5** `SongItem` rows (no search) + Play / Shuffle on the **full 50** |
+| **View more** | Pushes `rec=new` or `rec=played`; full searchable `SongListView` of that top 50 |
+| **Offline** | Works from library cache; empty until the user syncs |
 
-There is **no** server round-trip when opening the tab. Newest tracks only update after a library sync refreshes the song mirror.
+There is **no** server round-trip when opening the tab. Newest / play rankings update after library sync (and Most Played also after local optimistic play increments).
 
 | Capability | Status |
 |------------|--------|
-| Top 50 by track `created` | Done |
-| Multi-library merge (all active scopes) | Done — sort across combined entries, then slice |
-| Loose / empty-album tracks as individual songs | Done — not bucketing into “Unknown Album” |
-| Live `getAlbumList2` type `newest` | **Not used** (would break offline-first / sync-only catalog rule) |
-| Infinite scroll / “load more” past 50 | **Gap** |
-| Configurable limit | **Gap** (constant only) |
-| Tie-break when `created` missing/equal | **Gap** — `albumCreatedMs` → `0`; sort order among ties is unstable relative to title |
+| Hub with New Songs + Most Played | Done |
+| Preview 5 + Play / Shuffle (full 50) | Done |
+| Nested full list (50) via `rec=` | Done |
+| Multi-library merge | Done — sort across combined `songEntriesSorted`, then slice |
+| Loose / empty-album tracks as songs | Done |
+| Live Subsonic “frequent” / newest album APIs | **Not used** |
+| Configurable preview / full limits | **Gap** (constants 5 / 50) |
+| Play-count on list rows | **Gap** (see playCount.md) |
 
 ## Architecture
 
 ```mermaid
-flowchart LR
+flowchart TB
   Sync[library sync search3] --> Cache[LibraryCacheStorage]
-  Cache --> Ctx[LibraryBrowseCacheContext songEntriesSorted]
-  Ctx --> Rec[RecommendationsListView]
-  Rec -->|sort created desc + slice 50| List[SongListView]
-  List --> Play[useLibraryBrowserPlayback]
+  Cache --> Ctx[songEntriesSorted]
+  Ctx --> Hub[RecommendationsListView hub]
+  Hub --> NewPreview[New Songs preview 5]
+  Hub --> PlayedPreview[Most Played preview 5]
+  NewPreview -->|rec=new| FullNew[SongListView 50 by created]
+  PlayedPreview -->|rec=played| FullPlayed[SongListView 50 by playCount]
+  Play[Play / Shuffle] --> Queue[replaceQueueAndPlay / shuffle]
 ```
 
-## Types / selection
+## Selection
 
 ```ts
-// SongListEntry from SongListView — same shape as Songs / Favorites rows
-type SongListEntry = {
-  song: Child;
-  rowKey: string;
-  serverId: string;
-  artworkScope: LibraryCacheScope;
-};
-
-// Selection (conceptual)
-[...songEntries]
-  .sort((a, b) => albumCreatedMs(b.song) - albumCreatedMs(a.song))
-  .slice(0, 50);
+// packages/ui/.../recommendationSelectors.ts
+selectNewestSongEntries(entries, 50)      // albumCreatedMs desc
+selectMostPlayedSongEntries(entries, 50)  // songPlayCount desc, then created
+// Preview: .slice(0, 5)
 ```
 
-`albumCreatedMs` lives in `packages/core/src/library/libraryIndexFromSongs.ts` (also used when deriving album `created` as max track `created` for the Albums index — unrelated to this tab’s list).
+`albumCreatedMs` / `songPlayCount` live in `packages/core/src/library/libraryIndexFromSongs.ts`.
 
-## Sync / persistence
+## Navigation / URL
 
-- **No** dedicated Recommendations storage or preference beyond the shared library browser tab preference (`asmusic-library-browser-tab-v1` may persist `recommendations`).
-- Scroll restoration key: `lb:recommendations`.
-- Freshness = last successful library sync for active scopes ([`librarySync.md`](./librarySync.md)).
+| URL | UI |
+|-----|-----|
+| `tab=recommendations` | Hub |
+| `tab=recommendations&rec=new` | Full New Songs list |
+| `tab=recommendations&rec=played` | Full Most Played list |
 
-## Mutations
+- Constant: `LIBRARY_URL_REC_SECTION` (`rec`).
+- `LibraryBrowserView.recommendations: { section: 'new' \| 'played' } \| null`.
+- Back / selecting Recommendations while nested → `navigate(-1)` (same pattern as album/playlist detail).
+- Leaving the tab clears `rec`.
 
-None specific to this tab. Star / unstar and queue actions use the same paths as the Songs tab (`setTrackStarred`, `useLibraryBrowserPlayback`).
+## Playback
+
+| Control | API |
+|---------|-----|
+| Section / intent Play | `replaceQueueAndPlayAllSongEntries` (queue order = list order) |
+| Shuffle | `shufflePlayAllSongEntries` |
+| Row tap | `playSongEntryNow` (same as Songs) |
+
+Section buttons use the **full top-50** set for that section, not only the 5 preview rows.
 
 ## UI entry points
 
 | Surface | Role |
 |---------|------|
-| `HomePageAppBar` | Tab toggle `value="recommendations"` (between Songs and Playlists), icon `AutoAwesome`, id `library-tab-recommendations` |
-| `LibraryBrowser` | Renders `RecommendationsListView` when `tab === 'recommendations'` |
-| `RecommendationsListView` | Sort + cap; passes entries and playback handlers into `SongListView` |
-
-### Deep links / URL
-
-- Query: `tab=recommendations` (`LIBRARY_URL_TAB`).
-- Validated in `LibraryBrowserTab` / `isTab` / `libraryBrowserTabPreference` `VALID_TABS`.
-- No album/artist/playlist deep-link params for this tab; switching away clears detail scopes like other top-level tabs (`useLibraryBrowserTabBar.selectTab`).
+| `HomePageAppBar` | Tab `recommendations` |
+| `LibraryBrowser` | Hub vs nested via `view.recommendations`; open/back helpers |
+| `RecommendationsListView` | Hub sections + nested `SongListView` wrapper with back |
+| `recommendationSelectors.ts` | Sort + caps |
 
 ### i18n
 
 - `home.appBar.recommendations`
-- `library.recommendations.search` / `.empty` / `.noMatch`
+- `library.recommendations.newSongs` / `.mostPlayed` / `.viewMore`
+- `.search` / `.searchMostPlayed` / `.empty` / `.noMatch`
 
 ## Multi-library / multi-server
 
-- Entries come from **all** active library slices merged in `songEntriesSorted`.
-- Sort is global across those slices, then the first 50 after sort.
-- Row keys remain `serverKey|libraryId|songId`; artwork and play resolve per entry scope (same as Songs).
+Same as Songs: all active slices merge into `songEntriesSorted`; row keys stay `serverKey|libraryId|songId`.
 
 ## Edge cases
 
-- **Missing `created`:** Treated as epoch `0` → sorts to the end of “newest.”
-- **Empty album / Unknown Album:** Still one **song** row; Recommendations does not use `albumsFromCachedSongs` for its list.
-- **Search:** Filters only within the capped 50, not the full library.
-- **Cover art:** May still fetch on demand if not cached (shared browse behavior; not a Recommendations-specific catalog API).
+- **Missing `created`:** epoch `0` → end of New Songs.
+- **`playCount` 0 / missing:** sorts last within Most Played; still listed if the library has fewer than 50 tracks.
+- **View more** only when the capped set has more than 5 tracks.
+- Nested **search** filters within the 50 only.
+- Cover art may still fetch on demand if uncached (shared browse behavior).
 
 ## Key files
 
 | Path | Role |
 |------|------|
-| `packages/ui/src/views/home/library/catalog/RecommendationsListView.tsx` | Sort, cap 50, wrap `SongListView` |
-| `packages/ui/src/views/home/library/LibraryBrowser.tsx` | Tab branch + playback wiring |
-| `packages/ui/src/views/home/HomePageAppBar.tsx` | Tab control |
-| `packages/ui/src/views/home/library/browser/libraryNavigationUrl.ts` | `LibraryBrowserTab` + URL |
-| `packages/ui/src/preferences/libraryBrowserTabPreference.ts` | Persist last tab |
-| `packages/core/src/library/libraryIndexFromSongs.ts` | `albumCreatedMs` |
-| `packages/ui/src/contexts/LibraryBrowseCacheContext.tsx` | `songEntriesSorted` source |
-| `doc/features/librarySync.md` | How the song mirror is filled |
+| `packages/ui/src/views/home/library/catalog/RecommendationsListView.tsx` | Hub + nested |
+| `packages/ui/src/views/home/library/catalog/recommendationSelectors.ts` | Sort / limits |
+| `packages/ui/src/views/home/library/LibraryBrowser.tsx` | Wiring |
+| `packages/ui/src/views/home/library/browser/libraryNavigationUrl.ts` | `rec` URL |
+| `packages/ui/src/views/home/library/browser/useLibraryBrowserTabBar.ts` | Tab / back |
+| `packages/ui/src/views/home/library/browser/useLibraryBrowserPlayback.ts` | Play-all entries |
+| `packages/core/src/library/libraryIndexFromSongs.ts` | `albumCreatedMs`, `songPlayCount` |
 
 ## Related
 
-- Favorites tab: same `SongListView` pattern, filter by starred — [`favorites.md`](./favorites.md)
-- Albums tab: derived album index (including synthetic “Unknown Album” buckets) — **not** used here.
+- Favorites: [`favorites.md`](./favorites.md)
+- Play counts: [`playCount.md`](./playCount.md)
+- Library sync: [`librarySync.md`](./librarySync.md)

@@ -8,6 +8,9 @@ export const PENDING_PLAY_SCROBBLES_RETRY_INTERVAL_MS = 5 * 60 * 1000;
 /** Soft cap: drop oldest events when the queue exceeds this length. */
 export const PENDING_PLAY_SCROBBLES_MAX_QUEUE = 2000;
 
+/** Min interval between opportunistic getSong play-count refreshes for the same track. */
+export const PLAY_COUNT_REFRESH_DEBOUNCE_MS = 3 * 60 * 1000;
+
 export type PendingPlayScrobble = {
   /** Stable event id for remove-after-flush (one entry per listen). */
   id: string;

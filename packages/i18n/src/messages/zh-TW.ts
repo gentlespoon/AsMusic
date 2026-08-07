@@ -298,6 +298,7 @@ export const zhTWMessages = {
   "player.meta.bitrate": "位元率",
   "player.meta.duration": "長度",
   "player.meta.format": "格式",
+  "player.meta.playCount": "播放次數",
   "player.meta.title": "標題",
   "player.meta.trackId": "曲目 ID",
   "player.offline.removeDownload": "移除已下載副本",

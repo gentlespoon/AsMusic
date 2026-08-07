@@ -313,6 +313,7 @@ export const esESMessages = {
   "player.meta.bitrate": "Bitrate",
   "player.meta.duration": "Duración",
   "player.meta.format": "Formato",
+  "player.meta.playCount": "Reproducciones",
   "player.meta.title": "Título",
   "player.meta.trackId": "ID de pista",
   "player.offline.removeDownload": "Eliminar copia descargada",

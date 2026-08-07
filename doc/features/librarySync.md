@@ -71,7 +71,8 @@ Client: `createNavidromeApi` → `subsonic-api` `SubsonicAPI` (`packages/core/sr
 | **`startScan` / `getScanStatus`** | Optional pre-sync server rescan |
 | **`startScan.view` + `target=<libraryId>:`** | Navidrome selective scan for one music folder |
 | **`getPlaylists` / `getPlaylist`** | After song sync only (`refreshPlaylistCacheForServer`) |
-| **`star` / `unstar`** | Favorites mutations; starred flags return on next `search3` |
+| **`star` / `unstar`** | Favorites mutations; see [`favorites.md`](./favorites.md) — starred flags also return on next `search3` |
+| **`scrobble` (`submission=true`)** | Play counts; see [`playCount.md`](./playCount.md) — not part of catalog fetch |
 
 **Not used for the catalog mirror:** `getAlbumList2`, `getArtists`, `getIndexes`, recursive `getMusicDirectory`, `getStarred2`.
 
@@ -103,10 +104,11 @@ Song payload: `Child` from `subsonic-api`. Constant: `DEFAULT_LIBRARY_ID = 'defa
 
 **UI wrapper** (`useRefreshLibraryRow`) around that:
 
-8. Optional **`waitForServerLibraryScan`** when preference `asmusic-server-library-rescan-before-sync-v1` is on (before step 1).
-9. Call `refreshLibraryCache` with `offlineMedia: host.offlineMedia`.
-10. **`refreshPlaylistCacheForServer`** for `{ serverKey }` (once per account after that row’s song sync).
-11. **`reloadCachedSongsFromDisk()`** so browse context re-reads slices.
+8. **`flushPendingLibraryMutations`** — push pending offline stars and play scrobbles before replace when possible.
+9. Optional **`waitForServerLibraryScan`** when preference `asmusic-server-library-rescan-before-sync-v1` is on (before catalog fetch).
+10. Call `refreshLibraryCache` with `offlineMedia: host.offlineMedia`.
+11. **`refreshPlaylistCacheForServer`** for `{ serverKey }` (once per account after that row’s song sync).
+12. **`reloadCachedSongsFromDisk()`** — re-read slices, **merge pending star intents and play-count deltas into the loaded rows (and `patchSong`) before the first `setSlices`**, then refresh playlist summaries.
 
 There is **no incremental / delta sync** — always full fetch + full replace per scope. Catalog fetch/write has **no cancellation**. Scan wait supports `AbortSignal`, but the UI does not pass one. Only one library row refresh at a time (`refreshingKey`).
 
@@ -177,8 +179,10 @@ Contract: `LibraryCacheStorage` (`readSongList`, `replaceSongList`, `patchSong`,
 | Incremental / delta sync | **Gap** |
 | Cancel in-flight catalog sync | **Gap** |
 | Auto-sync on launch / interval | **Gap** |
-| Favorites from `starred` on songs | Done |
-| Flush pending offline stars before sync | **Gap** (called for in offline fixes plan; UI does not flush first) |
+| Favorites from `starred` on songs | Done — see [`favorites.md`](./favorites.md) |
+| Flush pending offline stars before sync | Done (`flushPendingLibraryMutations`) |
+| Reapply pending stars after sync reload | Done (merged into slices before first paint) |
+| Play scrobble / local playCount | Done — see [`playCount.md`](./playCount.md) |
 | Desktop / Android SQLite cache | Planned only |
 
 ## Edge cases
@@ -188,7 +192,7 @@ Contract: `LibraryCacheStorage` (`readSongList`, `replaceSongList`, `patchSong`,
 - Scan timeout default **1 hour**; UI maps timeout specially.
 - Failed `search3` throws **before** replace — previous song cache remains.
 - Concurrent refreshes blocked in UI only.
-- Without flush-before-sync, a full replace can overwrite pending local star intent until a reapply path runs.
+- Pending stars / plays that fail to flush before sync are merged back onto reloaded server rows inside `reloadCachedSongsFromDisk` before UI state updates (avoids briefly showing wiped favorites / play counts).
 - Artwork not purged on sync — covers can look stale until purge / refresh.
 - iOS may store `lastSyncAt` in seconds and multiply ×1000 on read for JS.
 - Unreachable server placeholder rows cannot refresh.

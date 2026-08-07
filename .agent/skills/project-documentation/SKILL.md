@@ -1,5 +1,5 @@
 ---
-name: update-project-documentation
+name: project-documentation
 description: >-
   Keep detailed per-feature docs under doc/features/ so future agents can
   work without re-exploring the codebase. Use when the user asks to update,

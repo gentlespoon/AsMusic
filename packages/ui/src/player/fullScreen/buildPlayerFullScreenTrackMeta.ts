@@ -12,12 +12,17 @@ export function buildPlayerFullScreenTrackMeta(
   item: PlayerQueueItem | null,
   t: I18nContextValue["t"],
   serverTranscodeEnabled: boolean,
+  options?: { playCount?: number | null },
 ): PlayerFullScreenTrackMetaRow[] {
   if (!item) return [];
 
   const emDash = t("common.emDash");
   const formatLabel =
     formatPlaybackFormatLabel(item.suffix, serverTranscodeEnabled) ?? emDash;
+  const playCount =
+    options?.playCount != null && Number.isFinite(options.playCount)
+      ? String(Math.max(0, Math.trunc(options.playCount)))
+      : emDash;
   return [
     { label: t("player.meta.title"), value: item.title },
     { label: t("player.meta.artist"), value: item.artist ?? emDash },
@@ -37,6 +42,7 @@ export function buildPlayerFullScreenTrackMeta(
           ? formatDuration(item.durationSeconds)
           : emDash,
     },
+    { label: t("player.meta.playCount"), value: playCount },
     { label: t("player.meta.trackId"), value: item.trackId },
   ];
 }

@@ -18,7 +18,7 @@ export function useRefreshLibraryRow() {
   const t = useT();
   const host = useHost();
   const { servers, getApiForServer, isLibraryActive } = useServerAndLibrary();
-  const { reloadCachedSongsFromDisk } = useLibraryBrowseCache();
+  const { reloadCachedSongsFromDisk, flushPendingLibraryMutations } = useLibraryBrowseCache();
   const [refreshingKey, setRefreshingKey] = useState<string | null>(null);
   const [refreshError, setRefreshError] = useState<string | null>(null);
 
@@ -35,6 +35,8 @@ export function useRefreshLibraryRow() {
       setRefreshError(null);
 
       try {
+        // Push offline stars / play scrobbles before replace so server truth includes them when possible.
+        await flushPendingLibraryMutations();
         const api = await getApiForServer(row.serverId);
         if (!api) {
           throw new Error(t('servers.error.noSession', { url: row.serverUrl }));
@@ -54,14 +56,23 @@ export function useRefreshLibraryRow() {
           offlineMedia: host.offlineMedia,
         });
         await refreshPlaylistCacheForServer(api, host.libraryCache, { serverKey: scope.serverKey });
-        void reloadCachedSongsFromDisk();
+        await reloadCachedSongsFromDisk();
       } catch (e) {
         setRefreshError(e instanceof Error ? e.message : t('servers.error.syncFailed'));
       } finally {
         setRefreshingKey(null);
       }
     },
-    [getApiForServer, host.libraryCache, host.offlineMedia, isLibraryActive, reloadCachedSongsFromDisk, servers, t]
+    [
+      flushPendingLibraryMutations,
+      getApiForServer,
+      host.libraryCache,
+      host.offlineMedia,
+      isLibraryActive,
+      reloadCachedSongsFromDisk,
+      servers,
+      t,
+    ]
   );
 
   return {

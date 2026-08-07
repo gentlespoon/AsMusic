@@ -23,6 +23,15 @@ export type PlayerQueueItem = {
   starred?: boolean;
 };
 
+/** Fired when a queue track reaches natural end (including loop-one). */
+export type TrackCompletedEvent = {
+  serverId: string;
+  libraryId: string;
+  trackId: string;
+  /** Epoch ms when playback ended. */
+  playedAt: number;
+};
+
 export type PlayerViewState = {
   queue: readonly PlayerQueueItem[];
   currentIndex: number | null;

@@ -329,3 +329,4 @@ Local: `playerQueueItemFromLocalEntry` never drops unavailable tracks from the e
 | Library sync trigger | `useRefreshLibraryRow.ts` |
 | Product notes | `NOTE.md` |
 | Plans | `.cursor/plans/media-library/2026-05-17T16-03-11-playlist_feature_parity_9362e259.plan.md`, `.cursor/plans/media-library/2026-07-07T23-49-55-server_playlists_per_account.plan.md` |
+| Related | [`favorites.md`](./favorites.md) (per-track star from playlist rows), [`librarySync.md`](./librarySync.md) |

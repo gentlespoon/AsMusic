@@ -3,7 +3,7 @@
  * Active server and library come from app settings, not from the URL.
  *
  * Query keys:
- * - `tab`: `albums` | `artists` | `songs` | `favorites` | `playlists`
+ * - `tab`: `albums` | `artists` | `songs` | `recommendations` | `favorites` | `playlists`
  * - `albumId`: optional; opens that album’s track list (songs tab). With multiple active libraries,
  *   this may be an opaque `lb1.` + base64url ref (see {@link encodeLibraryBrowserRef}) so the row
  *   resolves to the correct cache scope (no separate `serverId` / `libraryId` query params).
@@ -110,7 +110,13 @@ export function decodeLibraryBrowserRef(param: string): LibraryBrowserEncodedRef
   return null;
 }
 
-export type LibraryBrowserTab = 'albums' | 'artists' | 'songs' | 'favorites' | 'playlists';
+export type LibraryBrowserTab =
+  | 'albums'
+  | 'artists'
+  | 'songs'
+  | 'recommendations'
+  | 'favorites'
+  | 'playlists';
 
 export type LibraryBrowserView = {
   tab: LibraryBrowserTab;
@@ -141,7 +147,14 @@ export const defaultLibraryBrowserView: LibraryBrowserView = {
 };
 
 function isTab(v: string | null): v is LibraryBrowserTab {
-  return v === 'albums' || v === 'artists' || v === 'songs' || v === 'favorites' || v === 'playlists';
+  return (
+    v === 'albums' ||
+    v === 'artists' ||
+    v === 'songs' ||
+    v === 'recommendations' ||
+    v === 'favorites' ||
+    v === 'playlists'
+  );
 }
 
 /** True when the URL already specifies tab or a library deep link (do not override from prefs). */

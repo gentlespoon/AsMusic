@@ -44,6 +44,7 @@ export const enUSMessages = {
   "home.loadingServers": "Loading saved servers…",
   "home.appBar.openNavMenu": "Open navigation menu",
   "home.appBar.playlists": "Playlists",
+  "home.appBar.recommendations": "Recommendations",
   "home.appBar.songs": "Songs",
 
   "library.action.download": "Download",
@@ -161,6 +162,10 @@ export const enUSMessages = {
   "library.playlist.noTracksMatch": "No tracks match your search.",
   "library.playlist.songCount": "{count} songs",
   "library.playlist.songCountWithLibrary": "{count} songs · {libraryId}",
+  "library.recommendations.empty":
+    "No recently added tracks in the library cache yet. Sync your library from Settings → Servers & Libraries.",
+  "library.recommendations.noMatch": "No recommendations match your search.",
+  "library.recommendations.search": "Search recently added",
   "library.songs.empty":
     "No songs in cache yet. Open Settings → Servers & Libraries → Libraries, activate this library, then use the refresh control beside it to pull from the server.",
   "library.songs.noMatch": "No songs match your search.",

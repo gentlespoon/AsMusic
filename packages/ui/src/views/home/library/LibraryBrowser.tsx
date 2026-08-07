@@ -12,6 +12,7 @@ import {
 } from '@asmusic/core';
 import { AlbumListView } from './catalog/AlbumListView';
 import { ArtistListView } from './catalog/ArtistListView';
+import { RecommendationsListView } from './catalog/RecommendationsListView';
 import { SongListView } from './catalog/SongListView';
 import { AlbumSongListView } from './detail/AlbumSongListView';
 import { ArtistAlbumListView } from './detail/ArtistAlbumListView';
@@ -600,6 +601,27 @@ export function LibraryBrowser() {
               onPlaylistOpen={openPlaylist}
             />
           ))}
+
+        {tab === 'recommendations' && (
+          <RecommendationsListView
+            songEntries={songEntriesSorted}
+            albumsByScope={albumsByScope}
+            apiForServer={apiForServer}
+            initialReady={initialReady}
+            resolveCachedArtwork={resolveCachedArtwork}
+            persistCachedArtworkForScope={persistCachedArtworkForScope}
+            artworkVersionKey={artworkVersionKey}
+            getArtworkCacheBump={getArtworkCacheBump}
+            onPlaySong={playSongEntryNow}
+            onPlayNextSong={playNextForSongEntry}
+            onAppendSongToQueue={appendForSongEntry}
+            onViewArtist={viewArtistForSongEntry}
+            onViewAlbum={viewAlbumForSongEntry}
+            onAppendAllToQueue={appendAllSongEntriesToQueue}
+            onShufflePlayAll={shufflePlayAllSongEntries}
+            setTrackStarred={setTrackStarred}
+          />
+        )}
 
         {tab === 'favorites' && (
             <SongListView

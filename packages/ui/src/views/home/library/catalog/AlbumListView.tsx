@@ -78,6 +78,12 @@ export function AlbumListView({
   artworkVersionKey,
   getArtworkCacheBump,
   onAlbumOpen,
+  scrollRestorationKey = 'lb:albums',
+  panelId = 'library-panel-0',
+  ariaLabelledBy = 'library-tab-0',
+  searchPlaceholder,
+  emptyListMessage,
+  noSearchMatchMessage,
 }: {
   rows: AlbumCatalogRow[];
   apiForServer: (serverId: string) => SubsonicAPI | null;
@@ -90,10 +96,19 @@ export function AlbumListView({
   artworkVersionKey: (coverArtId: string, scope: LibraryCacheScope) => string;
   getArtworkCacheBump: (coverArtId: string, scope: LibraryCacheScope) => number;
   onAlbumOpen: (row: AlbumCatalogRow) => void;
+  scrollRestorationKey?: string;
+  panelId?: string;
+  ariaLabelledBy?: string;
+  searchPlaceholder?: string;
+  emptyListMessage?: string;
+  noSearchMatchMessage?: string;
 }) {
   const t = useT();
   const [search, setSearch] = useState('');
   const displayMode = useAlbumDisplayMode();
+  const resolvedSearchPlaceholder = searchPlaceholder ?? t('library.album.search');
+  const resolvedEmptyListMessage = emptyListMessage ?? t('library.songs.empty');
+  const resolvedNoSearchMatchMessage = noSearchMatchMessage ?? t('library.album.noAlbumsMatch');
 
   const filteredRows = useMemo(
     () => rows.filter((r) => albumMatchesQuery(r.album, search)),
@@ -104,7 +119,7 @@ export function AlbumListView({
 
   const queryTrimmed = search.trim();
 
-  const scrollRef = useLibraryScrollRestoration('lb:albums');
+  const scrollRef = useLibraryScrollRestoration(scrollRestorationKey);
   const virtuosoScroller = useLibraryVirtuosoScroller(scrollRef);
   const listVirtuosoRef = useRef<VirtuosoHandle>(null);
   const gridVirtuosoRef = useRef<VirtuosoGridHandle>(null);
@@ -131,8 +146,8 @@ export function AlbumListView({
   return (
     <Box
       role="tabpanel"
-      id="library-panel-0"
-      aria-labelledby="library-tab-0"
+      id={panelId}
+      aria-labelledby={ariaLabelledBy}
       sx={{
         ...libraryFlexFillSx,
         display: 'flex',
@@ -144,8 +159,8 @@ export function AlbumListView({
         <TextField
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder={t('library.album.search')}
-          aria-label={t('library.album.search')}
+          placeholder={resolvedSearchPlaceholder}
+          aria-label={resolvedSearchPlaceholder}
           fullWidth
           size="small"
           sx={{ flex: 1, minWidth: 0 }}
@@ -177,12 +192,12 @@ export function AlbumListView({
         )}
         {initialReady && rows.length === 0 && (
           <Typography variant="body2" color="text.secondary">
-            {t('library.songs.empty')}
+            {resolvedEmptyListMessage}
           </Typography>
         )}
         {initialReady && rows.length > 0 && filteredRows.length === 0 && queryTrimmed.length > 0 && (
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            {t('library.album.noAlbumsMatch')}
+            {resolvedNoSearchMatchMessage}
           </Typography>
         )}
         {initialReady && virtualRows.length > 0 && displayMode === 'grid' && (

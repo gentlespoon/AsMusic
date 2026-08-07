@@ -9,6 +9,18 @@ export function isChildStarred(track: Child): boolean {
   return true;
 }
 
+/** Milliseconds since epoch for Subsonic `created` (Date or ISO string). */
+export function albumCreatedMs(value: { created?: Date | string | null } | null | undefined): number {
+  const c = value?.created;
+  if (c == null || c === '') return 0;
+  if (c instanceof Date) {
+    const t = c.getTime();
+    return Number.isNaN(t) ? 0 : t;
+  }
+  const t = Date.parse(String(c));
+  return Number.isNaN(t) ? 0 : t;
+}
+
 /**
  * Derives album and artist lists from a flat song list, following the same rules as
  * `legacy-swiftui-ios/AsMusic/Stores/LibrarySongListSupport.swift` (`LibraryIndexFromSongs`).
@@ -37,6 +49,11 @@ export function albumsFromCachedSongs(songs: Child[]): AlbumID3[] {
     const cover =
       sorted.map((s) => s.coverArt?.trim()).find((c) => c && c.startsWith('al-')) ??
       sorted.map((s) => s.coverArt).find((c) => c && c.length > 0);
+    // Newest track `created` in the album — proxy for “recently added” from the song mirror.
+    let newestMs = 0;
+    for (const s of sorted) {
+      newestMs = Math.max(newestMs, albumCreatedMs(s));
+    }
 
     result.push({
       id,
@@ -47,7 +64,7 @@ export function albumsFromCachedSongs(songs: Child[]): AlbumID3[] {
       coverArt: cover,
       songCount: sorted.length,
       duration: totalDuration > 0 ? totalDuration : 0,
-      created: first.created ?? new Date(0),
+      created: newestMs > 0 ? new Date(newestMs) : new Date(0),
       year,
     });
   }

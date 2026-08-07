@@ -43,6 +43,7 @@ export const zhCNMessages = {
   "home.loadingServers": "正在加载已保存的服务器…",
   "home.appBar.openNavMenu": "打开导航菜单",
   "home.appBar.playlists": "播放列表",
+  "home.appBar.recommendations": "推荐",
   "home.appBar.songs": "歌曲",
 
   "library.action.download": "下载",
@@ -151,6 +152,10 @@ export const zhCNMessages = {
   "library.playlist.noTracksMatch": "没有匹配的曲目。",
   "library.playlist.songCount": "{count} 首歌曲",
   "library.playlist.songCountWithLibrary": "{count} 首歌曲 · {libraryId}",
+  "library.recommendations.empty":
+    "资料库缓存中尚无最近添加的歌曲。请从「设置 → 服务器与资料库」同步资料库。",
+  "library.recommendations.noMatch": "没有匹配的推荐。",
+  "library.recommendations.search": "搜索最近添加",
   "library.songs.empty":
     "缓存中尚无歌曲。请打开「设置 → 服务器与资料库 → 资料库」，启用此资料库，然后使用旁边的刷新控件从服务器拉取。",
   "library.songs.noMatch": "没有匹配的歌曲。",

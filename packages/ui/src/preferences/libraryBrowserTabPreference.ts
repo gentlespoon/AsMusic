@@ -6,6 +6,7 @@ const VALID_TABS: readonly LibraryBrowserTab[] = [
   'albums',
   'artists',
   'songs',
+  'recommendations',
   'favorites',
   'playlists',
 ];

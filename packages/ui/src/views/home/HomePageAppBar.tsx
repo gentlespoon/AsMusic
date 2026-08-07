@@ -9,6 +9,7 @@ import {
   Tooltip,
 } from "@mui/material";
 import Album from "@mui/icons-material/Album";
+import AutoAwesome from "@mui/icons-material/AutoAwesome";
 import Download from "@mui/icons-material/Download";
 import Menu from "@mui/icons-material/Menu";
 import MusicNote from "@mui/icons-material/MusicNote";
@@ -143,6 +144,12 @@ export function HomePageAppBar({ onOpenNav }: HomePageAppBarProps) {
                   label={t("home.appBar.songs")}
                   id="library-tab-2"
                   icon={<MusicNote sx={{ fontSize: 22 }} />}
+                />
+                <LibraryTabToggle
+                  value="recommendations"
+                  label={t("home.appBar.recommendations")}
+                  id="library-tab-recommendations"
+                  icon={<AutoAwesome sx={{ fontSize: 22 }} />}
                 />
                 <LibraryTabToggle
                   value="playlists"

@@ -43,6 +43,7 @@ export const jaJPMessages = {
   "home.loadingServers": "保存済みサーバーを読み込み中…",
   "home.appBar.openNavMenu": "ナビゲーションメニューを開く",
   "home.appBar.playlists": "プレイリスト",
+  "home.appBar.recommendations": "おすすめ",
   "home.appBar.songs": "曲",
 
   "library.action.download": "ダウンロード",
@@ -162,6 +163,10 @@ export const jaJPMessages = {
   "library.playlist.noTracksMatch": "検索に一致する曲がありません。",
   "library.playlist.songCount": "曲 {count} 曲",
   "library.playlist.songCountWithLibrary": "曲 {count} 曲 · {libraryId}",
+  "library.recommendations.empty":
+    "ライブラリキャッシュに最近追加された曲はまだありません。「設定 → サーバーとライブラリ」からライブラリを同期してください。",
+  "library.recommendations.noMatch": "検索に一致するおすすめがありません。",
+  "library.recommendations.search": "最近追加を検索",
   "library.songs.empty":
     "キャッシュに曲がまだありません。「設定 → サーバーとライブラリ → ライブラリ」でこのライブラリを有効にし、行の横にある更新ボタンでサーバーから取得してください。",
   "library.songs.noMatch": "検索に一致する曲がありません。",

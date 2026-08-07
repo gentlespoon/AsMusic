@@ -43,6 +43,7 @@ export const zhTWMessages = {
   "home.loadingServers": "正在載入已儲存的伺服器…",
   "home.appBar.openNavMenu": "開啟導覽選單",
   "home.appBar.playlists": "播放清單",
+  "home.appBar.recommendations": "推薦",
   "home.appBar.songs": "歌曲",
 
   "library.action.download": "下載",
@@ -151,6 +152,10 @@ export const zhTWMessages = {
   "library.playlist.noTracksMatch": "沒有符合的曲目。",
   "library.playlist.songCount": "{count} 首歌曲",
   "library.playlist.songCountWithLibrary": "{count} 首歌曲 · {libraryId}",
+  "library.recommendations.empty":
+    "資料庫快取中尚無最近新增的歌曲。請從「設定 → 伺服器與資料庫」同步資料庫。",
+  "library.recommendations.noMatch": "沒有符合的推薦。",
+  "library.recommendations.search": "搜尋最近新增",
   "library.songs.empty":
     "快取中尚無歌曲。請開啟「設定 → 伺服器與資料庫 → 資料庫」，啟用此資料庫，然後使用旁邊的重新整理控制項從伺服器拉取。",
   "library.songs.noMatch": "沒有符合的歌曲。",

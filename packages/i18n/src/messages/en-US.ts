@@ -308,6 +308,7 @@ export const enUSMessages = {
   "player.meta.bitrate": "Bitrate",
   "player.meta.duration": "Duration",
   "player.meta.format": "Format",
+  "player.meta.playCount": "Play count",
   "player.meta.title": "Title",
   "player.meta.trackId": "Track ID",
   "player.offline.removeDownload": "Remove downloaded copy",

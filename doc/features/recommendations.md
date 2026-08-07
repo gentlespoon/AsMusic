@@ -113,5 +113,5 @@ None specific to this tab. Star / unstar and queue actions use the same paths as
 
 ## Related
 
-- Favorites tab: same `SongListView` pattern, filter by starred instead of newest.
+- Favorites tab: same `SongListView` pattern, filter by starred — [`favorites.md`](./favorites.md)
 - Albums tab: derived album index (including synthetic “Unknown Album” buckets) — **not** used here.

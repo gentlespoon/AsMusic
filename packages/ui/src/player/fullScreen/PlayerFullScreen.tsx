@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useT } from "@asmusic/i18n";
+import { useLibraryBrowseCache } from "@ui/contexts/LibraryBrowseCacheContext";
 import {
   usePlayerActions,
   usePlayerShell,
@@ -20,15 +21,28 @@ export function PlayerFullScreen() {
   const state = usePlayerTransportState();
   const { fullPlayerOpen } = usePlayerShell();
   const { closeFullPlayer } = usePlayerActions();
+  const { slices } = useLibraryBrowseCache();
   const serverTranscodeEnabled = useServerTranscodeEnabled();
   const item = state.currentItem;
 
   const [trackInfoOpen, setTrackInfoOpen] = useState(false);
   const actions = usePlayerFullScreenTrackActions(item);
+
+  const playCount = useMemo(() => {
+    if (!item) return null;
+    const slice = slices.find(
+      (s) => s.serverId === item.serverId && s.libraryId === item.libraryId,
+    );
+    const song = slice?.songs.find((s) => String(s.id) === item.trackId);
+    if (!song) return null;
+    return song.playCount ?? 0;
+  }, [item, slices]);
+
   const metaRows = buildPlayerFullScreenTrackMeta(
     item,
     t,
     serverTranscodeEnabled,
+    { playCount },
   );
 
   useEffect(() => {

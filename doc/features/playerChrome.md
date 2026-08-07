@@ -210,4 +210,4 @@ Library nav: `usePlayerLibraryNavigation` resolves album/artist from cache (name
 | Toast / transcode | `PlayerPlaybackToast.tsx`, `PlayerServerTranscodePrompt.tsx` |
 | Sleep entry | `views/home/AppDrawer.tsx`, `player/sleepTimer/SleepTimerDialog.tsx` |
 | Plans | `.cursor/plans/player/2026-05-17T16-03-11-player_manager_and_ui.plan.md`, `…-sleep_timer_platformhost_baa20f33.plan.md`, `…-ios_now_playing_transport_949260f0.plan.md` |
-| Related docs | [`nowPlayingQueue.md`](./nowPlayingQueue.md), [`playlist.md`](./playlist.md) |
+| Related docs | [`nowPlayingQueue.md`](./nowPlayingQueue.md), [`playlist.md`](./playlist.md), [`favorites.md`](./favorites.md) |

@@ -24,6 +24,7 @@ import type {
   PlayerServerTranscodePromptEvent,
   PlayerToastEvent,
   PlayerViewState,
+  TrackCompletedEvent,
 } from "./types";
 import {
   PLAYBACK_QUEUE_STATE_KEY,
@@ -163,6 +164,7 @@ export class PlayerManager {
   private toastSeq = 0;
   private toastSnapshot: PlayerToastEvent | null = null;
   private toastListeners = new Set<() => void>();
+  private trackCompletedListeners = new Set<(e: TrackCompletedEvent) => void>();
   private serverTranscodePromptSeq = 0;
   private serverTranscodePromptSnapshot: PlayerServerTranscodePromptEvent | null =
     null;
@@ -212,6 +214,7 @@ export class PlayerManager {
     this.revokePlayback = null;
     this.listeners.clear();
     this.toastListeners.clear();
+    this.trackCompletedListeners.clear();
     this.serverTranscodePromptListeners.clear();
   }
 
@@ -316,6 +319,18 @@ export class PlayerManager {
     return () => {
       this.toastListeners.delete(listener);
     };
+  }
+
+  /** Natural end-of-track (including loop-one). Not fired on user skip or load failure. */
+  subscribeTrackCompleted(listener: (e: TrackCompletedEvent) => void): () => void {
+    this.trackCompletedListeners.add(listener);
+    return () => {
+      this.trackCompletedListeners.delete(listener);
+    };
+  }
+
+  private emitTrackCompleted(e: TrackCompletedEvent): void {
+    this.trackCompletedListeners.forEach((l) => l(e));
   }
 
   private emitToast(event: PlayerToastEvent): void {
@@ -641,6 +656,16 @@ export class PlayerManager {
       if (idx === null || this.queue.length === 0) {
         this.emit();
         return;
+      }
+
+      const completed = this.queue[idx];
+      if (completed) {
+        this.emitTrackCompleted({
+          serverId: completed.serverId,
+          libraryId: completed.libraryId,
+          trackId: completed.trackId,
+          playedAt: Date.now(),
+        });
       }
 
       if (this.loopOne) {

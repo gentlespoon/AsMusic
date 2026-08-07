@@ -310,6 +310,7 @@ export const jaJPMessages = {
   "player.meta.bitrate": "ビットレート",
   "player.meta.duration": "長さ",
   "player.meta.format": "形式",
+  "player.meta.playCount": "再生回数",
   "player.meta.title": "タイトル",
   "player.meta.trackId": "トラック ID",
   "player.offline.removeDownload": "ダウンロード済みのコピーを削除",

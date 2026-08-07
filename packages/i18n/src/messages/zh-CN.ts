@@ -298,6 +298,7 @@ export const zhCNMessages = {
   "player.meta.bitrate": "比特率",
   "player.meta.duration": "时长",
   "player.meta.format": "格式",
+  "player.meta.playCount": "播放次数",
   "player.meta.title": "标题",
   "player.meta.trackId": "曲目 ID",
   "player.offline.removeDownload": "移除已下载副本",

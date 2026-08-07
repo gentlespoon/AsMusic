@@ -123,7 +123,7 @@ Ephemeral (not in queue structure): `PlayerToastEvent` (auto-skip), `PlayerServe
 
 | Event | Behavior |
 |-------|----------|
-| Natural end (`handlePlaybackEnded`) | `loopOne` → seek 0 + play; else next; else wrap if `loopQueue`; else pause at end. |
+| Natural end (`handlePlaybackEnded`) | Emit `TrackCompletedEvent` (scrobble — see [`playCount.md`](./playCount.md)); then `loopOne` → seek 0 + play; else next; else wrap if `loopQueue`; else pause at end. |
 | Playback failure | Unplayable suffix + transcode off → **prompt**, no auto-skip. Else skip forward up to `getPlaybackFailureAutoSkipLimit()` (settings, default 5, range 5–20). Does **not** wrap via `loopQueue`. Toast per skip. |
 | Inactive library | `skipInactiveLibraryTracks`: skip rows whose `(serverId, libraryId)` ∉ `activeLibraryRefs`; toast; no wrap. Rows stay in the queue. |
 
@@ -238,4 +238,4 @@ The queue **list** is not exposed to the OS — only current-track transport and
 | Auto-skip limit | `packages/ui/src/preferences/playbackFailureAutoSkipLimitPreference.ts` |
 | iOS remotes | `ios/App/App/AsmusicNativePlugin.swift` |
 | Plans | `.cursor/plans/player/2026-05-17T16-03-11-now_playing_queue.plan.md`, `…-now_playing_queue_parity_05dd035d.plan.md`, `…-ios_now_playing_transport_949260f0.plan.md`, `…-player_manager_and_ui.plan.md` |
-| Related feature doc | [`playlist.md`](./playlist.md) |
+| Related feature doc | [`playlist.md`](./playlist.md), [`playCount.md`](./playCount.md), [`favorites.md`](./favorites.md) |

@@ -119,14 +119,14 @@ export type LibraryBrowserTab =
   | 'favorites'
   | 'playlists';
 
-export type RecommendationsSection = 'new' | 'played';
+export type RecommendationsSection = 'new' | 'played' | 'recent';
 
 export type LibraryBrowserView = {
   tab: LibraryBrowserTab;
   album: { id: string } | null;
   artist: { id: string; name: string; allSongs: boolean } | null;
   playlist: { id: string; name: string } | null;
-  /** Nested Recommendations list (`rec=new` | `rec=played`). */
+  /** Nested Recommendations list (`rec=new` | `rec=played` | `rec=recent`). */
   recommendations: { section: RecommendationsSection } | null;
 };
 
@@ -143,7 +143,7 @@ export const LIBRARY_URL_ARTIST_NAME = 'artistName';
 export const LIBRARY_URL_ARTIST_ALL_SONGS = 'artistSongs';
 export const LIBRARY_URL_PLAYLIST_ID = 'playlistId';
 export const LIBRARY_URL_PLAYLIST_NAME = 'playlistName';
-/** Recommendations nested list: `new` (newest) or `played` (most played). */
+/** Recommendations nested list: `new` | `played` (most played) | `recent` (recently played). */
 export const LIBRARY_URL_REC_SECTION = 'rec';
 
 export const defaultLibraryBrowserView: LibraryBrowserView = {
@@ -166,7 +166,7 @@ function isTab(v: string | null): v is LibraryBrowserTab {
 }
 
 function isRecommendationsSection(v: string | null): v is RecommendationsSection {
-  return v === 'new' || v === 'played';
+  return v === 'new' || v === 'played' || v === 'recent';
 }
 
 /** True when the URL already specifies tab or a library deep link (do not override from prefs). */

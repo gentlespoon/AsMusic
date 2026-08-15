@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "dev": "pnpm --filter asmusic-web dev",
-    "build": "pnpm --filter asmusic-web build",
+    "build": "scripts/build.sh",
     "lint": "pnpm --filter asmusic-web lint",
     "test": "vitest run",
     "test:watch": "vitest",

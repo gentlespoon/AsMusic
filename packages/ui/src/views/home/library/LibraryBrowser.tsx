@@ -12,7 +12,7 @@ import {
 } from '@asmusic/core';
 import { AlbumListView } from './catalog/AlbumListView';
 import { ArtistListView } from './catalog/ArtistListView';
-import { RecommendationsListView } from './catalog/RecommendationsListView';
+import { RecommendationsListView } from './catalog/recommendations/RecommendationsListView';
 import { SongListView } from './catalog/SongListView';
 import { AlbumSongListView } from './detail/AlbumSongListView';
 import { ArtistAlbumListView } from './detail/ArtistAlbumListView';

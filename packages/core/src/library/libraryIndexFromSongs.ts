@@ -28,6 +28,18 @@ export function songPlayCount(song: { playCount?: number | null } | null | undef
   return Math.max(0, Math.trunc(n));
 }
 
+/** Milliseconds since epoch for Subsonic / local `played` (Date or ISO string; missing → 0). */
+export function songPlayedMs(song: { played?: Date | string | null } | null | undefined): number {
+  const p = song?.played;
+  if (p == null || p === '') return 0;
+  if (p instanceof Date) {
+    const t = p.getTime();
+    return Number.isNaN(t) ? 0 : t;
+  }
+  const t = Date.parse(String(p));
+  return Number.isNaN(t) ? 0 : t;
+}
+
 /**
  * Derives album and artist lists from a flat song list, following the same rules as
  * `legacy-swiftui-ios/AsMusic/Stores/LibrarySongListSupport.swift` (`LibraryIndexFromSongs`).

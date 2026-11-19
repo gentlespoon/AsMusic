@@ -166,11 +166,14 @@ export const esESMessages = {
   "library.playlist.songCountWithLibrary": "{count} canciones · {libraryId}",
   "library.recommendations.empty":
     "Aún no hay canciones en la caché. Sincroniza tu biblioteca desde Ajustes → Servidores y bibliotecas.",
+  "library.recommendations.emptyRecentlyPlayed": "Aún no hay canciones reproducidas recientemente.",
   "library.recommendations.mostPlayed": "Más reproducidas",
   "library.recommendations.newSongs": "Canciones nuevas",
   "library.recommendations.noMatch": "Ninguna recomendación coincide con tu búsqueda.",
+  "library.recommendations.recentlyPlayed": "Reproducidas recientemente",
   "library.recommendations.search": "Buscar canciones nuevas",
   "library.recommendations.searchMostPlayed": "Buscar más reproducidas",
+  "library.recommendations.searchRecentlyPlayed": "Buscar reproducidas recientemente",
   "library.recommendations.viewMore": "Ver más",
   "library.songs.empty":
     "Aún no hay canciones en caché. Abre Ajustes → Servidores y bibliotecas → Bibliotecas, activa esta biblioteca y usa el control de actualización junto a ella para obtener el catálogo del servidor.",

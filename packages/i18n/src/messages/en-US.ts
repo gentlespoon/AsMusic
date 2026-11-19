@@ -164,11 +164,14 @@ export const enUSMessages = {
   "library.playlist.songCountWithLibrary": "{count} songs · {libraryId}",
   "library.recommendations.empty":
     "No tracks in the library cache yet. Sync your library from Settings → Servers & Libraries.",
+  "library.recommendations.emptyRecentlyPlayed": "No recently played tracks yet.",
   "library.recommendations.mostPlayed": "Most Played",
   "library.recommendations.newSongs": "New Songs",
   "library.recommendations.noMatch": "No recommendations match your search.",
+  "library.recommendations.recentlyPlayed": "Recently Played",
   "library.recommendations.search": "Search new songs",
   "library.recommendations.searchMostPlayed": "Search most played",
+  "library.recommendations.searchRecentlyPlayed": "Search recently played",
   "library.recommendations.viewMore": "View more",
   "library.songs.empty":
     "No songs in cache yet. Open Settings → Servers & Libraries → Libraries, activate this library, then use the refresh control beside it to pull from the server.",

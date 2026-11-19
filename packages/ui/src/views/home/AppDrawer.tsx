@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { PLAYER_DEBUG_LOG_PATH } from "@ui/views/settings/PlayerDebugLogView";
 import {
   Box,
   Divider,
@@ -14,7 +15,6 @@ import { useNavigate } from "react-router-dom";
 import { PageCloseButton } from "@ui/shared/PageCloseButton";
 import { useHost } from "@ui/host/HostContext";
 import { usePlayerDebugLogMenuEnabled } from "@ui/preferences/playerDebugLogPreference";
-import { copyPlayerDebugLogToClipboard } from "@ui/player/core/playerDebugLog";
 import {
   formatSleepTimerRemaining,
   SleepTimerDialog,
@@ -34,9 +34,6 @@ export function AppDrawer({ open, onClose }: AppDrawerProps) {
   const host = useHost();
   const navigate = useNavigate();
   const [sleepTimerOpen, setSleepTimerOpen] = useState(false);
-  const [debugCopyState, setDebugCopyState] = useState<"idle" | "copied" | "error">(
-    "idle",
-  );
   const sleepRemainingSeconds = useSleepTimerRemainingSeconds();
   const sleepTimerActive =
     sleepRemainingSeconds != null && sleepRemainingSeconds > 0;
@@ -141,22 +138,10 @@ export function AppDrawer({ open, onClose }: AppDrawerProps) {
           {showPlayerDebugLog ? (
             <>
               <Divider component="li" />
-              <ListItemButton
-                onClick={() => {
-                  void copyPlayerDebugLogToClipboard(host)
-                    .then(() => setDebugCopyState("copied"))
-                    .catch(() => setDebugCopyState("error"));
-                }}
-              >
+              <ListItemButton onClick={() => go(PLAYER_DEBUG_LOG_PATH)}>
                 <ListItemText
                   primary={t("nav.playerDebugLog")}
-                  secondary={
-                    debugCopyState === "copied"
-                      ? t("nav.playerDebugLog.copied")
-                      : debugCopyState === "error"
-                        ? t("nav.playerDebugLog.copyFailed")
-                        : t("nav.playerDebugLog.hint")
-                  }
+                  secondary={t("nav.playerDebugLog.hint")}
                 />
               </ListItemButton>
             </>

@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ArtistID3 } from 'subsonic-api';
 import { Box, ListItemButton, ListItemText, TextField, Typography } from '@mui/material';
 import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso';
-import type { LibraryCacheScope } from '@asmusic/core';
+import { compareLibraryText, type LibraryCacheScope } from '@asmusic/core';
 import { useLibraryScrollRestoration } from '@ui/shared/useLibraryScrollRestoration';
 import { useLibraryVirtuosoScroller } from '@ui/shared/useLibraryVirtuosoScroller';
 import { LibraryVirtuosoFill, libraryFlexFillSx } from '@ui/shared/LibraryVirtuosoFill';
@@ -41,13 +41,11 @@ function buildArtistListVirtuosoRows(filteredRows: ArtistCatalogRow[]): ArtistLi
     list.push(row);
     byLetter.set(letter, list);
   }
-  const sections = [...byLetter.entries()].sort(([a], [b]) =>
-    a.localeCompare(b, undefined, { sensitivity: 'base' })
-  );
+  const sections = [...byLetter.entries()].sort(([a], [b]) => compareLibraryText(a, b));
   const out: ArtistListVirtuosoRow[] = [];
   for (const [letter, list] of sections) {
     const sorted = [...list].sort((a, b) =>
-      (a.artist.name ?? '').localeCompare(b.artist.name ?? '', undefined, { sensitivity: 'base' })
+      compareLibraryText(a.artist.name ?? '', b.artist.name ?? ''),
     );
     out.push({ type: 'header', letter, key: `lb-artists-h:${letter}` });
     for (const row of sorted) {

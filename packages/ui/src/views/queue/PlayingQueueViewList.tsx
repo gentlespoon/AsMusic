@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import { useT } from "@asmusic/i18n";
@@ -6,6 +7,7 @@ import {
   LibraryVirtuosoFill,
   libraryFlexFillSx,
 } from "@ui/shared/LibraryVirtuosoFill";
+import { useLibraryVirtuosoScroller } from "@ui/shared/useLibraryVirtuosoScroller";
 import { VirtuosoMuiList } from "@ui/shared/virtuosoMuiList";
 import type { PlayerViewState } from "@ui/player/core/types";
 import { PlayingQueueViewRow } from "./PlayingQueueViewRow";
@@ -28,6 +30,8 @@ export function PlayingQueueViewList({
   onOpenRowMenu,
 }: PlayingQueueViewListProps) {
   const t = useT();
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const virtuosoComponents = useLibraryVirtuosoScroller(scrollRef);
 
   return (
     <Box
@@ -54,7 +58,7 @@ export function PlayingQueueViewList({
             totalCount={state.queue.length}
             initialTopMostItemIndex={scroll.currentScrollIndex ?? 0}
             rangeChanged={scroll.handleRangeChanged}
-            components={{ List: VirtuosoMuiList }}
+            components={{ ...virtuosoComponents, List: VirtuosoMuiList }}
             computeItemKey={(index) => state.queue[index]?.rowId ?? index}
             increaseViewportBy={{ top: 120, bottom: 200 }}
             itemContent={(index) => {

@@ -37,6 +37,11 @@ export type PlaybackHost = {
       artworkPlaceholderDataBase64?: string | null;
       /** iOS native: load from this path instead of parsing `url` (offline downloads). */
       localFilePath?: string;
+      /**
+       * iOS native: MIME type for URLs whose path extension is not an audio type
+       * (`stream.view`). AVPlayer otherwise fails with "Operation Stopped".
+       */
+      contentType?: string | null;
     }
   ): Promise<void>;
   /** Native-only: update lock-screen artwork without reloading the current track. */

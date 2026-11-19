@@ -6,6 +6,7 @@ import type { PlayerQueueItem, PlayerViewState } from "@ui/player/core/types";
 import { PlayerFullScreenPlaybackControls } from "./PlayerFullScreenPlaybackControls";
 import { PlayerFullScreenProgressBar } from "./PlayerFullScreenProgressBar";
 import { PlayerFullScreenTrackDisplay } from "./PlayerFullScreenTrackDisplay";
+import { playbackFailureText } from "../playbackFailureText";
 
 export type PlayerFullScreenBodyProps = {
   item: PlayerQueueItem | null;
@@ -53,7 +54,7 @@ export function PlayerFullScreenBody({
               color="error"
               sx={{ mt: 2, textAlign: "center" }}
             >
-              {state.loadError}
+              {playbackFailureText(state.loadError, t)}
             </Typography>
           ) : null}
 

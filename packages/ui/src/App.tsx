@@ -18,6 +18,7 @@ import { ServersAndLibrariesView } from "./views/servers/ServersAndLibrariesView
 import { SettingsView } from "./views/settings/SettingsView";
 import { AppearanceView } from "./views/settings/AppearanceView";
 import { DeveloperView } from "./views/settings/DeveloperView";
+import { PlayerDebugLogView } from "./views/settings/PlayerDebugLogView";
 import { PlaybackView } from "./views/settings/PlaybackView";
 import { useEffect } from "react";
 
@@ -54,6 +55,10 @@ export function App() {
                     <Route
                       path="/settings/developer"
                       element={<DeveloperView />}
+                    />
+                    <Route
+                      path="/settings/player-debug-log"
+                      element={<PlayerDebugLogView />}
                     />
                     <Route
                       path="/settings/downloads"

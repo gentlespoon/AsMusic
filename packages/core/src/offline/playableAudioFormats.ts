@@ -9,10 +9,19 @@ const IOS_PLAYABLE_SUFFIXES = new Set([
   'wav',
   'flac',
   'alac',
+  'aiff',
+  'aif',
+  'caf',
 ]);
 
 const WEB_PLAYABLE_SUFFIXES = new Set([
-  ...IOS_PLAYABLE_SUFFIXES,
+  'mp3',
+  'm4a',
+  'aac',
+  'mp4',
+  'wav',
+  'flac',
+  'alac',
   'ogg',
   'opus',
 ]);
@@ -38,6 +47,44 @@ const WEB_UNPLAYABLE_MIME_PREFIXES = [
 
 function suffixSetFor(platform: AudioPlaybackPlatform): Set<string> {
   return platform === 'ios' ? IOS_PLAYABLE_SUFFIXES : WEB_PLAYABLE_SUFFIXES;
+}
+
+/**
+ * MIME type AVPlayer should assume for this track.
+ * Server transcoding always requests MP3. Otherwise the catalog suffix is used.
+ * Unknown suffixes return undefined so the player can fall back to the response type.
+ */
+export function playbackContentTypeForTrack(
+  suffix: string | undefined,
+  serverTranscodeEnabled: boolean,
+): string | undefined {
+  if (serverTranscodeEnabled) return 'audio/mpeg';
+  switch (suffix?.trim().toLowerCase()) {
+    case 'mp3':
+      return 'audio/mpeg';
+    case 'flac':
+      return 'audio/flac';
+    case 'm4a':
+    case 'mp4':
+    case 'alac':
+      return 'audio/mp4';
+    case 'aac':
+      return 'audio/aac';
+    case 'wav':
+    case 'wave':
+      return 'audio/wav';
+    case 'aiff':
+    case 'aif':
+      return 'audio/aiff';
+    case 'caf':
+      return 'audio/x-caf';
+    case 'ogg':
+    case 'oga':
+    case 'opus':
+      return 'audio/ogg';
+    default:
+      return undefined;
+  }
 }
 
 /**

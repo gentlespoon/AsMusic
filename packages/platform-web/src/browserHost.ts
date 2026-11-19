@@ -89,7 +89,16 @@ function buildPlayback(): PlaybackHost {
   })();
 
   return {
-    async loadUrl(url: string, _meta?: { title?: string; artist?: string; album?: string; artworkUrl?: string | null }) {
+    async loadUrl(
+      url: string,
+      _meta?: {
+        title?: string;
+        artist?: string;
+        album?: string;
+        artworkUrl?: string | null;
+        contentType?: string | null;
+      },
+    ) {
       attachOnce();
       const a = audio();
       a.src = url;

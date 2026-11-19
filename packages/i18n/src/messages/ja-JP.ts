@@ -186,10 +186,13 @@ export const jaJPMessages = {
   "nav.aboutHint": "アプリ情報",
   "nav.playbackQueue": "再生キュー",
   "nav.playbackQueueHint": "並べ替え、ループ、クリア",
-  "nav.playerDebugLog": "プレイヤーデバッグログをコピー",
-  "nav.playerDebugLog.copied": "クリップボードにコピーしました",
-  "nav.playerDebugLog.copyFailed": "コピーに失敗しました",
-  "nav.playerDebugLog.hint": "ネイティブと JavaScript のプレイヤーログ",
+  "nav.playerDebugLog": "プレイヤーデバッグログ",
+  "nav.playerDebugLog.hint": "ネイティブと JavaScript のプレイヤーログを表示",
+  "playerDebugLog.title": "プレイヤーデバッグログ",
+  "playerDebugLog.copy": "クリップボードにコピー",
+  "playerDebugLog.copied": "クリップボードにコピーしました",
+  "playerDebugLog.copyFailed": "コピーに失敗しました",
+  "playerDebugLog.loading": "読み込み中…",
   "nav.settings": "設定",
   "nav.settingsHint": "サーバー、ライブラリなど",
   "nav.sleepTimer": "スリープタイマー",
@@ -323,6 +326,9 @@ export const jaJPMessages = {
   "player.offline.removeDownload": "ダウンロード済みのコピーを削除",
   "player.playback.skippedOnFailure":
     "「{title}」を再生できませんでした：{error}。次の曲にスキップします。",
+  "player.playback.missingOnServer":
+    "サーバー上にこの曲が見つかりません（{detail}）。ライブラリを更新して曲一覧を揃えてください。",
+  "player.playback.serverError": "サーバーがこの曲を送信できませんでした：{detail}。",
   "player.playback.skippedLibraryDisabledTitle":
     "スキップしました — 設定でライブラリを有効にすると再生できます",
   "player.playback.thisTrack": "この曲",
@@ -446,7 +452,7 @@ export const jaJPMessages = {
   "settings.ux.section.playback": "再生",
   "settings.ux.playerDebugLog": "プレイヤーデバッグログを表示",
   "settings.ux.playerDebugLog.caption":
-    "トラブルシューティング用に、ネイティブと JavaScript のプレイヤーログをコピーするメニュー項目を追加します。",
+    "ネイティブと JavaScript のプレイヤーログを表示・コピーするメニュー項目を追加します。",
   "settings.ux.waveform.caption":
     "全画面プレイヤーはローカルファイルで波形スクラバーを表示します。ストリーミングでは常に通常のスライダーを使用します。",
   "settings.ux.playbackFailureAutoSkipLimit": "再生失敗時の自動スキップ上限",

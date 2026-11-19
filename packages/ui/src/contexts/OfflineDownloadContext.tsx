@@ -10,15 +10,37 @@ import {
 } from 'react';
 import {
   libraryCacheScope,
+  offlineLookupScopes,
+  offlineMediaKeyFromId,
+  OFFLINE_MEDIA_STREAM_VARIANT,
   OfflineBulkJobQueue,
   PERSIST_WHILE_STREAMING_KEY,
   readPersistWhileStreamingEnabled,
+  STREAM_FORMAT,
+  subscribeOfflineMediaDiscarded,
   type OfflineBulkJobQueueSnapshot,
   type OfflineBulkJobTrack,
 } from '@asmusic/core';
 import { useHost } from '@ui/host/HostContext';
+import { appendPlayerDebugLog } from '@ui/player/core/playerDebugLog';
 import { offlineMediaVariantForCurrentStream } from '@ui/preferences/serverTranscodePreference';
 import { useServerAndLibrary } from './ServerAndLibraryContext';
+
+/** Stream URL whose `format` matches the offline variant that was discarded. */
+function streamUrlForOfflineVariant(streamUrl: string, variant: string | undefined): string {
+  try {
+    const url = new URL(streamUrl);
+    const stored = variant ?? '';
+    if (stored === OFFLINE_MEDIA_STREAM_VARIANT) {
+      url.searchParams.set('format', STREAM_FORMAT);
+    } else if (stored.length === 0) {
+      url.searchParams.delete('format');
+    }
+    return url.toString();
+  } catch {
+    return streamUrl;
+  }
+}
 
 type OfflineDownloadContextValue = {
   queueSnapshot: OfflineBulkJobQueueSnapshot;
@@ -55,6 +77,10 @@ const OfflineDownloadContext = createContext<OfflineDownloadContextValue | null>
 export function OfflineDownloadProvider({ children }: { children: ReactNode }) {
   const host = useHost();
   const { servers, getStreamUrl } = useServerAndLibrary();
+  const serversRef = useRef(servers);
+  const getStreamUrlRef = useRef(getStreamUrl);
+  serversRef.current = servers;
+  getStreamUrlRef.current = getStreamUrl;
   const queueRef = useRef<OfflineBulkJobQueue | null>(null);
   if (!queueRef.current) {
     queueRef.current = new OfflineBulkJobQueue(host.offlineMedia);
@@ -81,6 +107,54 @@ export function OfflineDownloadProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
+  }, [host]);
+
+  useEffect(() => {
+    const inflight = new Set<string>();
+    return subscribeOfflineMediaDiscarded((cacheKey) => {
+      if (inflight.has(cacheKey)) return;
+      const key = offlineMediaKeyFromId(cacheKey);
+      if (!key) return;
+      const server = serversRef.current.find((candidate) =>
+        offlineLookupScopes(candidate.serverUrl, candidate.username, key.scope.libraryId).some(
+          (scope) => scope.serverKey === key.scope.serverKey,
+        ),
+      );
+      const streamUrl = server ? getStreamUrlRef.current(server.id, key.trackId) : null;
+      if (!server || !streamUrl) {
+        void appendPlayerDebugLog(host, 'OfflineDownload', 'discarded unplayable copy, retry skipped', {
+          trackId: key.trackId,
+          variant: key.variant ?? '',
+          reason: server ? 'no-stream-url' : 'no-server',
+        });
+        return;
+      }
+      const url = streamUrlForOfflineVariant(streamUrl, key.variant);
+      inflight.add(cacheKey);
+      void appendPlayerDebugLog(host, 'OfflineDownload', 'redownload discarded copy', {
+        trackId: key.trackId,
+        variant: key.variant ?? '',
+      });
+      void host.offlineMedia
+        .importFromAuthenticatedUrl(key, url)
+        .then(() => {
+          void appendPlayerDebugLog(host, 'OfflineDownload', 'redownload finished', {
+            trackId: key.trackId,
+            variant: key.variant ?? '',
+          });
+        })
+        .catch((error: unknown) => {
+          // A rejected body is not stored, so this does not emit another discard.
+          void appendPlayerDebugLog(host, 'OfflineDownload', 'redownload failed', {
+            trackId: key.trackId,
+            variant: key.variant ?? '',
+            error: error instanceof Error ? error.message : String(error),
+          });
+        })
+        .finally(() => {
+          inflight.delete(cacheKey);
+        });
+    });
   }, [host]);
 
   const setPersistWhileStreaming = useCallback(

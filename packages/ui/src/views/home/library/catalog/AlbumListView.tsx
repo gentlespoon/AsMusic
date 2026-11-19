@@ -1,5 +1,5 @@
 import { useT } from '@asmusic/i18n';
-import { forwardRef, useEffect, useMemo, useRef, useState } from 'react';
+import { forwardRef, useMemo, useRef, useState } from 'react';
 import type { AlbumID3 } from 'subsonic-api';
 import {
   Box,
@@ -17,14 +17,14 @@ import {
 } from '@mui/material';
 import ViewList from '@mui/icons-material/ViewList';
 import ViewModule from '@mui/icons-material/ViewModule';
-import { Virtuoso, VirtuosoGrid, type VirtuosoGridHandle, type VirtuosoHandle } from 'react-virtuoso';
+import { Virtuoso, VirtuosoGrid } from 'react-virtuoso';
 import type { GridItemProps, GridListProps } from 'react-virtuoso';
 import type { LibraryArtworkCacheRow, LibraryCacheScope, SubsonicAPI } from '@asmusic/core';
 import { CoverArtThumb } from '@ui/shared/CoverArtThumb';
 import type { PersistCachedArtwork } from '@ui/shared/libraryArtworkCacheAccess';
 import { LibraryVirtuosoFill, libraryFlexFillSx } from '@ui/shared/LibraryVirtuosoFill';
-import { useLibraryScrollRestoration } from '@ui/shared/useLibraryScrollRestoration';
 import { useLibraryVirtuosoScroller } from '@ui/shared/useLibraryVirtuosoScroller';
+import { useBoundedListData } from '@ui/shared/useBoundedListData';
 import { VirtuosoMuiList } from '@ui/shared/virtuosoMuiList';
 import { setAlbumDisplayMode, useAlbumDisplayMode, type AlbumDisplayMode } from '@ui/preferences/albumDisplayMode';
 
@@ -110,29 +110,21 @@ export function AlbumListView({
   const resolvedEmptyListMessage = emptyListMessage ?? t('library.songs.empty');
   const resolvedNoSearchMatchMessage = noSearchMatchMessage ?? t('library.album.noAlbumsMatch');
 
-  const filteredRows = useMemo(
-    () => rows.filter((r) => albumMatchesQuery(r.album, search)),
-    [rows, search]
-  );
+  const filteredRows = useMemo(() => {
+    if (!search.trim()) return rows;
+    return rows.filter((r) => albumMatchesQuery(r.album, search));
+  }, [rows, search]);
 
   const virtualRows = filteredRows;
 
   const queryTrimmed = search.trim();
 
-  const scrollRef = useLibraryScrollRestoration(scrollRestorationKey);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const virtuosoScroller = useLibraryVirtuosoScroller(scrollRef);
-  const listVirtuosoRef = useRef<VirtuosoHandle>(null);
-  const gridVirtuosoRef = useRef<VirtuosoGridHandle>(null);
-
-  useEffect(() => {
-    listVirtuosoRef.current?.scrollToIndex({ index: 0, align: 'start' });
-    gridVirtuosoRef.current?.scrollToIndex({ index: 0, align: 'start' });
-  }, [search]);
-
-  useEffect(() => {
-    listVirtuosoRef.current?.scrollToIndex({ index: 0, align: 'start' });
-    gridVirtuosoRef.current?.scrollToIndex({ index: 0, align: 'start' });
-  }, [displayMode]);
+  const bounded = useBoundedListData(virtualRows, {
+    memoryKey: scrollRestorationKey,
+    resetKey: `${search}:${displayMode}`,
+  });
 
   const gridComponents = useMemo(
     () => ({
@@ -203,9 +195,12 @@ export function AlbumListView({
         {initialReady && virtualRows.length > 0 && displayMode === 'grid' && (
           <LibraryVirtuosoFill>
             <VirtuosoGrid
-            ref={gridVirtuosoRef}
+            key={bounded.virtuosoKey}
+            ref={bounded.virtuosoRef}
             style={{ height: '100%', width: '100%', minHeight: 0 }}
-            data={virtualRows}
+            data={bounded.data}
+            initialTopMostItemIndex={bounded.initialTopMostItemIndex}
+            rangeChanged={bounded.rangeChanged}
             components={gridComponents}
             computeItemKey={(_, row) => rowKey(row)}
             itemContent={(_, row) => {
@@ -267,9 +262,12 @@ export function AlbumListView({
         {initialReady && virtualRows.length > 0 && displayMode === 'list' && (
           <LibraryVirtuosoFill>
             <Virtuoso
-            ref={listVirtuosoRef}
+            key={bounded.virtuosoKey}
+            ref={bounded.virtuosoRef}
             style={{ height: '100%', width: '100%', minHeight: 0 }}
-            data={virtualRows}
+            data={bounded.data}
+            initialTopMostItemIndex={bounded.initialTopMostItemIndex}
+            rangeChanged={bounded.rangeChanged}
             components={{ ...virtuosoScroller, List: VirtuosoMuiList }}
             computeItemKey={(_, row) => rowKey(row)}
             itemContent={(_, row) => {

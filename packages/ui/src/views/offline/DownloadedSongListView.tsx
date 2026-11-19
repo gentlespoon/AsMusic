@@ -6,6 +6,7 @@ import Shuffle from '@mui/icons-material/Shuffle';
 import { Box, IconButton, Stack, TextField, Tooltip, Typography } from '@mui/material';
 import { Virtuoso } from 'react-virtuoso';
 import { LibraryVirtuosoFill, libraryFlexFillSx } from '@ui/shared/LibraryVirtuosoFill';
+import { useBoundedListData } from '@ui/shared/useBoundedListData';
 import { VirtuosoMuiList } from '@ui/shared/virtuosoMuiList';
 import {
   formatDuration,
@@ -84,11 +85,12 @@ export function DownloadedSongListView({ reloadNonce = 0 }: DownloadedSongListVi
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
 
-  const filteredRows = useMemo(
-    () => rows.filter((r) => songMatchesQuery(r.track, search)),
-    [rows, search]
-  );
+  const filteredRows = useMemo(() => {
+    if (!search.trim()) return rows;
+    return rows.filter((r) => songMatchesQuery(r.track, search));
+  }, [rows, search]);
   const queryTrimmed = search.trim();
+  const bounded = useBoundedListData(filteredRows, { resetKey: search });
 
   const serverLabelForKey = useCallback(
     (scope: LibraryCacheScope) => {
@@ -319,8 +321,12 @@ export function DownloadedSongListView({ reloadNonce = 0 }: DownloadedSongListVi
         {!loading && !error && filteredRows.length > 0 && (
           <LibraryVirtuosoFill>
             <Virtuoso
+              key={bounded.virtuosoKey}
+              ref={bounded.virtuosoRef}
               style={{ height: '100%', width: '100%', minHeight: 0 }}
-              data={filteredRows}
+              data={bounded.data}
+              initialTopMostItemIndex={bounded.initialTopMostItemIndex}
+              rangeChanged={bounded.rangeChanged}
               components={{ List: VirtuosoMuiList }}
               computeItemKey={(_, r) =>
                 `${r.key.scope.serverKey}|${r.key.scope.libraryId}|${r.key.trackId}|${r.key.variant ?? ''}`

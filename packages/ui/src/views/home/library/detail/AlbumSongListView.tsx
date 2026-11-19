@@ -17,9 +17,10 @@ import {
   libraryDetailHeaderStackSx,
 } from '@ui/views/home/library/shared/libraryTypography';
 import { PageCloseButton } from "@ui/shared/PageCloseButton";
-import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
+import { Virtuoso } from "react-virtuoso";
 import {
   resolveCoverArtIdsForCachedSong,
+  indexAlbumsById,
   isChildStarred,
   type LibraryArtworkCacheRow,
   type SubsonicAPI,
@@ -29,8 +30,8 @@ import { SongItem } from "@ui/shared/songItem";
 import type { PersistCachedArtwork } from "@ui/shared/libraryArtworkCacheAccess";
 import { songMatchesQuery } from "@ui/shared/songSearch";
 import { LibraryVirtuosoFill, libraryFlexFillSx } from "@ui/shared/LibraryVirtuosoFill";
-import { useLibraryScrollRestoration } from "@ui/shared/useLibraryScrollRestoration";
 import { useLibraryVirtuosoScroller } from "@ui/shared/useLibraryVirtuosoScroller";
+import { useBoundedListData } from "@ui/shared/useBoundedListData";
 import { VirtuosoMuiList } from "@ui/shared/virtuosoMuiList";
 import { useEdgeSwipeBack } from "@ui/shared/useEdgeSwipeBack";
 import { songHasViewableArtist } from "../browser/useSongLibraryNavigation";
@@ -100,22 +101,21 @@ export function AlbumSongListView({
     setSearch("");
   }, [albumId]);
 
-  const filteredTracks = useMemo(
-    () => tracks.filter((t) => songMatchesQuery(t, search)),
-    [tracks, search],
-  );
+  const filteredTracks = useMemo(() => {
+    if (!search.trim()) return tracks;
+    return tracks.filter((t) => songMatchesQuery(t, search));
+  }, [tracks, search]);
+
+  const albumsById = useMemo(() => indexAlbumsById(albums), [albums]);
 
   const queryTrimmed = search.trim();
 
-  const scrollRef = useLibraryScrollRestoration(
-    `lb:albumTracks:${scrollRestorationKey}`,
-  );
+  const scrollRef = useRef<HTMLDivElement>(null);
   const virtuosoComponents = useLibraryVirtuosoScroller(scrollRef);
-  const virtuosoRef = useRef<VirtuosoHandle>(null);
-
-  useEffect(() => {
-    virtuosoRef.current?.scrollToIndex({ index: 0, align: "start" });
-  }, [search]);
+  const bounded = useBoundedListData(filteredTracks, {
+    memoryKey: `lb:albumTracks:${scrollRestorationKey}`,
+    resetKey: search,
+  });
 
   const onDownloadAlbumOffline = useCallback(() => {
     enqueueAlbumDownload({
@@ -233,14 +233,17 @@ export function AlbumSongListView({
         {initialReady && filteredTracks.length > 0 && (
           <LibraryVirtuosoFill>
             <Virtuoso
-              ref={virtuosoRef}
+              key={bounded.virtuosoKey}
+              ref={bounded.virtuosoRef}
               style={{ height: "100%", width: "100%", minHeight: 0 }}
-              data={filteredTracks}
+              data={bounded.data}
+              initialTopMostItemIndex={bounded.initialTopMostItemIndex}
+              rangeChanged={bounded.rangeChanged}
               components={{ ...virtuosoComponents, List: VirtuosoMuiList }}
               computeItemKey={(_, track) => String(track.id)}
               itemContent={(_, track) => {
                 const { primary: coverId, fallback: fallbackCoverId } =
-                  resolveCoverArtIdsForCachedSong(track, albums);
+                  resolveCoverArtIdsForCachedSong(track, albumsById);
                 return (
                   <SongItem
                     track={track}

@@ -1,8 +1,8 @@
-import { useEffect, useRef } from 'react';
-import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso';
+import { useRef } from 'react';
+import { Virtuoso } from 'react-virtuoso';
 import type { PlaylistCatalogRow } from '@ui/contexts/LibraryBrowseCacheContext';
-import { useLibraryScrollRestoration } from '@ui/shared/useLibraryScrollRestoration';
 import { useLibraryVirtuosoScroller } from '@ui/shared/useLibraryVirtuosoScroller';
+import { useBoundedListData } from '@ui/shared/useBoundedListData';
 import { LibraryVirtuosoFill } from '@ui/shared/LibraryVirtuosoFill';
 import { VirtuosoMuiList } from '@ui/shared/virtuosoMuiList';
 import { PlaylistListViewRow } from './PlaylistListViewRow';
@@ -20,20 +20,22 @@ export function PlaylistListViewList({
   onPlaylistOpen: (row: PlaylistCatalogRow) => void;
   onDeleteClick: (row: PlaylistCatalogRow) => void;
 }) {
-  const scrollRef = useLibraryScrollRestoration('lb:playlists');
+  const scrollRef = useRef<HTMLDivElement>(null);
   const virtuosoComponents = useLibraryVirtuosoScroller(scrollRef);
-  const virtuosoRef = useRef<VirtuosoHandle>(null);
-
-  useEffect(() => {
-    virtuosoRef.current?.scrollToIndex({ index: 0, align: 'start' });
-  }, [search]);
+  const bounded = useBoundedListData(rows, {
+    memoryKey: 'lb:playlists',
+    resetKey: search,
+  });
 
   return (
     <LibraryVirtuosoFill>
       <Virtuoso
-        ref={virtuosoRef}
+        key={bounded.virtuosoKey}
+        ref={bounded.virtuosoRef}
         style={{ height: '100%', width: '100%', minHeight: 0 }}
-        data={rows}
+        data={bounded.data}
+        initialTopMostItemIndex={bounded.initialTopMostItemIndex}
+        rangeChanged={bounded.rangeChanged}
         components={{ ...virtuosoComponents, List: VirtuosoMuiList }}
         computeItemKey={(_index, row) =>
           (row as PlaylistCatalogRow | undefined)?.rowKey ?? `lb-playlists-vrow:${_index}`

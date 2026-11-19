@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useT } from "@asmusic/i18n";
 import { Navigate, useNavigate } from "react-router-dom";
-import { Box, Button, TextField } from "@mui/material";
+import { Box, Button } from "@mui/material";
 import { useHost } from "@ui/host/HostContext";
 import { useEdgeSwipeBack } from "@ui/shared/useEdgeSwipeBack";
 import {
@@ -53,6 +53,8 @@ export function PlayerDebugLogView() {
         ? t("playerDebugLog.copyFailed")
         : t("playerDebugLog.copy");
 
+  const displayText = loading ? t("playerDebugLog.loading") : logText;
+
   return (
     <SettingsPageLayout
       title={t("playerDebugLog.title")}
@@ -69,6 +71,7 @@ export function PlayerDebugLogView() {
         display: "flex",
         flexDirection: "column",
         py: 2,
+        width: "100%",
       }}
     >
       <Box
@@ -78,35 +81,46 @@ export function PlayerDebugLogView() {
           flex: 1,
           minHeight: 0,
           gap: 2,
+          width: "100%",
         }}
       >
-        <TextField
-          multiline
-          fullWidth
-          variant="outlined"
-          value={loading ? t("playerDebugLog.loading") : logText}
-          slotProps={{
-            input: {
-              readOnly: true,
-            },
-          }}
+        <Box
           sx={{
             flex: 1,
             minHeight: 0,
-            "& .MuiInputBase-root": {
+            overflow: "hidden",
+            display: "flex",
+          }}
+        >
+          <Box
+            component="textarea"
+            readOnly
+            aria-label={t("playerDebugLog.title")}
+            value={displayText}
+            sx={(theme) => ({
+              flex: 1,
+              minHeight: 0,
+              width: "100%",
               height: "100%",
-              alignItems: "flex-start",
+              display: "block",
+              border: `1px solid ${theme.palette.divider}`,
+              borderRadius: 1,
+              resize: "none",
+              p: 1.5,
+              m: 0,
               fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
               fontSize: 11,
               lineHeight: 1.45,
-            },
-            "& .MuiInputBase-inputMultiline": {
-              height: "100% !important",
-              overflow: "auto !important",
+              bgcolor: "background.paper",
+              color: "text.primary",
+              overflowY: "auto",
+              overflowX: "hidden",
               WebkitOverflowScrolling: "touch",
-            },
-          }}
-        />
+              touchAction: "pan-y",
+              boxSizing: "border-box",
+            })}
+          />
+        </Box>
         <Button
           variant="contained"
           fullWidth

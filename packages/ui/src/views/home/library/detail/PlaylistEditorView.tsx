@@ -23,7 +23,10 @@ import {
 import { useT } from '@asmusic/i18n';
 import { PageCloseButton } from '@ui/shared/PageCloseButton';
 import { songMatchesQuery } from '@ui/shared/songSearch';
-import { libraryFlexFillSx } from '@ui/shared/LibraryVirtuosoFill';
+import { libraryFlexFillSx, LibraryVirtuosoFill } from '@ui/shared/LibraryVirtuosoFill';
+import { useBoundedListData } from '@ui/shared/useBoundedListData';
+import { VirtuosoMuiList } from '@ui/shared/virtuosoMuiList';
+import { Virtuoso } from 'react-virtuoso';
 
 export function PlaylistEditorView({
   playlistId,
@@ -95,10 +98,11 @@ export function PlaylistEditorView({
     };
   }, [api, storage, serverKey, playlistId, playlistName, cachedSongs, t]);
 
-  const filteredSongs = useMemo(
-    () => songs.filter((s) => songMatchesQuery(s, search)),
-    [songs, search]
-  );
+  const filteredSongs = useMemo(() => {
+    if (!search.trim()) return songs;
+    return songs.filter((s) => songMatchesQuery(s, search));
+  }, [songs, search]);
+  const bounded = useBoundedListData(filteredSongs, { resetKey: search });
 
   const hasChanges = useMemo(() => {
     if (selectedIds.size !== originalIds.size) return true;
@@ -191,44 +195,58 @@ export function PlaylistEditorView({
         disabled={loading}
       />
 
-      <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-        {!loading && songs.length === 0 && (
-          <Typography variant="body2" color="text.secondary">
-            {t('library.playlist.editor.emptyCache')}
-          </Typography>
-        )}
-        {filteredSongs.map((song) => {
-          const id = String(song.id);
-          const checked = selectedIds.has(id);
-          return (
-            <ListItem key={id} disablePadding divider>
-              <ListItemButton
-                onClick={() => !readOnly && toggleSelection(id)}
-                disabled={readOnly}
-                sx={{ py: 0.75 }}
-              >
-                <ListItemIcon sx={{ minWidth: 40 }}>
-                  <Checkbox
-                    edge="start"
-                    checked={checked}
-                    tabIndex={-1}
-                    disableRipple
+      {!loading && songs.length === 0 && (
+        <Typography variant="body2" color="text.secondary">
+          {t('library.playlist.editor.emptyCache')}
+        </Typography>
+      )}
+      {filteredSongs.length > 0 ? (
+        <LibraryVirtuosoFill>
+          <Virtuoso
+            key={bounded.virtuosoKey}
+            ref={bounded.virtuosoRef}
+            style={{ height: '100%', width: '100%', minHeight: 0 }}
+            data={bounded.data}
+            initialTopMostItemIndex={bounded.initialTopMostItemIndex}
+            rangeChanged={bounded.rangeChanged}
+            components={{ List: VirtuosoMuiList }}
+            computeItemKey={(_, song) => String(song.id)}
+            itemContent={(_, song) => {
+              const id = String(song.id);
+              const checked = selectedIds.has(id);
+              return (
+                <ListItem disablePadding divider>
+                  <ListItemButton
+                    onClick={() => !readOnly && toggleSelection(id)}
                     disabled={readOnly}
-                  />
-                </ListItemIcon>
-                <ListItemText
-                  primary={song.title ?? id}
-                  secondary={[song.artist, song.album].filter(Boolean).join(' · ') || undefined}
-                  slotProps={{
-                    primary: { variant: 'body2', noWrap: true },
-                    secondary: { variant: 'caption', noWrap: true },
-                  }}
-                />
-              </ListItemButton>
-            </ListItem>
-          );
-        })}
-      </Box>
+                    sx={{ py: 0.75 }}
+                  >
+                    <ListItemIcon sx={{ minWidth: 40 }}>
+                      <Checkbox
+                        edge="start"
+                        checked={checked}
+                        tabIndex={-1}
+                        disableRipple
+                        disabled={readOnly}
+                      />
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={song.title ?? id}
+                      secondary={[song.artist, song.album].filter(Boolean).join(' · ') || undefined}
+                      slotProps={{
+                        primary: { variant: 'body2', noWrap: true },
+                        secondary: { variant: 'caption', noWrap: true },
+                      }}
+                    />
+                  </ListItemButton>
+                </ListItem>
+              );
+            }}
+          />
+        </LibraryVirtuosoFill>
+      ) : (
+        <Box sx={{ flex: 1, minHeight: 0 }} />
+      )}
     </Box>
   );
 }

@@ -11,7 +11,6 @@ import { PlayingQueueViewRowMenu } from "./PlayingQueueViewRowMenu";
 import type { PlayingQueueViewRowMenuAnchor } from "./PlayingQueueViewRowMenu";
 import { PlayingQueueViewShell } from "./PlayingQueueViewShell";
 import { PLAYING_QUEUE_PATH } from "./playingQueuePath";
-import { usePlayingQueueScroll } from "./usePlayingQueueScroll";
 
 export { PLAYING_QUEUE_PATH };
 
@@ -46,7 +45,6 @@ export function PlayingQueueView({
     toggleLoopOne,
   } = usePlayerActions();
 
-  const scroll = usePlayingQueueScroll(state);
   const [clearOpen, setClearOpen] = useState(false);
   const [menuAnchor, setMenuAnchor] =
     useState<PlayingQueueViewRowMenuAnchor | null>(null);
@@ -76,7 +74,6 @@ export function PlayingQueueView({
       )}
       <PlayingQueueViewList
         state={state}
-        scroll={scroll}
         onPlayIndex={(index) => void playQueueIndex(index)}
         onOpenRowMenu={(el, index) => setMenuAnchor({ el, index })}
       />

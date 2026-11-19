@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
+import { useMemo, useRef, useState } from "react";
+import { Virtuoso } from "react-virtuoso";
 import PlaylistAdd from "@mui/icons-material/PlaylistAdd";
 import Shuffle from "@mui/icons-material/Shuffle";
 import { useT } from "@asmusic/i18n";
 import { Box, IconButton, Stack, TextField, Tooltip, Typography } from "@mui/material";
 import {
   resolveCoverArtIdsForCachedSong,
+  indexAlbumsById,
   isChildStarred,
   type LibraryArtworkCacheRow,
   type LibraryCacheScope,
@@ -16,8 +17,8 @@ import { SongItem } from "@ui/shared/songItem";
 import type { PersistCachedArtwork } from "@ui/shared/libraryArtworkCacheAccess";
 import { songMatchesQuery } from "@ui/shared/songSearch";
 import { LibraryVirtuosoFill, libraryFlexFillSx } from "@ui/shared/LibraryVirtuosoFill";
-import { useLibraryScrollRestoration } from "@ui/shared/useLibraryScrollRestoration";
 import { useLibraryVirtuosoScroller } from "@ui/shared/useLibraryVirtuosoScroller";
+import { useBoundedListData } from "@ui/shared/useBoundedListData";
 import { VirtuosoMuiList } from "@ui/shared/virtuosoMuiList";
 import {
   songHasViewableAlbum,
@@ -98,20 +99,25 @@ export function SongListView({
   const resolvedEmptyListMessage = emptyListMessage ?? t("library.songs.empty");
   const [search, setSearch] = useState("");
 
-  const filteredEntries = useMemo(
-    () => entries.filter((e) => songMatchesQuery(e.song, search)),
-    [entries, search],
-  );
+  const filteredEntries = useMemo(() => {
+    if (!search.trim()) return entries;
+    return entries.filter((e) => songMatchesQuery(e.song, search));
+  }, [entries, search]);
+
+  const albumsByIdByScope = useMemo(() => {
+    const maps = new Map<string, ReturnType<typeof indexAlbumsById>>();
+    for (const [key, albums] of albumsByScope) maps.set(key, indexAlbumsById(albums));
+    return maps;
+  }, [albumsByScope]);
 
   const queryTrimmed = search.trim();
 
-  const scrollRef = useLibraryScrollRestoration(scrollRestorationKey);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const virtuosoComponents = useLibraryVirtuosoScroller(scrollRef);
-  const virtuosoRef = useRef<VirtuosoHandle>(null);
-
-  useEffect(() => {
-    virtuosoRef.current?.scrollToIndex({ index: 0, align: "start" });
-  }, [search]);
+  const bounded = useBoundedListData(filteredEntries, {
+    memoryKey: scrollRestorationKey,
+    resetKey: search,
+  });
 
   const versionFor = (
     coverArtId: string | undefined,
@@ -203,16 +209,19 @@ export function SongListView({
         {initialReady && filteredEntries.length > 0 && (
           <LibraryVirtuosoFill>
             <Virtuoso
-              ref={virtuosoRef}
+              key={bounded.virtuosoKey}
+              ref={bounded.virtuosoRef}
               style={{ height: "100%", width: "100%", minHeight: 0 }}
-              data={filteredEntries}
+              data={bounded.data}
+              initialTopMostItemIndex={bounded.initialTopMostItemIndex}
+              rangeChanged={bounded.rangeChanged}
               components={{ ...virtuosoComponents, List: VirtuosoMuiList }}
               computeItemKey={(_, entry) => entry.rowKey}
               itemContent={(_, entry) => {
                 const scopeKey = `${entry.artworkScope.serverKey}|${entry.artworkScope.libraryId}`;
-                const scopeAlbums = albumsByScope.get(scopeKey) ?? [];
+                const scopeAlbums = albumsByIdByScope.get(scopeKey);
                 const { primary: coverId, fallback: fallbackCoverId } =
-                  resolveCoverArtIdsForCachedSong(entry.song, scopeAlbums);
+                  resolveCoverArtIdsForCachedSong(entry.song, scopeAlbums ?? []);
                 const artworkKey = coverId
                   ? artworkVersionKey
                     ? artworkVersionKey(coverId, entry.artworkScope)

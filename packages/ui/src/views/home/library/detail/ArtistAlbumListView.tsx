@@ -19,15 +19,15 @@ import {
 } from '@mui/material';
 import ViewList from '@mui/icons-material/ViewList';
 import ViewModule from '@mui/icons-material/ViewModule';
-import { Virtuoso, VirtuosoGrid, type VirtuosoGridHandle, type VirtuosoHandle } from 'react-virtuoso';
+import { Virtuoso, VirtuosoGrid } from 'react-virtuoso';
 import { PageCloseButton } from '@ui/shared/PageCloseButton';
 import type { GridItemProps, GridListProps } from 'react-virtuoso';
 import type { LibraryArtworkCacheRow, SubsonicAPI } from '@asmusic/core';
 import { CoverArtThumb } from '@ui/shared/CoverArtThumb';
 import type { PersistCachedArtwork } from '@ui/shared/libraryArtworkCacheAccess';
 import { LibraryVirtuosoFill, libraryFlexFillSx } from '@ui/shared/LibraryVirtuosoFill';
-import { useLibraryScrollRestoration } from '@ui/shared/useLibraryScrollRestoration';
 import { useLibraryVirtuosoScroller } from '@ui/shared/useLibraryVirtuosoScroller';
+import { useBoundedListData } from '@ui/shared/useBoundedListData';
 import { VirtuosoMuiList } from '@ui/shared/virtuosoMuiList';
 import {
   LibraryAlbumCardCaption,
@@ -115,27 +115,19 @@ export function ArtistAlbumListView({
     setSearch('');
   }, [artistName]);
 
-  const filteredAlbums = useMemo(
-    () => albums.filter((a) => albumMatchesQuery(a, search)),
-    [albums, search]
-  );
+  const filteredAlbums = useMemo(() => {
+    if (!search.trim()) return albums;
+    return albums.filter((a) => albumMatchesQuery(a, search));
+  }, [albums, search]);
 
   const queryTrimmed = search.trim();
 
-  const scrollRef = useLibraryScrollRestoration(`lb:artistAlbums:${scrollRestorationKey}`);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const virtuosoScroller = useLibraryVirtuosoScroller(scrollRef);
-  const listVirtuosoRef = useRef<VirtuosoHandle>(null);
-  const gridVirtuosoRef = useRef<VirtuosoGridHandle>(null);
-
-  useEffect(() => {
-    listVirtuosoRef.current?.scrollToIndex({ index: 0, align: 'start' });
-    gridVirtuosoRef.current?.scrollToIndex({ index: 0, align: 'start' });
-  }, [search]);
-
-  useEffect(() => {
-    listVirtuosoRef.current?.scrollToIndex({ index: 0, align: 'start' });
-    gridVirtuosoRef.current?.scrollToIndex({ index: 0, align: 'start' });
-  }, [displayMode]);
+  const bounded = useBoundedListData(filteredAlbums, {
+    memoryKey: `lb:artistAlbums:${scrollRestorationKey}`,
+    resetKey: `${search}:${displayMode}`,
+  });
 
   const edgeSwipeBack = useEdgeSwipeBack(onBack);
 
@@ -255,9 +247,12 @@ export function ArtistAlbumListView({
             {filteredAlbums.length > 0 && (
               <LibraryVirtuosoFill>
                 <VirtuosoGrid
-                  ref={gridVirtuosoRef}
+                  key={bounded.virtuosoKey}
+                  ref={bounded.virtuosoRef}
                   style={{ height: '100%', width: '100%', minHeight: 0 }}
-                  data={filteredAlbums}
+                  data={bounded.data}
+                  initialTopMostItemIndex={bounded.initialTopMostItemIndex}
+                  rangeChanged={bounded.rangeChanged}
                 components={gridComponents}
                 computeItemKey={(_, album) => String(album.id)}
                 itemContent={(_, album) => (
@@ -306,9 +301,12 @@ export function ArtistAlbumListView({
             {filteredAlbums.length > 0 && (
               <LibraryVirtuosoFill>
                 <Virtuoso
-                  ref={listVirtuosoRef}
+                  key={bounded.virtuosoKey}
+                  ref={bounded.virtuosoRef}
                   style={{ height: '100%', width: '100%', minHeight: 0 }}
-                  data={filteredAlbums}
+                  data={bounded.data}
+                  initialTopMostItemIndex={bounded.initialTopMostItemIndex}
+                  rangeChanged={bounded.rangeChanged}
                 components={{ ...virtuosoScroller, List: VirtuosoMuiList }}
                 computeItemKey={(_, album) => String(album.id)}
                 itemContent={(_, album) => (

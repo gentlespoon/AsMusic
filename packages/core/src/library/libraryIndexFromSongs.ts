@@ -125,13 +125,30 @@ export function derivedArtistIdForCachedSong(song: Child): string {
   return `name:${primaryTrackArtistName(song).toLowerCase()}`;
 }
 
+export type AlbumLookup = readonly AlbumID3[] | ReadonlyMap<string, AlbumID3>;
+
+export function indexAlbumsById(albums: readonly AlbumID3[]): Map<string, AlbumID3> {
+  const map = new Map<string, AlbumID3>();
+  for (const album of albums) map.set(album.id, album);
+  return map;
+}
+
+function isAlbumMap(albums: AlbumLookup): albums is ReadonlyMap<string, AlbumID3> {
+  return !Array.isArray(albums);
+}
+
+function albumFromLookup(song: Child, albums: AlbumLookup): AlbumID3 | undefined {
+  const id = derivedAlbumIdForCachedSong(song);
+  if (isAlbumMap(albums)) return albums.get(id);
+  return albums.find((album) => album.id === id);
+}
+
 /**
  * Subsonic `getCoverArt` id from the derived album list (album-level cover, same as the album grid).
  */
-export function coverArtIdFromAlbumsForCachedSong(song: Child, albums: AlbumID3[]): string | undefined {
-  const id = derivedAlbumIdForCachedSong(song);
-  const c = albums.find((a) => a.id === id)?.coverArt?.trim();
-  return c || undefined;
+export function coverArtIdFromAlbumsForCachedSong(song: Child, albums: AlbumLookup): string | undefined {
+  const cover = albumFromLookup(song, albums)?.coverArt?.trim();
+  return cover || undefined;
 }
 
 export function artistsFromCachedSongs(songs: Child[]): ArtistID3[] {
@@ -185,7 +202,7 @@ export function collectCoverArtIdsFromAlbums(albums: AlbumID3[]): string[] {
 }
 
 /** Track `coverArt` when present, otherwise album-derived cover (same as album grid). */
-export function resolveCoverArtIdForCachedSong(song: Child, albums: AlbumID3[]): string | undefined {
+export function resolveCoverArtIdForCachedSong(song: Child, albums: AlbumLookup): string | undefined {
   return resolveCoverArtIdsForCachedSong(song, albums).primary;
 }
 
@@ -196,7 +213,7 @@ export function resolveCoverArtIdForCachedSong(song: Child, albums: AlbumID3[]):
  */
 export function resolveCoverArtIdsForCachedSong(
   song: Child,
-  albums: AlbumID3[],
+  albums: AlbumLookup,
 ): { primary?: string; fallback?: string } {
   const albumCover = coverArtIdFromAlbumsForCachedSong(song, albums);
   const track = song.coverArt?.trim();
@@ -208,9 +225,10 @@ export function resolveCoverArtIdsForCachedSong(
 
 /** Distinct cover ids for background prefetch: album covers plus per-track overrides. */
 export function collectCoverArtIdsFromSongs(songs: Child[], albums: AlbumID3[]): string[] {
+  const index = indexAlbumsById(albums);
   const ids = new Set<string>(collectCoverArtIdsFromAlbums(albums));
   for (const song of songs) {
-    const { primary, fallback } = resolveCoverArtIdsForCachedSong(song, albums);
+    const { primary, fallback } = resolveCoverArtIdsForCachedSong(song, index);
     if (primary) ids.add(primary);
     if (fallback) ids.add(fallback);
   }

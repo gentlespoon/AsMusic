@@ -6,6 +6,7 @@ import ListItemText from "@mui/material/ListItemText";
 import MoreVert from "@mui/icons-material/MoreVert";
 import { useT } from "@asmusic/i18n";
 import type { PlayerQueueItem } from "@ui/player/core/types";
+import { PLAYING_QUEUE_ROW_HEIGHT } from "./playingQueueWindow";
 
 export type PlayingQueueViewRowProps = {
   item: PlayerQueueItem;
@@ -23,7 +24,17 @@ export function PlayingQueueViewRow({
   const t = useT();
 
   return (
-    <ListItem divider disablePadding sx={{ alignItems: "center" }}>
+    <ListItem
+      divider
+      disablePadding
+      sx={{
+        alignItems: "center",
+        boxSizing: "border-box",
+        height: PLAYING_QUEUE_ROW_HEIGHT,
+        maxHeight: PLAYING_QUEUE_ROW_HEIGHT,
+        overflow: "hidden",
+      }}
+    >
       <ListItemButton
         selected={selected}
         onClick={onPlay}

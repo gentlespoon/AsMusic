@@ -20,19 +20,20 @@ import {
 } from '@mui/material';
 import {
   resolveCoverArtIdsForCachedSong,
+  indexAlbumsById,
   isChildStarred,
   loadPlaylistTracks,
   type LibraryArtworkCacheRow,
   type SubsonicAPI,
 } from '@asmusic/core';
 import { PageCloseButton } from '@ui/shared/PageCloseButton';
-import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso';
+import { Virtuoso } from 'react-virtuoso';
 import { SongItem } from '@ui/shared/songItem';
 import type { PersistCachedArtwork } from '@ui/shared/libraryArtworkCacheAccess';
 import { songMatchesQuery } from '@ui/shared/songSearch';
 import { LibraryVirtuosoFill, libraryFlexFillSx } from '@ui/shared/LibraryVirtuosoFill';
-import { useLibraryScrollRestoration } from '@ui/shared/useLibraryScrollRestoration';
 import { useLibraryVirtuosoScroller } from '@ui/shared/useLibraryVirtuosoScroller';
+import { useBoundedListData } from '@ui/shared/useBoundedListData';
 import { VirtuosoMuiList } from '@ui/shared/virtuosoMuiList';
 import { useOfflineDownload } from '@ui/contexts/OfflineDownloadContext';
 import { useHost } from '@ui/host/HostContext';
@@ -149,20 +150,21 @@ export function PlaylistSongListView({
     void loadPlaylist();
   }, [loadPlaylist, reloadToken]);
 
-  const filteredTracks = useMemo(
-    () => tracks.filter((t) => songMatchesQuery(t, search)),
-    [tracks, search]
-  );
+  const filteredTracks = useMemo(() => {
+    if (!search.trim()) return tracks;
+    return tracks.filter((t) => songMatchesQuery(t, search));
+  }, [tracks, search]);
+
+  const albumsById = useMemo(() => indexAlbumsById(albums), [albums]);
 
   const queryTrimmed = search.trim();
 
-  const scrollRef = useLibraryScrollRestoration(`lb:playlistTracks:${scrollRestorationKey}`);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const virtuosoComponents = useLibraryVirtuosoScroller(scrollRef);
-  const virtuosoRef = useRef<VirtuosoHandle>(null);
-
-  useEffect(() => {
-    virtuosoRef.current?.scrollToIndex({ index: 0, align: 'start' });
-  }, [search]);
+  const bounded = useBoundedListData(filteredTracks, {
+    memoryKey: `lb:playlistTracks:${scrollRestorationKey}`,
+    resetKey: search,
+  });
 
   const listReady = initialReady && !loading && !loadError;
 
@@ -354,9 +356,12 @@ export function PlaylistSongListView({
         {listReady && filteredTracks.length > 0 && (
           <LibraryVirtuosoFill>
             <Virtuoso
-              ref={virtuosoRef}
+              key={bounded.virtuosoKey}
+              ref={bounded.virtuosoRef}
               style={{ height: '100%', width: '100%', minHeight: 0 }}
-              data={filteredTracks}
+              data={bounded.data}
+              initialTopMostItemIndex={bounded.initialTopMostItemIndex}
+              rangeChanged={bounded.rangeChanged}
               components={{ ...virtuosoComponents, List: VirtuosoMuiList }}
               computeItemKey={(_index, track) =>
                 track ? `lb-pl-tr:${playlistId}:${track.id}` : `lb-pl-tr:${_index}`
@@ -365,7 +370,7 @@ export function PlaylistSongListView({
                 if (!track) return null;
                 const trackId = String(track.id);
                 const { primary: coverArtId, fallback: fallbackCoverId } =
-                  resolveCoverArtIdsForCachedSong(track, albums);
+                  resolveCoverArtIdsForCachedSong(track, albumsById);
                 const starred = isChildStarred(track);
                 const libraryId = resolveTrackLibraryId(trackId);
                 return (

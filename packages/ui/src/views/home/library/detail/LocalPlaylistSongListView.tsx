@@ -21,6 +21,7 @@ import {
 } from "@mui/material";
 import {
   resolveCoverArtIdsForCachedSong,
+  indexAlbumsById,
   isChildStarred,
   libraryCacheScope,
   resolveLocalPlaylistEntries,
@@ -33,15 +34,15 @@ import {
 } from "@asmusic/core";
 import { PageCloseButton } from "@ui/shared/PageCloseButton";
 import { DisabledLibraryToastContent } from "@ui/shared/DisabledLibraryToastContent";
-import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
+import { Virtuoso } from "react-virtuoso";
 import { SongItem } from "@ui/shared/songItem";
 import type { PersistCachedArtwork } from "@ui/shared/libraryArtworkCacheAccess";
 import {
   LibraryVirtuosoFill,
   libraryFlexFillSx,
 } from "@ui/shared/LibraryVirtuosoFill";
-import { useLibraryScrollRestoration } from "@ui/shared/useLibraryScrollRestoration";
 import { useLibraryVirtuosoScroller } from "@ui/shared/useLibraryVirtuosoScroller";
+import { useBoundedListData } from "@ui/shared/useBoundedListData";
 import { VirtuosoMuiList } from "@ui/shared/virtuosoMuiList";
 import { useOfflineDownload } from "@ui/contexts/OfflineDownloadContext";
 import { useHost } from "@ui/host/HostContext";
@@ -243,20 +244,23 @@ export function LocalPlaylistSongListView({
     void loadRows();
   }, [loadRows, reloadToken]);
 
-  const filteredRows = useMemo(
-    () => rows.filter((row) => rowMatchesQuery(row, search)),
-    [rows, search],
-  );
+  const filteredRows = useMemo(() => {
+    if (!search.trim()) return rows;
+    return rows.filter((row) => rowMatchesQuery(row, search));
+  }, [rows, search]);
 
-  const scrollRef = useLibraryScrollRestoration(
-    `lb:localPlaylistTracks:${scrollRestorationKey}`,
-  );
+  const albumsByIdByScope = useMemo(() => {
+    const maps = new Map<string, ReturnType<typeof indexAlbumsById>>();
+    for (const [key, albums] of albumsByScope) maps.set(key, indexAlbumsById(albums));
+    return maps;
+  }, [albumsByScope]);
+
+  const scrollRef = useRef<HTMLDivElement>(null);
   const virtuosoComponents = useLibraryVirtuosoScroller(scrollRef);
-  const virtuosoRef = useRef<VirtuosoHandle>(null);
-
-  useEffect(() => {
-    virtuosoRef.current?.scrollToIndex({ index: 0, align: "start" });
-  }, [search]);
+  const bounded = useBoundedListData(filteredRows, {
+    memoryKey: `lb:localPlaylistTracks:${scrollRestorationKey}`,
+    resetKey: search,
+  });
 
   const listReady = initialReady && !loading && !loadError;
   const queryTrimmed = search.trim();
@@ -473,9 +477,12 @@ export function LocalPlaylistSongListView({
         {listReady && filteredRows.length > 0 && (
           <LibraryVirtuosoFill>
             <Virtuoso
-              ref={virtuosoRef}
+              key={bounded.virtuosoKey}
+              ref={bounded.virtuosoRef}
               style={{ height: "100%", width: "100%", minHeight: 0 }}
-              data={filteredRows}
+              data={bounded.data}
+              initialTopMostItemIndex={bounded.initialTopMostItemIndex}
+              rangeChanged={bounded.rangeChanged}
               components={{ ...virtuosoComponents, List: VirtuosoMuiList }}
               computeItemKey={(_index, row) =>
                 row?.rowKey ?? `lb-lpl-tr:${_index}`
@@ -532,7 +539,7 @@ export function LocalPlaylistSongListView({
                 }
                 const track = row.song;
                 const albums =
-                  albumsByScope.get(
+                  albumsByIdByScope.get(
                     `${row.scope.serverKey}|${row.scope.libraryId}`,
                   ) ?? [];
                 const { primary: coverArtId, fallback: fallbackCoverId } =

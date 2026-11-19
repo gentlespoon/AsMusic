@@ -16,7 +16,10 @@ import { localPlaylistEditDiff, localPlaylistEntryKey, type LocalPlaylistEntry }
 import { useT } from '@asmusic/i18n';
 import { PageCloseButton } from '@ui/shared/PageCloseButton';
 import { songMatchesQuery } from '@ui/shared/songSearch';
-import { libraryFlexFillSx } from '@ui/shared/LibraryVirtuosoFill';
+import { libraryFlexFillSx, LibraryVirtuosoFill } from '@ui/shared/LibraryVirtuosoFill';
+import { useBoundedListData } from '@ui/shared/useBoundedListData';
+import { VirtuosoMuiList } from '@ui/shared/virtuosoMuiList';
+import { Virtuoso } from 'react-virtuoso';
 import type { SongListEntry } from '@ui/views/home/library/catalog/SongListView';
 import { useLibraryBrowseCache } from '@ui/contexts/LibraryBrowseCacheContext';
 
@@ -56,10 +59,10 @@ export function LocalPlaylistEditorView({
   }, [entries, playlistId]);
 
   const filteredEntries = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return songEntries;
+    if (!search.trim()) return songEntries;
     return songEntries.filter((e) => songMatchesQuery(e.song, search));
   }, [songEntries, search]);
+  const bounded = useBoundedListData(filteredEntries, { resetKey: search });
 
   const hasChanges = useMemo(() => {
     if (selectedKeys.size !== originalKeys.size) return true;
@@ -133,40 +136,60 @@ export function LocalPlaylistEditorView({
         disabled={loading}
       />
 
-      <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-        {!loading && songEntries.length === 0 && (
-          <Typography variant="body2" color="text.secondary">
-            {t('library.playlist.editor.emptyCache')}
-          </Typography>
-        )}
-        {filteredEntries.map((entry) => {
-          const key = localPlaylistEntryKey({
-            serverKey: entry.artworkScope.serverKey,
-            libraryId: entry.artworkScope.libraryId,
-            trackId: String(entry.song.id),
-          });
-          const checked = selectedKeys.has(key);
-          const song = entry.song;
-          const libraryLabel = libraryDisplayName(entry.serverId, entry.artworkScope.libraryId);
-          return (
-            <ListItem key={key} disablePadding divider>
-              <ListItemButton onClick={() => toggleSelection(key)} sx={{ py: 0.75 }}>
-                <ListItemIcon sx={{ minWidth: 40 }}>
-                  <Checkbox edge="start" checked={checked} tabIndex={-1} disableRipple />
-                </ListItemIcon>
-                <ListItemText
-                  primary={song.title ?? String(song.id)}
-                  secondary={[song.artist, song.album, libraryLabel].filter(Boolean).join(' · ') || undefined}
-                  slotProps={{
-                    primary: { variant: 'body2', noWrap: true },
-                    secondary: { variant: 'caption', noWrap: true },
-                  }}
-                />
-              </ListItemButton>
-            </ListItem>
-          );
-        })}
-      </Box>
+      {!loading && songEntries.length === 0 && (
+        <Typography variant="body2" color="text.secondary">
+          {t('library.playlist.editor.emptyCache')}
+        </Typography>
+      )}
+      {filteredEntries.length > 0 ? (
+        <LibraryVirtuosoFill>
+          <Virtuoso
+            key={bounded.virtuosoKey}
+            ref={bounded.virtuosoRef}
+            style={{ height: '100%', width: '100%', minHeight: 0 }}
+            data={bounded.data}
+            initialTopMostItemIndex={bounded.initialTopMostItemIndex}
+            rangeChanged={bounded.rangeChanged}
+            components={{ List: VirtuosoMuiList }}
+            computeItemKey={(_, entry) =>
+              localPlaylistEntryKey({
+                serverKey: entry.artworkScope.serverKey,
+                libraryId: entry.artworkScope.libraryId,
+                trackId: String(entry.song.id),
+              })
+            }
+            itemContent={(_, entry) => {
+              const key = localPlaylistEntryKey({
+                serverKey: entry.artworkScope.serverKey,
+                libraryId: entry.artworkScope.libraryId,
+                trackId: String(entry.song.id),
+              });
+              const checked = selectedKeys.has(key);
+              const song = entry.song;
+              const libraryLabel = libraryDisplayName(entry.serverId, entry.artworkScope.libraryId);
+              return (
+                <ListItem disablePadding divider>
+                  <ListItemButton onClick={() => toggleSelection(key)} sx={{ py: 0.75 }}>
+                    <ListItemIcon sx={{ minWidth: 40 }}>
+                      <Checkbox edge="start" checked={checked} tabIndex={-1} disableRipple />
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={song.title ?? String(song.id)}
+                      secondary={[song.artist, song.album, libraryLabel].filter(Boolean).join(' · ') || undefined}
+                      slotProps={{
+                        primary: { variant: 'body2', noWrap: true },
+                        secondary: { variant: 'caption', noWrap: true },
+                      }}
+                    />
+                  </ListItemButton>
+                </ListItem>
+              );
+            }}
+          />
+        </LibraryVirtuosoFill>
+      ) : (
+        <Box sx={{ flex: 1, minHeight: 0 }} />
+      )}
     </Box>
   );
 }

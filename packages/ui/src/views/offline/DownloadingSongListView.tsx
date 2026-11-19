@@ -9,12 +9,13 @@ import {
   Collapse,
   IconButton,
   LinearProgress,
-  List,
   ListItem,
   Stack,
   Tooltip,
   Typography,
 } from '@mui/material';
+import { Virtuoso } from 'react-virtuoso';
+import { useBoundedListData } from '@ui/shared/useBoundedListData';
 import Block from '@mui/icons-material/Block';
 import Cancel from '@mui/icons-material/Cancel';
 import CheckCircle from '@mui/icons-material/CheckCircle';
@@ -250,6 +251,7 @@ function DownloadingJobCard({
   onCancel: () => void;
   onRetryFailed: () => void;
 }) {
+  const boundedTracks = useBoundedListData(job.tracks);
   const prog = jobProgress(job);
   const expandLabel = expanded ? t('offline.downloading.collapseJob') : t('offline.downloading.expandJob');
 
@@ -344,30 +346,41 @@ function DownloadingJobCard({
         </Box>
       </Stack>
 
-      <Collapse in={expanded}>
-        <List dense disablePadding sx={{ mt: 1 }}>
-          {job.tracks.map((trackRef, index) => {
-            const status = trackStatus(job, index);
-            const child =
-              resources.trackByKey.get(trackLookupKey(trackRef.key.scope, trackRef.key.trackId)) ??
-              syntheticTrack(trackRef.key.trackId);
-            const sk = scopeKey(trackRef.key.scope);
-            const api = resources.apiByScopeKey.get(sk) ?? null;
-            const server = resources.serverByScopeKey.get(sk);
-            return (
-              <DownloadingTrackRow
-                key={`${trackRef.key.trackId}-${index}`}
-                track={child}
-                status={status}
-                scope={trackRef.key.scope}
-                api={api}
-                statusLabel={trackStatusLabel(status)}
-                serverUrl={server?.serverUrl}
-                username={server?.username}
-              />
-            );
-          })}
-        </List>
+      <Collapse in={expanded} unmountOnExit>
+        {job.tracks.length > 0 && (
+          <Box sx={{ height: Math.min(320, job.tracks.length * 48), mt: 1 }}>
+            <Virtuoso
+              style={{ height: '100%', width: '100%' }}
+              data={boundedTracks.data}
+              ref={boundedTracks.virtuosoRef}
+              rangeChanged={boundedTracks.rangeChanged}
+              computeItemKey={(index, trackRef) =>
+                `${trackRef.key.trackId}-${boundedTracks.start + index}`
+              }
+              itemContent={(index, trackRef) => {
+                const absoluteIndex = boundedTracks.start + index;
+                const status = trackStatus(job, absoluteIndex);
+                const child =
+                  resources.trackByKey.get(trackLookupKey(trackRef.key.scope, trackRef.key.trackId)) ??
+                  syntheticTrack(trackRef.key.trackId);
+                const sk = scopeKey(trackRef.key.scope);
+                const api = resources.apiByScopeKey.get(sk) ?? null;
+                const server = resources.serverByScopeKey.get(sk);
+                return (
+                  <DownloadingTrackRow
+                    track={child}
+                    status={status}
+                    scope={trackRef.key.scope}
+                    api={api}
+                    statusLabel={trackStatusLabel(status)}
+                    serverUrl={server?.serverUrl}
+                    username={server?.username}
+                  />
+                );
+              }}
+            />
+          </Box>
+        )}
       </Collapse>
     </Box>
   );

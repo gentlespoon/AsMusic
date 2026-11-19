@@ -1,11 +1,11 @@
 import { useI18n, useT } from '@asmusic/i18n';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type { ArtistID3 } from 'subsonic-api';
 import { Box, ListItemButton, ListItemText, TextField, Typography } from '@mui/material';
-import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso';
+import { Virtuoso } from 'react-virtuoso';
 import { compareLibraryText, type LibraryCacheScope } from '@asmusic/core';
-import { useLibraryScrollRestoration } from '@ui/shared/useLibraryScrollRestoration';
 import { useLibraryVirtuosoScroller } from '@ui/shared/useLibraryVirtuosoScroller';
+import { useBoundedListData } from '@ui/shared/useBoundedListData';
 import { LibraryVirtuosoFill, libraryFlexFillSx } from '@ui/shared/LibraryVirtuosoFill';
 import { VirtuosoMuiList } from '@ui/shared/virtuosoMuiList';
 
@@ -68,10 +68,10 @@ export function ArtistListView({
   const { format } = useI18n();
   const [search, setSearch] = useState('');
 
-  const filteredRows = useMemo(
-    () => rows.filter((r) => artistMatchesQuery(r.artist, search)),
-    [rows, search]
-  );
+  const filteredRows = useMemo(() => {
+    if (!search.trim()) return rows;
+    return rows.filter((r) => artistMatchesQuery(r.artist, search));
+  }, [rows, search]);
 
   const virtualRows = useMemo(() => buildArtistListVirtuosoRows(filteredRows), [filteredRows]);
 
@@ -82,13 +82,12 @@ export function ArtistListView({
 
   const queryTrimmed = search.trim();
 
-  const scrollRef = useLibraryScrollRestoration('lb:artists');
+  const scrollRef = useRef<HTMLDivElement>(null);
   const virtuosoComponents = useLibraryVirtuosoScroller(scrollRef);
-  const virtuosoRef = useRef<VirtuosoHandle>(null);
-
-  useEffect(() => {
-    virtuosoRef.current?.scrollToIndex({ index: 0, align: 'start' });
-  }, [search]);
+  const bounded = useBoundedListData(virtualRows, {
+    memoryKey: 'lb:artists',
+    resetKey: search,
+  });
 
   return (
     <Box
@@ -131,10 +130,12 @@ export function ArtistListView({
         {initialReady && artistRowCount > 0 && (
           <LibraryVirtuosoFill>
             <Virtuoso
-              key={`lb-artists:${queryTrimmed}:${artistRowCount}`}
-              ref={virtuosoRef}
+              key={bounded.virtuosoKey}
+              ref={bounded.virtuosoRef}
               style={{ height: '100%', width: '100%', minHeight: 0 }}
-              data={virtualRows}
+              data={bounded.data}
+              initialTopMostItemIndex={bounded.initialTopMostItemIndex}
+              rangeChanged={bounded.rangeChanged}
               components={{ ...virtuosoComponents, List: VirtuosoMuiList }}
               computeItemKey={(_index, item) => item.key}
               itemContent={(_index, item) =>

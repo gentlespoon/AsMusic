@@ -77,6 +77,7 @@ public class AsmusicNativePlugin: CAPPlugin, CAPBridgedPlugin {
     private var player: AVPlayer?
     private var timeObserver: Any?
     private var endObserver: NSObjectProtocol?
+    private var failObserver: NSObjectProtocol?
     private var statusObserver: NSKeyValueObservation?
     private var timeControlStatusObserver: NSKeyValueObservation?
     /// Used to optionally resume after `AVAudioSession` interruption ends.
@@ -85,9 +86,9 @@ public class AsmusicNativePlugin: CAPPlugin, CAPBridgedPlugin {
     private var playbackLoadGeneration = 0
     /// Suppress duplicate `AVPlayerItemDidPlayToEndTime` for the same load generation.
     private var endNotifiedForLoadGeneration: Int = -1
+    /// Status failure and failed-to-end can both fire for one load.
+    private var failureNotifiedForLoadGeneration: Int = -1
 
-    private static let debugLogFilename = "asmusic-player-debug.log"
-    private static let maxDebugLogBytes = 65536
 
     private var sleepTimerWorkItem: DispatchWorkItem?
     private var sleepEndsAtEpochMs: Double?
@@ -122,6 +123,12 @@ public class AsmusicNativePlugin: CAPPlugin, CAPBridgedPlugin {
             center.addObserver(forName: .asmusicWaveformPeaksReady, object: nil, queue: .main) { [weak self] note in
                 guard let cacheKey = note.userInfo?["cacheKey"] as? String else { return }
                 self?.notifyListeners("waveformPeaksReady", data: ["cacheKey": cacheKey])
+            }
+        )
+        offlineMediaObserverTokens.append(
+            center.addObserver(forName: .asmusicOfflineMediaDiscarded, object: nil, queue: .main) { [weak self] note in
+                guard let cacheKey = note.userInfo?["cacheKey"] as? String else { return }
+                self?.notifyListeners("offlineMediaDiscarded", data: ["cacheKey": cacheKey])
             }
         )
     }
@@ -160,50 +167,27 @@ public class AsmusicNativePlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     @objc func playerDebugLogGet(_ call: CAPPluginCall) {
-        guard let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+        guard let url = AsmusicPlayerDebugLog.fileURL() else {
             call.resolve(["log": ""])
             return
         }
-        let url = docs.appendingPathComponent(Self.debugLogFilename)
         let text = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
         call.resolve(["log": text])
     }
 
     @objc func playerDebugLogClear(_ call: CAPPluginCall) {
-        guard let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+        guard let url = AsmusicPlayerDebugLog.fileURL() else {
             call.resolve()
             return
         }
-        let url = docs.appendingPathComponent(Self.debugLogFilename)
         try? FileManager.default.removeItem(at: url)
         call.resolve()
     }
 
-    private static func appendPlayerDebugLog(_ message: String) {
-        let ms = Int64(Date().timeIntervalSince1970 * 1000)
-        let line = "\(ms) [native] \(message)\n"
-        guard let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else { return }
-        let url = docs.appendingPathComponent(debugLogFilename)
-        guard let data = line.data(using: .utf8) else { return }
-        if FileManager.default.fileExists(atPath: url.path) {
-            if let handle = try? FileHandle(forWritingTo: url) {
-                handle.seekToEndOfFile()
-                handle.write(data)
-                try? handle.close()
-            }
-        } else {
-            try? data.write(to: url)
-        }
-        if let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
-           let size = attrs[.size] as? Int, size > maxDebugLogBytes,
-           let full = try? String(contentsOf: url, encoding: .utf8)
-        {
-            let trimmed = String(full.suffix(maxDebugLogBytes))
-            try? trimmed.data(using: .utf8)?.write(to: url)
-        }
+    static func appendPlayerDebugLog(_ message: String) {
+        AsmusicPlayerDebugLog.append(message)
     }
 
-    /// For future native-side diagnostics; call sites are intentionally sparse in production builds.
     @objc func playerDebugLogAppend(_ call: CAPPluginCall) {
         guard let message = call.getString("message"), !message.isEmpty else {
             call.reject("Missing message")
@@ -252,14 +236,20 @@ public class AsmusicNativePlugin: CAPPlugin, CAPBridgedPlugin {
         tearDownPlayerObservers()
         Self.activePlugin = self
 
-        let item = makePlayerItem(for: url)
+        let contentType = call.getString("contentType")?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let title = call.getString("title") ?? "AsMusic"
+        let built = makePlayerItem(for: url, contentType: contentType)
+        Self.appendPlayerDebugLog(
+            "load gen=\(playbackLoadGeneration) title=\(title) \(Self.describePlaybackTarget(url)) hint=\(contentType ?? "-") override=\(built.mimeOverride ?? "-") \(Self.localFileSummary(url))"
+        )
+        let item = built.item
         let av = AVPlayer(playerItem: item)
         player = av
 
         configureAudioSession()
         observePlayer(av, item: item)
 
-        let title = call.getString("title") ?? "AsMusic"
         let artist = call.getString("artist") ?? ""
         let album = call.getString("album") ?? ""
         updateNowPlaying(title: title, artist: artist, album: album, duration: 0)
@@ -1182,18 +1172,91 @@ public class AsmusicNativePlugin: CAPPlugin, CAPBridgedPlugin {
         c.dislikeCommand.isActive = remoteFavoriteControlsEnabled && !remoteStarred
     }
 
-    /// AVPlayer rejects some on-disk extensions (e.g. legacy `*.audio`) even when bytes are valid MP3.
-    private func makePlayerItem(for url: URL) -> AVPlayerItem {
+    /// Extensions AVPlayer can identify on its own. `stream.view` and legacy `*.audio` are not among them;
+    /// without an explicit MIME type those URLs fail with AVError.operationStopped ("Operation Stopped").
+    private static let avPlayerAudioExtensions: Set<String> = [
+        "mp3", "m4a", "aac", "mp4", "wav", "flac", "alac", "aiff", "aif", "caf",
+    ]
+
+    private struct BuiltPlayerItem {
+        var item: AVPlayerItem
+        var mimeOverride: String?
+    }
+
+    private func makePlayerItem(for url: URL, contentType: String?) -> BuiltPlayerItem {
         let ext = url.pathExtension.lowercased()
-        let needsMimeHint = ext.isEmpty || ext == "audio" || ext == "view"
-        guard needsMimeHint, url.isFileURL else {
-            return AVPlayerItem(url: url)
+        let extensionIsAudio = Self.avPlayerAudioExtensions.contains(ext)
+        let hint = contentType?
+            .split(separator: ";", maxSplits: 1, omittingEmptySubsequences: true)
+            .first
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+        let mime: String?
+        if url.isFileURL {
+            // Downloaded files are repaired to a real extension before this runs.
+            // Hint only when the name still is not an audio type (legacy `*.audio`, `*.view`).
+            mime = extensionIsAudio ? nil : (hint ?? "audio/mpeg")
+        } else if !extensionIsAudio {
+            mime = (hint?.isEmpty == false) ? hint : nil
+        } else {
+            mime = nil
+        }
+        guard let mime, !mime.isEmpty else {
+            return BuiltPlayerItem(item: AVPlayerItem(url: url), mimeOverride: nil)
         }
         let asset = AVURLAsset(
             url: url,
-            options: [AVURLAssetOverrideMIMETypeKey: "audio/mpeg"]
+            options: [AVURLAssetOverrideMIMETypeKey: mime]
         )
-        return AVPlayerItem(asset: asset)
+        return BuiltPlayerItem(item: AVPlayerItem(asset: asset), mimeOverride: mime)
+    }
+
+    private static func describePlaybackTarget(_ url: URL) -> String {
+        if url.isFileURL {
+            return "file=\(url.lastPathComponent)"
+        }
+        let host = url.host ?? "?"
+        return "remote=\(url.scheme ?? "?")://\(host)/\(url.lastPathComponent)"
+    }
+
+    /// First bytes of a local file, so a failed play can be matched to a container.
+    private static func localFileSummary(_ url: URL) -> String {
+        guard url.isFileURL else { return "remote" }
+        let path = url.path
+        let attrs = try? FileManager.default.attributesOfItem(atPath: path)
+        let size = (attrs?[.size] as? NSNumber)?.intValue ?? -1
+        guard let handle = FileHandle(forReadingAtPath: path) else {
+            return "size=\(size) unreadable"
+        }
+        defer { try? handle.close() }
+        let data = (try? handle.read(upToCount: 16)) ?? Data()
+        let hex = data.map { String(format: "%02x", $0) }.joined(separator: " ")
+        let ascii = data.map { byte -> String in
+            if byte >= 32, byte < 127, let scalar = UnicodeScalar(UInt32(byte)) {
+                return String(Character(scalar))
+            }
+            return "."
+        }.joined()
+        return "size=\(size) head=\(hex) ascii=\(ascii)"
+    }
+
+    private static func describePlaybackError(_ error: Error?) -> String {
+        guard let error else { return "nil" }
+        return describeNSError(error as NSError, depth: 0)
+    }
+
+    private static func describeNSError(_ error: NSError, depth: Int) -> String {
+        var parts = ["\(error.domain) \(error.code) \(error.localizedDescription)"]
+        if let reason = error.localizedFailureReason, !reason.isEmpty {
+            parts.append("reason=\(reason)")
+        }
+        if depth < 4, let underlying = error.userInfo[NSUnderlyingErrorKey] as? NSError {
+            parts.append("underlying=[\(describeNSError(underlying, depth: depth + 1))]")
+        }
+        if depth < 4, let many = error.userInfo[NSMultipleUnderlyingErrorsKey] as? [NSError], !many.isEmpty {
+            let nested = many.prefix(3).map { describeNSError($0, depth: depth + 1) }.joined(separator: " | ")
+            parts.append("multiple=[\(nested)]")
+        }
+        return parts.joined(separator: " ")
     }
 
     private func observePlayer(_ av: AVPlayer, item: AVPlayerItem) {
@@ -1217,11 +1280,56 @@ public class AsmusicNativePlugin: CAPPlugin, CAPBridgedPlugin {
             self.notifyPlaybackState()
         }
 
+        failObserver = NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemFailedToPlayToEndTime,
+            object: item,
+            queue: .main
+        ) { [weak self] note in
+            guard let self else { return }
+            let stale = observedGeneration != self.playbackLoadGeneration
+            let err = note.userInfo?[AVPlayerItemFailedToPlayToEndTimeErrorKey] as? Error
+            Self.appendPlayerDebugLog(
+                "failedToEnd gen=\(observedGeneration) stale=\(stale) \(Self.describePlaybackError(err)) \(Self.describeErrorLog(item))"
+            )
+            guard !stale else { return }
+            let msg = err?.localizedDescription ?? "Playback failed"
+            self.reportInspectedPlaybackFailure(item: item, fallback: msg, generation: observedGeneration)
+        }
+
+        let asset = item.asset
+        asset.loadValuesAsynchronously(forKeys: ["playable", "duration"]) { [weak self] in
+            var playableError: NSError?
+            let playableStatus = asset.statusOfValue(forKey: "playable", error: &playableError)
+            var durationError: NSError?
+            let durationStatus = asset.statusOfValue(forKey: "duration", error: &durationError)
+            let duration = CMTimeGetSeconds(asset.duration)
+            let playableFlag = playableStatus == .loaded ? "\(asset.isPlayable)" : "status=\(playableStatus.rawValue)"
+            let line =
+                "asset gen=\(observedGeneration) playable=\(playableFlag) playableStatus=\(playableStatus.rawValue) \(Self.describePlaybackError(playableError)) durationStatus=\(durationStatus.rawValue) duration=\(duration) \(Self.describePlaybackError(durationError))"
+            DispatchQueue.main.async {
+                guard let self else { return }
+                let stale = observedGeneration != self.playbackLoadGeneration
+                Self.appendPlayerDebugLog(stale ? "stale \(line)" : line)
+            }
+        }
+
         statusObserver = item.observe(\.status, options: [.initial, .new]) { [weak self] it, _ in
-            guard let self, observedGeneration == self.playbackLoadGeneration else { return }
+            guard let self else { return }
+            let stale = observedGeneration != self.playbackLoadGeneration
+            if it.status == .failed {
+                Self.appendPlayerDebugLog(
+                    "item status=failed gen=\(observedGeneration) stale=\(stale) \(Self.describePlaybackError(it.error)) player=\(Self.describePlaybackError(self.player?.error)) \(Self.describeErrorLog(it))"
+                )
+            } else if it.status == .readyToPlay {
+                let duration = CMTimeGetSeconds(it.duration)
+                Self.appendPlayerDebugLog(
+                    "item status=ready gen=\(observedGeneration) stale=\(stale) duration=\(duration)"
+                )
+            }
+            guard !stale else { return }
             if it.status == .failed {
                 let msg = it.error?.localizedDescription ?? "Playback failed"
-                self.notifyListeners("playbackError", data: ["message": msg])
+                self.reportInspectedPlaybackFailure(item: it, fallback: msg, generation: observedGeneration)
             }
             if it.status == .readyToPlay {
                 let duration = CMTimeGetSeconds(it.duration)
@@ -1238,9 +1346,64 @@ public class AsmusicNativePlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
 
+    /// AVPlayer's "Operation Stopped" hides a Subsonic error page. Read the resource and, when it
+    /// is that page, report the server code and message instead.
+    private func reportInspectedPlaybackFailure(item: AVPlayerItem, fallback: String, generation: Int) {
+        let url = (item.asset as? AVURLAsset)?.url
+        Task {
+            let explained = await Self.serverErrorToken(for: url)
+            let message = explained ?? fallback
+            if let explained {
+                Self.appendPlayerDebugLog("playback explained \(explained)")
+            }
+            await MainActor.run { [weak self] in
+                self?.reportPlaybackFailure(message: message, generation: generation)
+            }
+        }
+    }
+
+    private static func serverErrorToken(for url: URL?) async -> String? {
+        guard let url else { return nil }
+        let data: Data
+        if url.isFileURL {
+            guard let handle = FileHandle(forReadingAtPath: url.path) else { return nil }
+            defer { try? handle.close() }
+            data = (try? handle.read(upToCount: 512)) ?? Data()
+        } else {
+            data = await ResponsePrefixFetcher.fetch(url, limit: 512)
+        }
+        return LibraryCacheSQLiteStore.subsonicErrorDocument(in: data)?.playbackToken
+    }
+
+    private func reportPlaybackFailure(message: String, generation: Int) {
+        guard generation == playbackLoadGeneration else { return }
+        guard failureNotifiedForLoadGeneration != generation else {
+            Self.appendPlayerDebugLog("duplicate failure suppressed gen=\(generation) \(message)")
+            return
+        }
+        failureNotifiedForLoadGeneration = generation
+        notifyListeners("playbackError", data: ["message": message])
+    }
+
+    private static func describeErrorLog(_ item: AVPlayerItem) -> String {
+        guard let log = item.errorLog(), !log.events.isEmpty else { return "errorLog=-" }
+        let parts = log.events.suffix(3).map { event -> String in
+            let comment = event.errorComment ?? ""
+            let uri = event.uri.map { redactURI($0) } ?? ""
+            return "\(event.errorDomain) \(event.errorStatusCode) \(comment) \(uri)"
+        }
+        return "errorLog=[\(parts.joined(separator: " | "))]"
+    }
+
+    private static func redactURI(_ raw: String) -> String {
+        guard let url = URL(string: raw) else { return "(uri)" }
+        return describePlaybackTarget(url)
+    }
+
     private func tearDownPlayerObservers() {
         playbackLoadGeneration += 1
         endNotifiedForLoadGeneration = -1
+        failureNotifiedForLoadGeneration = -1
         cancelArtworkLoad()
         if let timeObserver, let p = player {
             p.removeTimeObserver(timeObserver)
@@ -1250,6 +1413,10 @@ public class AsmusicNativePlugin: CAPPlugin, CAPBridgedPlugin {
             NotificationCenter.default.removeObserver(endObserver)
         }
         endObserver = nil
+        if let failObserver {
+            NotificationCenter.default.removeObserver(failObserver)
+        }
+        failObserver = nil
         statusObserver?.invalidate()
         statusObserver = nil
         timeControlStatusObserver?.invalidate()
@@ -1384,6 +1551,59 @@ public class AsmusicNativePlugin: CAPPlugin, CAPBridgedPlugin {
 }
 
 // MARK: - Keychain
+
+/// Reads only the start of a response so a Subsonic error page is not downloaded in full.
+private final class ResponsePrefixFetcher: NSObject, URLSessionDataDelegate {
+    private let limit: Int
+    private var data = Data()
+    private var continuation: CheckedContinuation<Data, Never>?
+    private var finished = false
+    private var session: URLSession?
+
+    private init(limit: Int) {
+        self.limit = limit
+    }
+
+    static func fetch(_ url: URL, limit: Int) async -> Data {
+        let fetcher = ResponsePrefixFetcher(limit: limit)
+        return await fetcher.run(url)
+    }
+
+    private func run(_ url: URL) async -> Data {
+        await withCheckedContinuation { continuation in
+            self.continuation = continuation
+            let config = URLSessionConfiguration.ephemeral
+            config.timeoutIntervalForRequest = 15
+            let session = URLSession(configuration: config, delegate: self, delegateQueue: nil)
+            self.session = session
+            var request = URLRequest(url: url)
+            request.setValue("bytes=0-\(max(0, limit - 1))", forHTTPHeaderField: "Range")
+            session.dataTask(with: request).resume()
+        }
+    }
+
+    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+        if self.data.count < limit {
+            self.data.append(data.prefix(limit - self.data.count))
+        }
+        if self.data.count >= limit {
+            dataTask.cancel()
+        }
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        finish()
+    }
+
+    private func finish() {
+        guard !finished else { return }
+        finished = true
+        let payload = data
+        session?.finishTasksAndInvalidate()
+        continuation?.resume(returning: payload)
+        continuation = nil
+    }
+}
 
 private enum KeychainHelper {
 

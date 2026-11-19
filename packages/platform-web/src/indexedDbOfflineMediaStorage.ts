@@ -1,8 +1,10 @@
 import {
   decodeWaveformPeaks,
+  emitOfflineMediaDiscarded,
   emitOfflineMediaReady,
   emitWaveformPeaksReady,
   offlineMediaKeyId,
+  serverAudioErrorMessage,
   OFFLINE_MEDIA_DEFAULT_VARIANT,
   WAVEFORM_BAR_COUNT,
   type LibraryCacheScope,
@@ -110,6 +112,23 @@ async function readTrackRow(
   });
 }
 
+async function deleteTrackRow(
+  db: IDBDatabase,
+  k: [string, string, string, string],
+): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction('tracks', 'readwrite');
+    tx.onerror = () => reject(tx.error ?? new Error('IDB delete tx failed'));
+    tx.oncomplete = () => resolve();
+    tx.objectStore('tracks').delete(k);
+  });
+}
+
+async function serverErrorInBlob(blob: Blob): Promise<string | null> {
+  const header = new Uint8Array(await blob.slice(0, 512).arrayBuffer());
+  return serverAudioErrorMessage(header);
+}
+
 async function putTrackRow(db: IDBDatabase, row: OfflineTrackRow): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     const tx = db.transaction('tracks', 'readwrite');
@@ -183,24 +202,19 @@ export function createIndexedDbOfflineMediaStorage(): OfflineMediaStore {
     async getStatus(key: OfflineMediaKey): Promise<OfflineMediaStatusDetail> {
       const db = await openDb();
       const k = idbTrackKey(key);
-      return new Promise((resolve, reject) => {
-        const tx = db.transaction('tracks', 'readonly');
-        const req = tx.objectStore('tracks').get(k);
-        req.onerror = () => reject(req.error ?? new Error('getStatus failed'));
-        req.onsuccess = () => {
-          const row = req.result as OfflineTrackRow | undefined;
-          if (!row) {
-            resolve({ status: 'none' });
-            return;
-          }
-          resolve({
-            status: 'ready',
-            byteLength: row.byteLength,
-            mimeType: row.mimeType,
-            updatedAt: row.updatedAt,
-          });
-        };
-      });
+      const row = await readTrackRow(db, k);
+      if (!row?.body) return { status: 'none' };
+      if (await serverErrorInBlob(row.body)) {
+        await deleteTrackRow(db, k);
+        emitOfflineMediaDiscarded(offlineMediaKeyId(key));
+        return { status: 'none' };
+      }
+      return {
+        status: 'ready',
+        byteLength: row.byteLength,
+        mimeType: row.mimeType,
+        updatedAt: row.updatedAt,
+      };
     },
 
     async listReadyEntries(scopeFilter: LibraryCacheScope | null): Promise<OfflineReadyEntry[]> {
@@ -251,6 +265,11 @@ export function createIndexedDbOfflineMediaStorage(): OfflineMediaStore {
       const k = idbTrackKey(key);
       const row = await readTrackRow(db, k);
       if (!row?.body) return null;
+      if (await serverErrorInBlob(row.body)) {
+        await deleteTrackRow(db, k);
+        emitOfflineMediaDiscarded(offlineMediaKeyId(key));
+        return null;
+      }
       const url = URL.createObjectURL(row.body);
       return {
         url,
@@ -316,6 +335,10 @@ export function createIndexedDbOfflineMediaStorage(): OfflineMediaStore {
         const blob = await res.blob();
         if (blob.size === 0) {
           throw new Error('Downloaded empty body');
+        }
+        const serverError = await serverErrorInBlob(blob);
+        if (serverError) {
+          throw new Error(serverError);
         }
         const mimeType = blob.type || res.headers.get('Content-Type') || 'application/octet-stream';
         const now = Date.now();

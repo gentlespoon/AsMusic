@@ -15,6 +15,7 @@ export type AsmusicNativePluginEvents = {
   playbackRemoteFavoriteStar: void;
   playbackRemoteFavoriteUnstar: void;
   offlineMediaReady: { cacheKey: string };
+  offlineMediaDiscarded: { cacheKey: string };
   waveformPeaksReady: { cacheKey: string };
 };
 
@@ -31,6 +32,7 @@ export interface AsmusicNativePlugin {
     artworkUrl?: string | null;
     artworkDataBase64?: string | null;
     artworkPlaceholderDataBase64?: string | null;
+    contentType?: string | null;
   }): Promise<void>;
   playbackUpdateArtwork(options: {
     artworkUrl?: string | null;

@@ -36,6 +36,7 @@ export type {
 export * from './offline/OfflineMediaStore';
 export * from './offline/playbackResolver';
 export * from './offline/playableAudioFormats';
+export * from './offline/serverAudioErrorMessage';
 export * from './offline/appPreferenceKeys';
 export * from './offline/OfflineBulkJobQueue';
 export * from './offline/waveformConstants';

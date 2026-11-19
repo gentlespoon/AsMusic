@@ -185,10 +185,13 @@ export const enUSMessages = {
   "nav.aboutHint": "App information",
   "nav.playbackQueue": "Playback queue",
   "nav.playbackQueueHint": "Reorder, loop, and clear",
-  "nav.playerDebugLog": "Copy player debug log",
-  "nav.playerDebugLog.copied": "Copied to clipboard",
-  "nav.playerDebugLog.copyFailed": "Copy failed",
-  "nav.playerDebugLog.hint": "Native and JavaScript player logs",
+  "nav.playerDebugLog": "Player debug log",
+  "nav.playerDebugLog.hint": "View native and JavaScript player logs",
+  "playerDebugLog.title": "Player debug log",
+  "playerDebugLog.copy": "Copy to clipboard",
+  "playerDebugLog.copied": "Copied to clipboard",
+  "playerDebugLog.copyFailed": "Copy failed",
+  "playerDebugLog.loading": "Loading…",
   "nav.settings": "Settings",
   "nav.settingsHint": "Servers, libraries, and more",
   "nav.sleepTimer": "Sleep timer",
@@ -321,6 +324,10 @@ export const enUSMessages = {
   "player.offline.removeDownload": "Remove downloaded copy",
   "player.playback.skippedOnFailure":
     "Couldn't play \"{title}\": {error}. Skipping to next track.",
+  "player.playback.missingOnServer":
+    "The server can no longer find this song ({detail}). Refresh the library to update the catalog.",
+  "player.playback.serverError":
+    "The server could not send this song: {detail}.",
   "player.playback.skippedLibraryDisabledTitle":
     "Skipped — enable library in Settings to play this song",
   "player.playback.thisTrack": "this track",
@@ -441,7 +448,7 @@ export const enUSMessages = {
   "settings.ux.section.playback": "Playback",
   "settings.ux.playerDebugLog": "Show player debug log",
   "settings.ux.playerDebugLog.caption":
-    "Adds a menu item to copy native and JavaScript player logs for troubleshooting.",
+    "Adds a menu item to view and copy native and JavaScript player logs.",
   "settings.ux.waveform.caption":
     "Full-screen player shows a waveform scrubber for local files. Streaming will always use a standard slider.",
   "settings.ux.playbackFailureAutoSkipLimit": "Auto-skip limit on playback failure",

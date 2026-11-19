@@ -7,6 +7,43 @@ import AVFoundation
 import Foundation
 import SQLite3
 
+/// On-device playback log (`Documents/asmusic-player-debug.log`) plus the Xcode/Console stream.
+enum AsmusicPlayerDebugLog {
+    static let filename = "asmusic-player-debug.log"
+    private static let maxBytes = 262_144
+
+    static func fileURL() -> URL? {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?
+            .appendingPathComponent(filename)
+    }
+
+    static func append(_ message: String) {
+        NSLog("[AsMusic][player] %@", message)
+        let ms = Int64(Date().timeIntervalSince1970 * 1000)
+        let line = "\(ms) [native] \(message)\n"
+        guard let url = fileURL(), let data = line.data(using: .utf8) else { return }
+        if FileManager.default.fileExists(atPath: url.path) {
+            do {
+                let handle = try FileHandle(forWritingTo: url)
+                try handle.seekToEnd()
+                try handle.write(contentsOf: data)
+                try handle.close()
+            } catch {
+                NSLog("[AsMusic][player] log append failed: %@", String(describing: error))
+            }
+        } else {
+            try? data.write(to: url)
+        }
+        if let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
+           let size = attrs[.size] as? Int, size > maxBytes,
+           let full = try? String(contentsOf: url, encoding: .utf8)
+        {
+            let trimmed = String(full.suffix(maxBytes))
+            try? trimmed.data(using: .utf8)?.write(to: url)
+        }
+    }
+}
+
 /// Thread-safe SQLite access for library cache rows keyed by `(server_key, library_id)`.
 enum LibraryCacheSQLiteStore {
 
@@ -1153,7 +1190,15 @@ enum LibraryCacheSQLiteStore {
             .appendingPathComponent("\(v)_\(safeTrack).\(ext)", isDirectory: false)
     }
 
-    private static let offlineKnownAudioExtensions: Set<String> = ["mp3", "m4a", "flac", "ogg", "wav", "aac", "mp4"]
+    private static let offlineKnownAudioExtensions: Set<String> = [
+        "mp3", "m4a", "flac", "ogg", "opus", "wav", "aac", "mp4", "aiff", "aif", "caf", "alac",
+    ]
+
+    /// Containers AVPlayer requires to begin at byte 0. A leading ID3 tag makes these fail with
+    /// "Operation Stopped" even when the bytes after the tag are valid.
+    private static let offlineContainersNeedingCleanStart: Set<String> = [
+        "flac", "wav", "aiff", "m4a", "ogg", "opus", "caf",
+    ]
 
     private static func offlineFileExtension(mimeType: String, remoteUrl: URL) -> String {
         let remoteExt = remoteUrl.pathExtension.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
@@ -1173,9 +1218,402 @@ enum LibraryCacheSQLiteStore {
             return "wav"
         case "audio/aac", "audio/x-aac":
             return "aac"
+        case "audio/aiff", "audio/x-aiff", "audio/aifc":
+            return "aiff"
+        case "audio/x-caf", "audio/caf":
+            return "caf"
+        case "audio/alac", "audio/x-alac":
+            return "m4a"
+        case "audio/opus":
+            return "opus"
         default:
             return "mp3"
         }
+    }
+
+    private struct SniffedOfflineAudio {
+        var fileExtension: String
+        var prefixToStrip: Int
+        var mimeType: String
+    }
+
+    private struct PreparedOfflineAudio {
+        var path: String
+        var mimeType: String?
+        var rewritten: Bool
+    }
+
+    /// Total ID3v2 tag length including the 10-byte header (and v2.4 footer), or nil.
+    private static func id3v2TotalLength(_ header: Data) -> Int? {
+        guard header.count >= 10 else { return nil }
+        guard header[0] == 0x49, header[1] == 0x44, header[2] == 0x33 else { return nil }
+        let version = header[3]
+        guard version == 2 || version == 3 || version == 4 else { return nil }
+        let b0 = header[6], b1 = header[7], b2 = header[8], b3 = header[9]
+        if (b0 | b1 | b2 | b3) & 0x80 != 0 { return nil }
+        let size = (Int(b0) << 21) | (Int(b1) << 14) | (Int(b2) << 7) | Int(b3)
+        var total = 10 + size
+        if version == 4, (header[5] & 0x10) != 0 {
+            total += 10
+        }
+        return total
+    }
+
+    private static func startsWith(_ data: Data, _ ascii: String) -> Bool {
+        guard let bytes = ascii.data(using: .ascii), data.count >= bytes.count else { return false }
+        return data.prefix(bytes.count) == bytes
+    }
+
+    private static func sniffAudioExtension(_ data: Data) -> String? {
+        if startsWith(data, "fLaC") { return "flac" }
+        if startsWith(data, "OggS") {
+            if data.range(of: Data("OpusHead".utf8)) != nil { return "opus" }
+            return "ogg"
+        }
+        if startsWith(data, "RIFF"), data.count >= 12,
+           String(data: data.subdata(in: 8..<12), encoding: .ascii) == "WAVE" {
+            return "wav"
+        }
+        if startsWith(data, "FORM"), data.count >= 12 {
+            let form = String(data: data.subdata(in: 8..<12), encoding: .ascii)
+            if form == "AIFF" || form == "AIFC" { return "aiff" }
+        }
+        if startsWith(data, "caff") { return "caf" }
+        if startsWith(data, "wvpk") { return "wv" }
+        if startsWith(data, "MAC ") { return "ape" }
+        if startsWith(data, "DSD ") { return "dsf" }
+        if startsWith(data, "FRM8") { return "dff" }
+        if data.count >= 8, String(data: data.subdata(in: 4..<8), encoding: .ascii) == "ftyp" {
+            return "m4a"
+        }
+        if data.count >= 4, Array(data.prefix(4)) == [0x30, 0x26, 0xB2, 0x75] {
+            return "wma"
+        }
+        return mpegAudioExtension(data)
+    }
+
+    /// MP3 frame sync vs AAC ADTS. Layer bits of 00 are AAC; anything else here is MPEG audio.
+    private static func mpegAudioExtension(_ data: Data) -> String? {
+        guard data.count >= 2 else { return nil }
+        let b0 = data[0]
+        let b1 = data[1]
+        guard b0 == 0xFF, (b1 & 0xE0) == 0xE0 else { return nil }
+        let version = (b1 >> 3) & 0x03
+        if version == 0x01 { return nil }
+        let layer = (b1 >> 1) & 0x03
+        if layer == 0 {
+            guard (b1 & 0xF0) == 0xF0 else { return nil }
+            return "aac"
+        }
+        return "mp3"
+    }
+
+    private static func mimeType(forAudioExtension ext: String) -> String {
+        switch ext.lowercased() {
+        case "mp3":
+            return "audio/mpeg"
+        case "m4a", "mp4", "alac":
+            return "audio/mp4"
+        case "aac":
+            return "audio/aac"
+        case "flac":
+            return "audio/flac"
+        case "ogg", "opus":
+            return "audio/ogg"
+        case "wav":
+            return "audio/wav"
+        case "aiff", "aif":
+            return "audio/aiff"
+        case "caf":
+            return "audio/x-caf"
+        case "wma":
+            return "audio/x-ms-wma"
+        case "ape":
+            return "audio/x-ape"
+        default:
+            return "application/octet-stream"
+        }
+    }
+
+    /// Reads magic bytes, skipping a leading ID3v2 tag. MP3/AAC keep the tag; FLAC, WAV, AIFF,
+    /// M4A, and similar containers report it so playback can drop it.
+    private static func sniffOfflineAudio(at path: String) -> SniffedOfflineAudio? {
+        guard let handle = FileHandle(forReadingAtPath: path) else { return nil }
+        defer { try? handle.close() }
+        let fileSize: Int
+        do {
+            fileSize = Int(try handle.seekToEnd())
+        } catch {
+            return nil
+        }
+        guard fileSize >= 4 else { return nil }
+
+        var offset = 0
+        for _ in 0..<4 {
+            do {
+                try handle.seek(toOffset: UInt64(offset))
+                guard let header = try handle.read(upToCount: 10), header.count == 10 else { break }
+                guard let tagLen = id3v2TotalLength(header) else { break }
+                let next = offset + tagLen
+                guard next > offset, next < fileSize else { break }
+                offset = next
+            } catch {
+                break
+            }
+        }
+
+        do {
+            try handle.seek(toOffset: UInt64(offset))
+            guard let magic = try handle.read(upToCount: 4096), magic.count >= 4 else { return nil }
+            let found = locateAudio(in: magic)
+            guard let found else { return nil }
+            let payloadStart = offset + found.byteOffset
+            guard payloadStart < fileSize else { return nil }
+            let strip = offlineContainersNeedingCleanStart.contains(found.fileExtension) ? payloadStart : 0
+            guard strip < fileSize else { return nil }
+            return SniffedOfflineAudio(
+                fileExtension: found.fileExtension,
+                prefixToStrip: strip,
+                mimeType: mimeType(forAudioExtension: found.fileExtension)
+            )
+        } catch {
+            return nil
+        }
+    }
+
+    private struct LocatedAudio {
+        var fileExtension: String
+        var byteOffset: Int
+    }
+
+    /// Prefer a container or frame at byte 0. A short run of zero bytes before the magic is
+    /// allowed. Do not scan deeper — ID3 artwork can contain those byte strings by coincidence.
+    private static func locateAudio(in data: Data) -> LocatedAudio? {
+        if let ext = sniffAudioExtension(data) {
+            return LocatedAudio(fileExtension: ext, byteOffset: 0)
+        }
+        let scan = min(data.count, 16)
+        guard scan > 1 else { return nil }
+        for i in 1..<scan {
+            guard data.prefix(i).allSatisfy({ $0 == 0 }) else { break }
+            let slice = data.subdata(in: i..<data.count)
+            if let ext = sniffAudioExtension(slice) {
+                return LocatedAudio(fileExtension: ext, byteOffset: i)
+            }
+        }
+        return nil
+    }
+
+    private static func writeDroppingPrefix(from src: String, to dst: String, prefix: Int) throws {
+        let fm = FileManager.default
+        if fm.fileExists(atPath: dst) {
+            try fm.removeItem(atPath: dst)
+        }
+        guard fm.createFile(atPath: dst, contents: nil) else {
+            throw StoreError.prepareFailed
+        }
+        let input = try FileHandle(forReadingFrom: URL(fileURLWithPath: src))
+        defer { try? input.close() }
+        let output = try FileHandle(forWritingTo: URL(fileURLWithPath: dst))
+        defer { try? output.close() }
+        if prefix > 0 {
+            try input.seek(toOffset: UInt64(prefix))
+        }
+        while true {
+            guard let chunk = try input.read(upToCount: 1_048_576), !chunk.isEmpty else { break }
+            try output.write(contentsOf: chunk)
+        }
+    }
+
+    private static func rewriteOfflineAudio(at path: String, sniffed: SniffedOfflineAudio) throws -> String {
+        let currentExt = (path as NSString).pathExtension.lowercased()
+        let dest = currentExt == sniffed.fileExtension
+            ? path
+            : (path as NSString).deletingPathExtension + ".\(sniffed.fileExtension)"
+        let fm = FileManager.default
+        if sniffed.prefixToStrip > 0 {
+            let tmp = dest + ".rewrite"
+            if fm.fileExists(atPath: tmp) {
+                try fm.removeItem(atPath: tmp)
+            }
+            try writeDroppingPrefix(from: path, to: tmp, prefix: sniffed.prefixToStrip)
+            if dest == path {
+                let backup = path + ".bak"
+                if fm.fileExists(atPath: backup) {
+                    try fm.removeItem(atPath: backup)
+                }
+                try fm.moveItem(atPath: path, toPath: backup)
+                do {
+                    try fm.moveItem(atPath: tmp, toPath: path)
+                    try fm.removeItem(atPath: backup)
+                } catch {
+                    if !fm.fileExists(atPath: path), fm.fileExists(atPath: backup) {
+                        try? fm.moveItem(atPath: backup, toPath: path)
+                    }
+                    throw error
+                }
+            } else {
+                if fm.fileExists(atPath: dest) {
+                    try fm.removeItem(atPath: dest)
+                }
+                try fm.moveItem(atPath: tmp, toPath: dest)
+                if fm.fileExists(atPath: path) {
+                    try fm.removeItem(atPath: path)
+                }
+            }
+            return dest
+        }
+        if dest == path { return path }
+        if fm.fileExists(atPath: dest) {
+            try fm.removeItem(atPath: dest)
+        }
+        try fm.moveItem(atPath: path, toPath: dest)
+        return dest
+    }
+
+    /// Renames a download to the real container and strips a leading ID3 tag when AVPlayer cannot
+    /// see past it. Safe to call more than once; a file that already matches is left in place.
+    private static func prepareOfflineAudioFileForPlayback(at path: String) -> PreparedOfflineAudio {
+        guard FileManager.default.fileExists(atPath: path) else {
+            return PreparedOfflineAudio(path: path, mimeType: nil, rewritten: false)
+        }
+        guard let sniffed = sniffOfflineAudio(at: path) else {
+            return PreparedOfflineAudio(path: path, mimeType: nil, rewritten: false)
+        }
+        let currentExt = (path as NSString).pathExtension.lowercased()
+        let needsStrip = sniffed.prefixToStrip > 0
+        let needsRename = currentExt != sniffed.fileExtension
+        if !needsStrip && !needsRename {
+            return PreparedOfflineAudio(path: path, mimeType: sniffed.mimeType, rewritten: false)
+        }
+        do {
+            let newPath = try rewriteOfflineAudio(at: path, sniffed: sniffed)
+            let fromName = URL(fileURLWithPath: path).lastPathComponent
+            let toName = URL(fileURLWithPath: newPath).lastPathComponent
+            AsmusicPlayerDebugLog.append(
+                "offline repair \(fromName) -> \(toName) strip=\(sniffed.prefixToStrip) mime=\(sniffed.mimeType) bytes=\(fileByteLength(newPath))"
+            )
+            return PreparedOfflineAudio(path: newPath, mimeType: sniffed.mimeType, rewritten: true)
+        } catch {
+            let name = URL(fileURLWithPath: path).lastPathComponent
+            AsmusicPlayerDebugLog.append(
+                "offline repair failed \(name) \(error.localizedDescription)"
+            )
+            return PreparedOfflineAudio(path: path, mimeType: sniffed.mimeType, rewritten: false)
+        }
+    }
+
+    /// Subsonic answers some failed streams with HTTP 200 and a short XML error body.
+    /// Those bytes are not audio; AVPlayer reports them as "Operation Stopped".
+    struct SubsonicErrorDocument {
+        var code: Int?
+        var message: String
+
+        /// Handed to JS so the UI can explain the failure instead of quoting AVPlayer.
+        var playbackToken: String {
+            let codeText = code.map(String.init) ?? ""
+            return "subsonic-error\u{1F}\(codeText)\u{1F}\(message)"
+        }
+    }
+
+    static func subsonicErrorDocument(in data: Data) -> SubsonicErrorDocument? {
+        var bytes = data
+        if bytes.count >= 3, bytes[0] == 0xEF, bytes[1] == 0xBB, bytes[2] == 0xBF {
+            bytes = bytes.subdata(in: 3..<bytes.count)
+        }
+        guard let text = String(data: bytes, encoding: .utf8) ?? String(data: bytes, encoding: .isoLatin1) else {
+            return nil
+        }
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let lower = trimmed.lowercased()
+        let markup = lower.hasPrefix("<?xml")
+            || lower.hasPrefix("<subsonic-response")
+            || lower.hasPrefix("<html")
+            || lower.hasPrefix("<!doctype")
+            || lower.hasPrefix("{")
+        guard markup else { return nil }
+        let message = xmlAttribute("message", in: trimmed)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let code = xmlAttribute("code", in: trimmed).flatMap(Int.init)
+        let resolved = (message?.isEmpty == false) ? message ?? "" : "Server returned an error instead of audio"
+        return SubsonicErrorDocument(code: code, message: resolved)
+    }
+
+    private static func xmlAttribute(_ name: String, in text: String) -> String? {
+        let needle = "\(name)=\""
+        guard let start = text.range(of: needle) else { return nil }
+        let rest = text[start.upperBound...]
+        guard let end = rest.firstIndex(of: "\"") else { return nil }
+        return String(rest[..<end])
+    }
+
+    private static func offlineErrorDocument(at path: String) -> SubsonicErrorDocument? {
+        guard let handle = FileHandle(forReadingAtPath: path) else { return nil }
+        defer { try? handle.close() }
+        guard let data = try? handle.read(upToCount: 512), !data.isEmpty else { return nil }
+        return subsonicErrorDocument(in: data)
+    }
+
+    /// Caller must already hold `queue`. Removes the row and file when the body is an error document.
+    private static func discardOfflineErrorDocumentLocked(
+        path: String,
+        serverKey: String,
+        libraryId: String,
+        trackId: String,
+        variant: String
+    ) throws -> Bool {
+        guard let document = offlineErrorDocument(at: path) else { return false }
+        let name = URL(fileURLWithPath: path).lastPathComponent
+        AsmusicPlayerDebugLog.append("offline discard \(name) \(document.playbackToken)")
+        let cacheKey = "\(serverKey)\t\(libraryId)\t\(trackId)\t\(variant)"
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(
+                name: .asmusicOfflineMediaDiscarded,
+                object: nil,
+                userInfo: ["cacheKey": cacheKey]
+            )
+        }
+        try deleteOfflineTrackLocked(
+            serverKey: serverKey,
+            libraryId: libraryId,
+            trackId: trackId,
+            variant: variant,
+            filePath: path
+        )
+        return true
+    }
+
+    /// Caller must already hold `queue`.
+    private static func deleteOfflineTrackLocked(
+        serverKey: String,
+        libraryId: String,
+        trackId: String,
+        variant: String,
+        filePath: String?
+    ) throws {
+        try openIfNeeded()
+        guard let db else { throw StoreError.databaseUnavailable }
+        let del = "DELETE FROM offline_tracks WHERE server_key = ? AND library_id = ? AND track_id = ? AND variant = ?;"
+        var delStmt: OpaquePointer?
+        defer { sqlite3_finalize(delStmt) }
+        guard sqlite3_prepare_v2(db, del, -1, &delStmt, nil) == SQLITE_OK else {
+            throw StoreError.prepareFailed
+        }
+        sqlite3_bind_text(delStmt, 1, serverKey, -1, transientDestructor)
+        sqlite3_bind_text(delStmt, 2, libraryId, -1, transientDestructor)
+        sqlite3_bind_text(delStmt, 3, trackId, -1, transientDestructor)
+        sqlite3_bind_text(delStmt, 4, variant, -1, transientDestructor)
+        guard sqlite3_step(delStmt) == SQLITE_DONE else {
+            throw StoreError.prepareFailed
+        }
+        if let filePath {
+            try? FileManager.default.removeItem(atPath: filePath)
+        }
+    }
+
+    private static func fileByteLength(_ path: String) -> Int {
+        let attrs = try? FileManager.default.attributesOfItem(atPath: path)
+        return Int((attrs?[.size] as? NSNumber)?.int64Value ?? 0)
     }
 
     /// Resolves a playback path: stored absolute path, canonical layout, or legacy `.audio` filename.
@@ -1224,6 +1662,34 @@ enum LibraryCacheSQLiteStore {
                 libraryId: libraryId,
                 trackId: trackId,
                 variant: variant,
+                fileExtension: "wav"
+            ).path,
+            offlineFinalFileURL(
+                serverKey: serverKey,
+                libraryId: libraryId,
+                trackId: trackId,
+                variant: variant,
+                fileExtension: "aiff"
+            ).path,
+            offlineFinalFileURL(
+                serverKey: serverKey,
+                libraryId: libraryId,
+                trackId: trackId,
+                variant: variant,
+                fileExtension: "aac"
+            ).path,
+            offlineFinalFileURL(
+                serverKey: serverKey,
+                libraryId: libraryId,
+                trackId: trackId,
+                variant: variant,
+                fileExtension: "ogg"
+            ).path,
+            offlineFinalFileURL(
+                serverKey: serverKey,
+                libraryId: libraryId,
+                trackId: trackId,
+                variant: variant,
                 fileExtension: "audio"
             ).path,
         ]
@@ -1240,7 +1706,9 @@ enum LibraryCacheSQLiteStore {
         )
     }
 
-    /// Renames legacy `*.audio` / unknown extensions to a MIME-appropriate name so AVPlayer can open the file.
+    /// Makes a downloaded file something AVPlayer can open: real extension, and no leading ID3
+    /// on containers that must start at byte 0. Legacy `*.audio` names are still renamed when
+    /// the bytes cannot be identified.
     private static func normalizeOfflinePlaybackPath(
         _ path: String,
         serverKey: String,
@@ -1249,41 +1717,61 @@ enum LibraryCacheSQLiteStore {
         variant: String,
         mimeType: String?
     ) throws -> String {
-        let ext = (path as NSString).pathExtension.lowercased()
-        if offlineKnownAudioExtensions.contains(ext) {
-            return path
+        let prepared = prepareOfflineAudioFileForPlayback(at: path)
+        var result = prepared.path
+        var storedMime = prepared.mimeType
+        var rewritten = prepared.rewritten || prepared.path != path
+        if !rewritten {
+            let ext = (path as NSString).pathExtension.lowercased()
+            if !offlineKnownAudioExtensions.contains(ext) {
+                let targetExt = offlineFileExtension(
+                    mimeType: mimeType ?? "audio/mpeg",
+                    remoteUrl: URL(fileURLWithPath: path)
+                )
+                let dest = (path as NSString).deletingPathExtension + ".\(targetExt)"
+                if path != dest {
+                    let fm = FileManager.default
+                    if !fm.fileExists(atPath: dest) {
+                        try fm.copyItem(atPath: path, toPath: dest)
+                    }
+                    result = dest
+                    storedMime = Self.mimeType(forAudioExtension: targetExt)
+                    rewritten = true
+                    AsmusicPlayerDebugLog.append(
+                        "offline rename unknown ext \(URL(fileURLWithPath: path).lastPathComponent) -> \(URL(fileURLWithPath: dest).lastPathComponent) mime=\(storedMime ?? "-")"
+                    )
+                }
+            }
         }
-        let targetExt = offlineFileExtension(mimeType: mimeType ?? "audio/mpeg", remoteUrl: URL(fileURLWithPath: path))
-        let dest = (path as NSString).deletingPathExtension + ".\(targetExt)"
-        if path == dest {
-            return path
+        if rewritten {
+            try updateOfflineFileLocked(
+                serverKey: serverKey,
+                libraryId: libraryId,
+                trackId: trackId,
+                variant: variant,
+                absPath: result,
+                mimeType: storedMime,
+                byteLength: fileByteLength(result)
+            )
         }
-        let fm = FileManager.default
-        if !fm.fileExists(atPath: dest) {
-            try fm.copyItem(atPath: path, toPath: dest)
-        }
-        try updateOfflineAbsPathLocked(
-            serverKey: serverKey,
-            libraryId: libraryId,
-            trackId: trackId,
-            variant: variant,
-            absPath: dest
-        )
-        return dest
+        return result
     }
 
     /// Caller must already hold `queue` (do not call `queue.sync` from inside `queue.sync`).
-    private static func updateOfflineAbsPathLocked(
+    private static func updateOfflineFileLocked(
         serverKey: String,
         libraryId: String,
         trackId: String,
         variant: String,
-        absPath: String
+        absPath: String,
+        mimeType: String?,
+        byteLength: Int
     ) throws {
         try openIfNeeded()
         guard let db else { throw StoreError.databaseUnavailable }
         let sql = """
-            UPDATE offline_tracks SET abs_path = ?
+            UPDATE offline_tracks
+            SET abs_path = ?, mime_type = COALESCE(?, mime_type), byte_length = ?
             WHERE server_key = ? AND library_id = ? AND track_id = ? AND variant = ?;
             """
         var stmt: OpaquePointer?
@@ -1292,10 +1780,16 @@ enum LibraryCacheSQLiteStore {
             throw StoreError.prepareFailed
         }
         sqlite3_bind_text(stmt, 1, absPath, -1, transientDestructor)
-        sqlite3_bind_text(stmt, 2, serverKey, -1, transientDestructor)
-        sqlite3_bind_text(stmt, 3, libraryId, -1, transientDestructor)
-        sqlite3_bind_text(stmt, 4, trackId, -1, transientDestructor)
-        sqlite3_bind_text(stmt, 5, variant, -1, transientDestructor)
+        if let mimeType {
+            sqlite3_bind_text(stmt, 2, mimeType, -1, transientDestructor)
+        } else {
+            sqlite3_bind_null(stmt, 2)
+        }
+        sqlite3_bind_int64(stmt, 3, Int64(byteLength))
+        sqlite3_bind_text(stmt, 4, serverKey, -1, transientDestructor)
+        sqlite3_bind_text(stmt, 5, libraryId, -1, transientDestructor)
+        sqlite3_bind_text(stmt, 6, trackId, -1, transientDestructor)
+        sqlite3_bind_text(stmt, 7, variant, -1, transientDestructor)
         guard sqlite3_step(stmt) == SQLITE_DONE else {
             throw StoreError.prepareFailed
         }
@@ -1337,10 +1831,22 @@ enum LibraryCacheSQLiteStore {
             try fm.removeItem(at: dest)
         }
         try fm.moveItem(at: localTmp, to: dest)
-        let attrs = try fm.attributesOfItem(atPath: dest.path)
-        let size = Int((attrs[.size] as? NSNumber)?.int64Value ?? 0)
+        if let document = offlineErrorDocument(at: dest.path) {
+            try? fm.removeItem(at: dest)
+            try? offlineDeleteOne(
+                serverKey: serverKey,
+                libraryId: libraryId,
+                trackId: trackId,
+                variant: variant
+            )
+            AsmusicPlayerDebugLog.append("offline reject track=\(trackId) \(document.playbackToken)")
+            throw StoreError.notAudio(document.message)
+        }
+        let prepared = prepareOfflineAudioFileForPlayback(at: dest.path)
+        let absPath = prepared.path
+        let storedMime = prepared.mimeType ?? mime
+        let size = fileByteLength(absPath)
         let now = Date().timeIntervalSince1970
-        let absPath = dest.path
 
         try queue.sync {
             try openIfNeeded()
@@ -1367,7 +1873,7 @@ enum LibraryCacheSQLiteStore {
             sqlite3_bind_text(stmt, 3, trackId, -1, transientDestructor)
             sqlite3_bind_text(stmt, 4, variant, -1, transientDestructor)
             sqlite3_bind_text(stmt, 5, absPath, -1, transientDestructor)
-            sqlite3_bind_text(stmt, 6, mime, -1, transientDestructor)
+            sqlite3_bind_text(stmt, 6, storedMime, -1, transientDestructor)
             sqlite3_bind_int64(stmt, 7, Int64(size))
             sqlite3_bind_double(stmt, 8, now)
             guard sqlite3_step(stmt) == SQLITE_DONE else {
@@ -1664,7 +2170,7 @@ enum LibraryCacheSQLiteStore {
             ) else {
                 return nil
             }
-            return try normalizeOfflinePlaybackPath(
+            let playable = try normalizeOfflinePlaybackPath(
                 resolved,
                 serverKey: serverKey,
                 libraryId: libraryId,
@@ -1672,6 +2178,16 @@ enum LibraryCacheSQLiteStore {
                 variant: variant,
                 mimeType: mime
             )
+            if try discardOfflineErrorDocumentLocked(
+                path: playable,
+                serverKey: serverKey,
+                libraryId: libraryId,
+                trackId: trackId,
+                variant: variant
+            ) {
+                return nil
+            }
+            return playable
         }
     }
 
@@ -1717,6 +2233,15 @@ enum LibraryCacheSQLiteStore {
             }
             if resolved == nil {
                 return ["status": "invalid"]
+            }
+            if try discardOfflineErrorDocumentLocked(
+                path: resolved,
+                serverKey: serverKey,
+                libraryId: libraryId,
+                trackId: trackId,
+                variant: variant
+            ) {
+                return ["status": "none"]
             }
             let bl = Int(sqlite3_column_int64(stmt, 1))
             let mimeC = sqlite3_column_text(stmt, 2)
@@ -2061,6 +2586,7 @@ enum LibraryCacheSQLiteStore {
         case transactionFailed
         case invalidJson
         case songNotFound
+        case notAudio(String)
 
         var errorDescription: String? {
             switch self {
@@ -2069,6 +2595,7 @@ enum LibraryCacheSQLiteStore {
             case .transactionFailed: return "Library SQLite transaction failed"
             case .invalidJson: return "Invalid JSON for library cache"
             case .songNotFound: return "Song not found in library cache"
+            case .notAudio(let message): return message
             }
         }
     }
@@ -2388,4 +2915,5 @@ enum LibraryCacheSQLiteStore {
 extension Notification.Name {
     static let asmusicWaveformPeaksReady = Notification.Name("AsmusicWaveformPeaksReady")
     static let asmusicOfflineMediaReady = Notification.Name("AsmusicOfflineMediaReady")
+    static let asmusicOfflineMediaDiscarded = Notification.Name("AsmusicOfflineMediaDiscarded")
 }

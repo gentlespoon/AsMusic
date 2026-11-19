@@ -15,6 +15,7 @@ import {
   albumsFromCachedSongs,
   allCachedSongsSorted,
   artistsFromCachedSongs,
+  compareLibraryText,
   isChildStarred,
   fetchMusicFolders,
   type LibraryCacheScope,
@@ -421,11 +422,9 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
       }
     }
     out.sort((a, b) => {
-      const a0 = a.album.artist ?? '';
-      const b0 = b.album.artist ?? '';
-      const c = a0.localeCompare(b0, undefined, { sensitivity: 'base' });
-      if (c !== 0) return c;
-      return (a.album.name ?? '').localeCompare(b.album.name ?? '', undefined, { sensitivity: 'base' });
+      const byArtist = compareLibraryText(a.album.artist ?? '', b.album.artist ?? '');
+      if (byArtist !== 0) return byArtist;
+      return compareLibraryText(a.album.name ?? '', b.album.name ?? '');
     });
     return out;
   }, [slices]);
@@ -442,7 +441,7 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
         });
       }
     }
-    out.sort((a, b) => a.artist.name.localeCompare(b.artist.name, undefined, { sensitivity: 'base' }));
+    out.sort((a, b) => compareLibraryText(a.artist.name, b.artist.name));
     return out;
   }, [slices]);
 
@@ -466,7 +465,7 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
     const out: SongListEntry[] = [];
     for (const sl of slices) {
       const starred = sl.songs.filter((s) => isChildStarred(s));
-      starred.sort((a, b) => (a.title ?? '').localeCompare(b.title ?? '', undefined, { sensitivity: 'base' }));
+      starred.sort((a, b) => compareLibraryText(a.title ?? '', b.title ?? ''));
       for (const song of starred) {
         out.push({
           song,
@@ -483,9 +482,7 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
     const out: PlaylistCatalogRow[] = [];
     for (const { serverId, serverKey } of uniqueServers) {
       const playlists = serverPlaylistsByServerKey[serverKey] ?? [];
-      const sorted = [...playlists].sort((a, b) =>
-        a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
-      );
+      const sorted = [...playlists].sort((a, b) => compareLibraryText(a.name, b.name));
       for (const playlist of sorted) {
         out.push({
           kind: 'server',
@@ -508,9 +505,9 @@ export function LibraryBrowseCacheProvider({ children }: { children: ReactNode }
       });
     }
     out.sort((a, b) => {
-      const c = a.playlist.name.localeCompare(b.playlist.name, undefined, { sensitivity: 'base' });
-      if (c !== 0) return c;
-      return a.rowKey.localeCompare(b.rowKey);
+      const byName = compareLibraryText(a.playlist.name, b.playlist.name);
+      if (byName !== 0) return byName;
+      return compareLibraryText(a.rowKey, b.rowKey);
     });
     return out;
   }, [uniqueServers, serverPlaylistsByServerKey, localPlaylistSummaries]);

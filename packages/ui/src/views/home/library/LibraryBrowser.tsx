@@ -93,11 +93,14 @@ export function LibraryBrowser() {
 
   const albumsByScope = useMemo(() => {
     const map = new Map<string, ReturnType<typeof albumsFromCachedSongs>>();
-    for (const sl of slices) {
-      map.set(`${sl.scope.serverKey}|${sl.scope.libraryId}`, albumsFromCachedSongs(sl.songs));
+    for (const row of albumCatalogRows) {
+      const key = `${row.artworkScope.serverKey}|${row.artworkScope.libraryId}`;
+      const list = map.get(key);
+      if (list) list.push(row.album);
+      else map.set(key, [row.album]);
     }
     return map;
-  }, [slices]);
+  }, [albumCatalogRows]);
 
   const searchKey = searchParams.toString();
   const { tab, album: albumSongScope, artist: artistAlbumScope, playlist: playlistScope, recommendations: recommendationsScope } = view;
@@ -340,6 +343,12 @@ export function LibraryBrowser() {
     );
   }, [artistAlbumScope, setSearchParams]);
 
+  const albumsForSlice = useCallback(
+    (slice: { scope: { serverKey: string; libraryId: string } }) =>
+      albumsByScope.get(`${slice.scope.serverKey}|${slice.scope.libraryId}`) ?? [],
+    [albumsByScope],
+  );
+
   const albumScopeTracks = useMemo(() => {
     if (!resolvedAlbum) return [];
     return songsInCachedAlbum(resolvedAlbum.subsonicAlbumId, resolvedAlbum.slice.songs);
@@ -357,10 +366,14 @@ export function LibraryBrowser() {
 
   const albumHeaderTitle = useMemo(() => {
     if (!resolvedAlbum) return '';
-    const sliceAlbums = albumsFromCachedSongs(resolvedAlbum.slice.songs);
-    const match = sliceAlbums.find((a) => a.id === resolvedAlbum.subsonicAlbumId);
+    const match = albumsForSlice(resolvedAlbum.slice).find((a) => a.id === resolvedAlbum.subsonicAlbumId);
     return match?.name ?? resolvedAlbum.subsonicAlbumId;
-  }, [resolvedAlbum]);
+  }, [albumsForSlice, resolvedAlbum]);
+
+  const serverPlaylistAlbums = useMemo(() => {
+    if (resolvedPlaylist?.kind !== 'server') return [];
+    return albumsFromCachedSongs(resolvedPlaylist.cachedSongs);
+  }, [resolvedPlaylist]);
 
   const albumDetailApi = resolvedAlbum ? apiForServer(resolvedAlbum.slice.serverId) : null;
   const artistDetailApi = resolvedArtist ? apiForServer(resolvedArtist.slice.serverId) : null;
@@ -543,7 +556,7 @@ export function LibraryBrowser() {
               scrollRestorationKey={playlistScope.id}
               playlistTitle={playlistHeaderTitle}
               cachedSongs={resolvedPlaylist.cachedSongs}
-              albums={albumsFromCachedSongs(resolvedPlaylist.cachedSongs)}
+              albums={serverPlaylistAlbums}
               api={playlistDetailApi}
               initialReady={initialReady}
               resolveCachedArtwork={(id, trackId) => {
@@ -688,7 +701,7 @@ export function LibraryBrowser() {
               scrollRestorationKey={albumSongScope.id}
               albumTitle={albumHeaderTitle}
               tracks={albumScopeTracks}
-              albums={albumsFromCachedSongs(resolvedAlbum.slice.songs)}
+              albums={albumsForSlice(resolvedAlbum.slice)}
               api={albumDetailApi}
               initialReady={initialReady}
               resolveCachedArtwork={(id) => resolveCachedArtworkForScope(resolvedAlbum.slice.scope, id)}
@@ -715,7 +728,7 @@ export function LibraryBrowser() {
               artistName={artistAlbumScope.name}
               scrollRestorationKey={artistAlbumScope.id}
               tracks={artistScopeTracks}
-              albums={albumsFromCachedSongs(resolvedArtist.slice.songs)}
+              albums={albumsForSlice(resolvedArtist.slice)}
               api={artistDetailApi}
               initialReady={initialReady}
               resolveCachedArtwork={(id) => resolveCachedArtworkForScope(resolvedArtist.slice.scope, id)}

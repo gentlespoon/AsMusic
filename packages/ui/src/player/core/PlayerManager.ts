@@ -1,5 +1,6 @@
 import {
   isPlayableAudioSuffix,
+  playbackContentTypeForTrack,
   libraryCacheScope,
   PERSIST_WHILE_STREAMING_KEY,
   readPersistWhileStreamingEnabled,
@@ -18,6 +19,29 @@ import {
   purgeUnplayableRawOfflineMedia,
   resolveAudioPlaybackPlatform,
 } from "@ui/offline/purgeUnplayableRawOfflineMedia";
+import { appendPlayerDebugLog } from "./playerDebugLog";
+
+/** Drop the transcode `format` parameter so the server sends the original file. */
+function streamUrlWithoutFormat(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    if (!parsed.searchParams.has('format')) return null;
+    parsed.searchParams.delete('format');
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
+/** Drop query credentials from a stream URL before it is written to the debug log. */
+function redactPlaybackUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    return `${parsed.origin}${parsed.pathname}`;
+  } catch {
+    return "(unparsed)";
+  }
+}
 import { ensureQueueRowIds, newQueueRowId } from "./playerQueueItemFromChild";
 import type {
   PlayerQueueItem,
@@ -157,6 +181,8 @@ export class PlayerManager {
 
   private lastIosRemoteSession: PlaybackRemoteSessionPayload | null = null;
   private loadTrackSeq = 0;
+  /** One raw-stream retry is already in flight or finished for the current load. */
+  private rawStreamRetryActive = false;
   private handlingPlaybackEnded = false;
   private handlingPlaybackFailure = false;
   /** Consecutive track failures without confirmed playback; survives async iOS AVPlayer errors. */
@@ -183,8 +209,21 @@ export class PlayerManager {
     });
     this.unsubError = host.playback.onPlaybackError((e) => {
       const seqAtError = this.loadTrackSeq;
+      this.logPlayback("native playbackError", {
+        message: e.message,
+        seqAtError,
+        ...this.currentTrackDebugFields(),
+      });
       queueMicrotask(() => {
-        if (seqAtError !== this.loadTrackSeq) return;
+        if (seqAtError !== this.loadTrackSeq) {
+          this.logPlayback("playbackError ignored", {
+            message: e.message,
+            seqAtError,
+            loadTrackSeq: this.loadTrackSeq,
+          });
+          return;
+        }
+        if (this.maybeRetryRawStream(e.message)) return;
         void this.handlePlaybackFailure(e.message);
       });
     });
@@ -738,6 +777,53 @@ export class PlayerManager {
     }
   }
 
+  /**
+   * A transcoded download can be a Subsonic error document. If the original
+   * suffix is playable, try the file itself once before skipping the track.
+   */
+  private maybeRetryRawStream(message: string): boolean {
+    if (this.rawStreamRetryActive) return false;
+    if (!getServerTranscodeEnabled()) return false;
+    const idx = this.currentIndex;
+    const item =
+      idx !== null && idx >= 0 && idx < this.queue.length
+        ? this.queue[idx]
+        : null;
+    if (
+      !item ||
+      !isPlayableAudioSuffix(item.suffix, resolveAudioPlaybackPlatform())
+    ) {
+      return false;
+    }
+    this.rawStreamRetryActive = true;
+    this.logPlayback("retry without transcode", {
+      message,
+      ...this.currentTrackDebugFields(),
+    });
+    void this.loadCurrentTrack({ autoplay: true, rawStream: true });
+    return true;
+  }
+
+  private logPlayback(message: string, data?: Record<string, unknown>): void {
+    void appendPlayerDebugLog(this.host, "PlayerManager", message, data);
+  }
+
+  private currentTrackDebugFields(): Record<string, unknown> {
+    const idx = this.currentIndex;
+    const item =
+      idx !== null && idx >= 0 && idx < this.queue.length
+        ? this.queue[idx]
+        : null;
+    if (!item) return { index: idx };
+    return {
+      index: idx,
+      trackId: item.trackId,
+      title: item.title,
+      suffix: item.suffix ?? "",
+      transcode: getServerTranscodeEnabled(),
+    };
+  }
+
   /** On load/transport failure, skip forward through the queue until a track plays, the queue ends, or the failure limit is reached. */
   private async handlePlaybackFailure(errorMessage: string): Promise<void> {
     if (this.handlingPlaybackFailure || this.handlingPlaybackEnded) {
@@ -954,12 +1040,15 @@ export class PlayerManager {
   private async loadCurrentTrack(options: {
     autoplay: boolean;
     suppressFailureAdvance?: boolean;
+    /** Stream the original file instead of the server transcode. */
+    rawStream?: boolean;
   }): Promise<boolean> {
     const idx = this.currentIndex;
     if (idx === null || !this.queue[idx]) {
       return false;
     }
     const item = this.queue[idx]!;
+    if (!options.rawStream) this.rawStreamRetryActive = false;
     const loadSeq = ++this.loadTrackSeq;
 
     this.positionSeconds = 0;
@@ -980,15 +1069,17 @@ export class PlayerManager {
 
     this.runRevoke();
     try {
-      const offlineResolved = await resolvePlaybackSource({
-        offlineMedia: this.host.offlineMedia,
-        serverUrl: item.serverUrl,
-        username: item.username,
-        libraryId: item.libraryId,
-        trackId: item.trackId,
-        variant: offlineMediaVariantForCurrentStream(),
-        streamUrl: "",
-      });
+      const offlineResolved = options.rawStream
+        ? { url: "", revoke: () => {}, usedOffline: false as const }
+        : await resolvePlaybackSource({
+            offlineMedia: this.host.offlineMedia,
+            serverUrl: item.serverUrl,
+            username: item.username,
+            libraryId: item.libraryId,
+            trackId: item.trackId,
+            variant: offlineMediaVariantForCurrentStream(),
+            streamUrl: "",
+          });
       if (loadSeq !== this.loadTrackSeq) return false;
 
       let playUrl = offlineResolved.url;
@@ -1000,6 +1091,9 @@ export class PlayerManager {
         await this.deps.ensureStreamReady(item.serverId);
         if (loadSeq !== this.loadTrackSeq) return false;
         streamUrl = this.deps.getStreamUrl(item.serverId, item.trackId);
+        if (options.rawStream && streamUrl) {
+          streamUrl = streamUrlWithoutFormat(streamUrl) ?? streamUrl;
+        }
         if (!streamUrl) {
           this.loadError =
             "Could not build stream URL (sign in or refresh server).";
@@ -1034,6 +1128,18 @@ export class PlayerManager {
       const loadUrlArg =
         offlineResolved.usedOffline && localFilePath ? "" : playUrl;
 
+      const contentType = playbackContentTypeForTrack(
+        item.suffix,
+        options.rawStream ? false : getServerTranscodeEnabled(),
+      );
+      this.logPlayback("load", {
+        ...this.currentTrackDebugFields(),
+        autoplay: options.autoplay,
+        usedOffline: offlineResolved.usedOffline,
+        contentType: contentType ?? "",
+        file: localFilePath?.split("/").pop() ?? "",
+        stream: streamUrl ? redactPlaybackUrl(streamUrl) : "",
+      });
       await this.host.playback.loadUrl(loadUrlArg, {
         title: item.title,
         artist: item.artist,
@@ -1042,6 +1148,7 @@ export class PlayerManager {
         artworkDataBase64: artwork.artworkDataBase64,
         artworkPlaceholderDataBase64: artwork.artworkPlaceholderDataBase64,
         localFilePath: offlineResolved.usedOffline ? localFilePath : undefined,
+        contentType,
       });
       if (loadSeq !== this.loadTrackSeq) return false;
       if (options.autoplay) {
@@ -1064,6 +1171,10 @@ export class PlayerManager {
     } catch (e) {
       if (loadSeq !== this.loadTrackSeq) return false;
       this.loadError = e instanceof Error ? e.message : "Failed to load track";
+      this.logPlayback("load failed", {
+        ...this.currentTrackDebugFields(),
+        message: this.loadError,
+      });
       this.emit();
       if (!options.suppressFailureAdvance) {
         void this.handlePlaybackFailure(this.loadError);

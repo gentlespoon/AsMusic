@@ -93,6 +93,7 @@ function buildPlayback(): PlaybackHost {
         artworkUrl: meta?.artworkUrl ?? undefined,
         artworkDataBase64: meta?.artworkDataBase64 ?? undefined,
         artworkPlaceholderDataBase64: meta?.artworkPlaceholderDataBase64 ?? undefined,
+        contentType: meta?.contentType ?? undefined,
       });
     },
     async updateArtwork(meta) {

@@ -1,4 +1,4 @@
-import { emitOfflineMediaReady, emitWaveformPeaksReady } from '@asmusic/core';
+import { emitOfflineMediaDiscarded, emitOfflineMediaReady, emitWaveformPeaksReady } from '@asmusic/core';
 import { AsmusicNative } from './asmusicNativePlugin';
 
 let installed = false;
@@ -12,5 +12,8 @@ export function installCapacitorOfflineMediaEventBridge(): void {
   });
   void AsmusicNative.addListener('waveformPeaksReady', ({ cacheKey }) => {
     emitWaveformPeaksReady(cacheKey);
+  });
+  void AsmusicNative.addListener('offlineMediaDiscarded', ({ cacheKey }) => {
+    emitOfflineMediaDiscarded(cacheKey);
   });
 }

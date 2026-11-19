@@ -21,6 +21,19 @@ export function offlineMediaKeyId(key: OfflineMediaKey): string {
   return `${key.scope.serverKey}\t${key.scope.libraryId}\t${key.trackId}\t${v}`;
 }
 
+/** Inverse of {@link offlineMediaKeyId}. Returns null when the id is not four tab-separated fields. */
+export function offlineMediaKeyFromId(id: string): OfflineMediaKey | null {
+  const parts = id.split('\t');
+  if (parts.length !== 4) return null;
+  const [serverKey, libraryId, trackId, variant] = parts;
+  if (!serverKey || !trackId) return null;
+  return {
+    scope: { serverKey, libraryId },
+    trackId,
+    variant: variant.length > 0 ? variant : undefined,
+  };
+}
+
 export type OfflineMediaStatus = 'none' | 'writing' | 'ready' | 'invalid';
 
 export type OfflineMediaStatusDetail = {

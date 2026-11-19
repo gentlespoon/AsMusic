@@ -125,7 +125,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     __asmusicClearPlayerDebugLog?: () => Promise<void>;
   };
     const w = window as AsMusicDebugWindow;
-    w.__asmusicCopyPlayerDebugLog = () => copyPlayerDebugLogToClipboard(host);
+    w.__asmusicCopyPlayerDebugLog = async () =>
+      (await copyPlayerDebugLogToClipboard(host)).text;
     w.__asmusicClearPlayerDebugLog = () => clearPlayerDebugLog(host);
     return () => {
       delete w.__asmusicCopyPlayerDebugLog;

@@ -1,5 +1,16 @@
 import type { AlbumID3, ArtistID3, Child } from 'subsonic-api';
 
+/**
+ * One collator for library ordering. `String.prototype.localeCompare` with options
+ * builds a new `Intl.Collator` on every call, which stalls the UI for seconds when
+ * sorting a large catalog (and again on every play-count refresh).
+ */
+const libraryTextCollator = new Intl.Collator(undefined, { sensitivity: 'base' });
+
+export function compareLibraryText(a: string, b: string): number {
+  return libraryTextCollator.compare(a, b);
+}
+
 /** True when Subsonic/OpenSubsonic reports this track as starred (favorited). */
 export function isChildStarred(track: Child): boolean {
   const s = track.starred;
@@ -89,12 +100,9 @@ export function albumsFromCachedSongs(songs: Child[]): AlbumID3[] {
   }
 
   result.sort((a, b) => {
-    const a0 = a.artist ?? '';
-    const b0 = b.artist ?? '';
-    if (a0.localeCompare(b0, undefined, { sensitivity: 'base' }) !== 0) {
-      return a0.localeCompare(b0, undefined, { sensitivity: 'base' });
-    }
-    return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+    const byArtist = compareLibraryText(a.artist ?? '', b.artist ?? '');
+    if (byArtist !== 0) return byArtist;
+    return compareLibraryText(a.name, b.name);
   });
   return result;
 }
@@ -160,7 +168,7 @@ export function artistsFromCachedSongs(songs: Child[]): ArtistID3[] {
     });
   }
 
-  rows.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+  rows.sort((a, b) => compareLibraryText(a.name, b.name));
   return rows;
 }
 
@@ -214,17 +222,24 @@ export function collectCoverArtIdsFromSongs(songs: Child[], albums: AlbumID3[]):
  * Matches a natural browse order alongside {@link albumsFromCachedSongs}.
  */
 export function allCachedSongsSorted(songs: Child[]): Child[] {
-  return [...songs].sort((a, b) => {
-    const byAlbumArtist = albumArtistLine(a).localeCompare(albumArtistLine(b), undefined, { sensitivity: 'base' });
+  const keyed = songs.map((song) => ({
+    song,
+    artist: albumArtistLine(song),
+    album: albumTitle(song),
+    title: song.title ?? '',
+    disc: song.discNumber ?? 0,
+    track: song.track ?? Number.MAX_SAFE_INTEGER,
+  }));
+  keyed.sort((a, b) => {
+    const byAlbumArtist = compareLibraryText(a.artist, b.artist);
     if (byAlbumArtist !== 0) return byAlbumArtist;
-    const byAlbum = albumTitle(a).localeCompare(albumTitle(b), undefined, { sensitivity: 'base' });
+    const byAlbum = compareLibraryText(a.album, b.album);
     if (byAlbum !== 0) return byAlbum;
-    const byDisc = (a.discNumber ?? 0) - (b.discNumber ?? 0);
-    if (byDisc !== 0) return byDisc;
-    const byTrack = (a.track ?? Number.MAX_SAFE_INTEGER) - (b.track ?? Number.MAX_SAFE_INTEGER);
-    if (byTrack !== 0) return byTrack;
-    return (a.title ?? '').localeCompare(b.title ?? '', undefined, { sensitivity: 'base' });
+    if (a.disc !== b.disc) return a.disc - b.disc;
+    if (a.track !== b.track) return a.track - b.track;
+    return compareLibraryText(a.title, b.title);
   });
+  return keyed.map((row) => row.song);
 }
 
 /**
@@ -255,21 +270,14 @@ export function cachedSongsForArtistSorted(artistRowId: string, songs: Child[]):
 
 /** Songs belonging to a derived album id (same bucketing as {@link albumsFromCachedSongs}). */
 export function songsInCachedAlbum(albumId: string, songs: Child[]): Child[] {
-  const buckets = new Map<string, Child[]>();
+  const matched: Child[] = [];
   for (const song of songs) {
-    const k = albumBucketKey(song);
-    const arr = buckets.get(k) ?? [];
-    arr.push(song);
-    buckets.set(k, arr);
+    if (derivedAlbumIdForCachedSong(song) === albumId) matched.push(song);
   }
-  for (const group of buckets.values()) {
-    if (group.length === 0) continue;
-    const sorted = [...group].sort((a, b) => (a.track ?? Number.MAX_SAFE_INTEGER) - (b.track ?? Number.MAX_SAFE_INTEGER));
-    const first = sorted[0];
-    const id = first.albumId?.trim() ? first.albumId : albumBucketKey(first);
-    if (id === albumId) return sorted;
-  }
-  return [];
+  matched.sort(
+    (a, b) => (a.track ?? Number.MAX_SAFE_INTEGER) - (b.track ?? Number.MAX_SAFE_INTEGER),
+  );
+  return matched;
 }
 
 function albumBucketKey(song: Child): string {

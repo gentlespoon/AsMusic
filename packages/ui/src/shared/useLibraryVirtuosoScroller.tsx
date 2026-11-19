@@ -20,7 +20,10 @@ export function useLibraryVirtuosoScroller(scrollRef: RefObject<HTMLDivElement |
               position: 'absolute',
               inset: 0,
               width: '100%',
-              height: 'auto',
+              // Keep a definite viewport. `height: auto` lets the scroller grow with every row,
+              // so Virtuoso mounts the whole catalog and navigation stalls for seconds.
+              height: '100%',
+              maxHeight: '100%',
               overflowY: 'auto',
               WebkitOverflowScrolling: 'touch',
             }}

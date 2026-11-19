@@ -3,6 +3,7 @@ import { useT } from '@asmusic/i18n';
 import { useEffect, useState } from 'react';
 import { usePlayerToast } from '@ui/contexts/PlayerContext';
 import { DisabledLibraryToastContent } from '@ui/shared/DisabledLibraryToastContent';
+import { playbackFailureText } from './playbackFailureText';
 
 export function PlayerPlaybackToast() {
   const t = useT();
@@ -28,7 +29,7 @@ export function PlayerPlaybackToast() {
       setMessage(
         t('player.playback.skippedOnFailure', {
           title,
-          error: toast.params.error,
+          error: playbackFailureText(toast.params.error, t),
         })
       );
     }

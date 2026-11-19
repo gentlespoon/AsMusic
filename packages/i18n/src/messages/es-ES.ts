@@ -187,10 +187,13 @@ export const esESMessages = {
   "nav.aboutHint": "Información de la aplicación",
   "nav.playbackQueue": "Cola de reproducción",
   "nav.playbackQueueHint": "Reordenar, repetir y borrar",
-  "nav.playerDebugLog": "Copiar registro de depuración del reproductor",
-  "nav.playerDebugLog.copied": "Copiado al portapapeles",
-  "nav.playerDebugLog.copyFailed": "Error al copiar",
-  "nav.playerDebugLog.hint": "Registros del reproductor nativo y de JavaScript",
+  "nav.playerDebugLog": "Registro de depuración del reproductor",
+  "nav.playerDebugLog.hint": "Ver registros del reproductor nativo y de JavaScript",
+  "playerDebugLog.title": "Registro de depuración del reproductor",
+  "playerDebugLog.copy": "Copiar al portapapeles",
+  "playerDebugLog.copied": "Copiado al portapapeles",
+  "playerDebugLog.copyFailed": "Error al copiar",
+  "playerDebugLog.loading": "Cargando…",
   "nav.settings": "Ajustes",
   "nav.settingsHint": "Servidores, bibliotecas y más",
   "nav.sleepTimer": "Temporizador de sueño",
@@ -326,6 +329,10 @@ export const esESMessages = {
   "player.offline.removeDownload": "Eliminar copia descargada",
   "player.playback.skippedOnFailure":
     "No se pudo reproducir «{title}»: {error}. Pasando a la siguiente pista.",
+  "player.playback.missingOnServer":
+    "El servidor ya no encuentra esta canción ({detail}). Actualiza la biblioteca para sincronizar el catálogo.",
+  "player.playback.serverError":
+    "El servidor no pudo enviar esta canción: {detail}.",
   "player.playback.skippedLibraryDisabledTitle":
     "Omitida — activa una biblioteca en Ajustes para reproducir esta canción",
   "player.playback.thisTrack": "esta pista",
@@ -457,7 +464,7 @@ export const esESMessages = {
   "settings.ux.section.playback": "Reproducción",
   "settings.ux.playerDebugLog": "Mostrar registro de depuración del reproductor",
   "settings.ux.playerDebugLog.caption":
-    "Añade un elemento de menú para copiar los registros nativos y de JavaScript del reproductor para la resolución de problemas.",
+    "Añade un elemento de menú para ver y copiar los registros nativos y de JavaScript del reproductor.",
   "settings.ux.waveform.caption":
     "El reproductor a pantalla completa muestra un control de forma de onda para archivos locales. En streaming siempre se usa un deslizador estándar.",
   "settings.ux.playbackFailureAutoSkipLimit":
